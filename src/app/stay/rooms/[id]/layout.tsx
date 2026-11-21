@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { publicSupabase } from '@/lib/supabase/public';
-import { isUUID } from '@/lib/stay/roomSlug';
+import { resolveRoomParam } from '@/lib/stay/roomSlug';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://kogelosuites.com';
 
@@ -8,12 +8,12 @@ export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<Metadata> {
   const { id: slug } = await params;
-  const propCol = isUUID(slug) ? 'id' : 'slug';
+  const { col, value } = resolveRoomParam(slug);
 
   const { data: property } = await publicSupabase
     .from('properties')
     .select('id, name, description, nightly_rate, bedrooms, bathrooms, max_guests, type')
-    .eq(propCol, slug)
+    .eq(col, value)
     .eq('status', 'active')
     .single();
 
@@ -80,12 +80,12 @@ export default async function RoomDetailLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id: slug } = await params;
-  const propCol2 = isUUID(slug) ? 'id' : 'slug';
+  const { col, value } = resolveRoomParam(slug);
 
   const { data: property } = await publicSupabase
     .from('properties')
     .select('id, name, description, nightly_rate, bedrooms, bathrooms, max_guests, type')
-    .eq(propCol2, slug)
+    .eq(col, value)
     .eq('status', 'active')
     .single();
 

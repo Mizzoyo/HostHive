@@ -1,6 +1,21 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
+type PaymentEntry = {
+  amount: number;
+  method?: string;
+  date_type?: string;
+  date?: string | null;
+  notes?: string;
+  extra?: {
+    mpesa_code?: string;
+    cash_receipt?: string;
+    card_last4?: string;
+    bank_confirmation?: string;
+    bank_reference?: string;
+  };
+};
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -23,56 +38,94 @@ export async function PATCH(
       nightly_rate,
       cleaning_fee,
       extra_fees,
+      discount,
+      discount_amount,
       security_deposit,
       booking_source,
       notes,
       status,
       payment_intent,
       payments = [],
+      commission_amount,
+      preserve_total,
     } = body;
 
-    // Fetch existing booking to get current values
     const { data: existing, error: fetchErr } = await supabase
       .from('bookings')
-      .select('guest_id, check_in, check_out, nightly_rate, cleaning_fee, nights, total_amount, amount_paid, status')
+      .select('guest_id, property_id, check_in, check_out, nightly_rate, cleaning_fee, extra_fees, discount_amount, nights, total_amount, amount_paid, balance_due, payment_status, status')
       .eq('id', id)
       .eq('user_id', userId)
       .single();
     if (fetchErr || !existing) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
 
-    // Resolve final values (fall back to existing)
-    const ci = check_in ?? existing.check_in;
-    const co = check_out ?? existing.check_out;
-    const resolvedNights = Math.round((new Date(co).getTime() - new Date(ci).getTime()) / 86400000);
-    const resolvedRate = nightly_rate !== undefined ? Number(nightly_rate) : Number(existing.nightly_rate);
-    const resolvedClean = cleaning_fee !== undefined ? Number(cleaning_fee) : Number(existing.cleaning_fee ?? 0);
-    const resolvedExtra = extra_fees !== undefined ? Number(extra_fees) : 0;
-    const resolvedTotal = resolvedRate * resolvedNights + resolvedClean + resolvedExtra;
+    const totalAffectingProvided = [check_in, check_out, nightly_rate, cleaning_fee, extra_fees, discount, discount_amount]
+      .some(v => v !== undefined);
+    const shouldRecalcTotal = totalAffectingProvided && preserve_total !== true;
 
-    // New payment amounts from edit
+    const resolvedTotal = shouldRecalcTotal
+      ? Math.max(0,
+          (nightly_rate !== undefined ? Number(nightly_rate) : Number(existing.nightly_rate)) *
+          Math.max(1, Math.round((new Date(check_out ?? existing.check_out).getTime() - new Date(check_in ?? existing.check_in).getTime()) / 86400000)) +
+          (cleaning_fee !== undefined ? Number(cleaning_fee) : Number(existing.cleaning_fee ?? 0)) +
+          (extra_fees !== undefined ? Number(extra_fees) : Number(existing.extra_fees ?? 0)) -
+          (discount_amount !== undefined ? Number(discount_amount) : discount !== undefined ? Number(discount) : Number(existing.discount_amount ?? 0))
+        )
+      : Number(existing.total_amount);
+
+    const paymentEntries = Array.isArray(payments) ? payments as PaymentEntry[] : [];
     const newPaid = payment_intent !== undefined && payment_intent !== 'none'
-      ? (payments as {amount:number}[]).reduce((s, p) => s + (Number(p.amount) || 0), 0)
+      ? paymentEntries.reduce((s, p) => s + (Number(p.amount) || 0), 0)
       : 0;
     const totalPaid = Number(existing.amount_paid ?? 0) + newPaid;
+    const balanceDue = Math.max(0, resolvedTotal - totalPaid);
+    const paymentStatus = totalPaid > resolvedTotal && resolvedTotal > 0
+      ? 'overpaid'
+      : totalPaid >= resolvedTotal && resolvedTotal > 0
+        ? 'paid'
+        : totalPaid > 0
+          ? 'partial'
+          : 'unpaid';
 
     const updates: Record<string, unknown> = {
-      check_in: ci,
-      check_out: co,
-      nights: resolvedNights,
-      nightly_rate: resolvedRate,
-      cleaning_fee: resolvedClean,
-      total_amount: resolvedTotal,
       amount_paid: totalPaid,
-      balance_due: Math.max(0, resolvedTotal - totalPaid),
-      payment_status: totalPaid >= resolvedTotal && resolvedTotal > 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid',
+      balance_due: balanceDue,
+      payment_status: paymentStatus,
     };
+
+    if (shouldRecalcTotal) {
+      const ci = check_in ?? existing.check_in;
+      const co = check_out ?? existing.check_out;
+      updates.check_in = ci;
+      updates.check_out = co;
+      updates.nights = Math.max(1, Math.round((new Date(co).getTime() - new Date(ci).getTime()) / 86400000));
+      updates.nightly_rate = nightly_rate !== undefined ? Number(nightly_rate) : Number(existing.nightly_rate);
+      updates.cleaning_fee = cleaning_fee !== undefined ? Number(cleaning_fee) : Number(existing.cleaning_fee ?? 0);
+      updates.extra_fees = extra_fees !== undefined ? Number(extra_fees) : Number(existing.extra_fees ?? 0);
+      updates.discount_amount = discount_amount !== undefined
+        ? Number(discount_amount)
+        : discount !== undefined
+          ? Number(discount)
+          : Number(existing.discount_amount ?? 0);
+      updates.total_amount = resolvedTotal;
+    }
+
     if (property_id !== undefined) updates.property_id = property_id;
     if (booking_source !== undefined) updates.booking_source = booking_source;
     if (notes !== undefined) updates.notes = notes;
     if (status !== undefined) updates.status = status;
-    if (security_deposit !== undefined) updates.security_deposit = Number(security_deposit);
+    if (security_deposit !== undefined) updates.security_deposit = Number(security_deposit) || 0;
+    if (commission_amount !== undefined) {
+      if (commission_amount === '' || commission_amount === null) {
+        updates.commission_amount = null;
+      } else {
+        const resolvedCommission = Number(commission_amount);
+        if (!Number.isFinite(resolvedCommission) || resolvedCommission < 0) {
+          return NextResponse.json({ error: 'commission_amount must be a valid non-negative number' }, { status: 400 });
+        }
+        updates.commission_amount = resolvedCommission;
+      }
+    }
 
-    // Update guest details if provided
     if (guest_name !== undefined && existing.guest_id) {
       await supabase
         .from('guests')
@@ -94,13 +147,11 @@ export async function PATCH(
 
     if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 });
 
-    // Sync blocked_dates
     if (booking) {
       const isNowCancelled = ['cancelled', 'no_show'].includes(booking.status ?? '');
       const wasActive = !['cancelled', 'no_show'].includes(existing.status ?? '');
 
       if (isNowCancelled && wasActive) {
-        // Remove block — try by booking_id first, fall back to dates
         const { error: delErr } = await supabase.from('blocked_dates').delete().eq('booking_id', id);
         if (delErr) {
           await supabase.from('blocked_dates').delete()
@@ -110,12 +161,10 @@ export async function PATCH(
             .eq('end_date', booking.check_out);
         }
       } else if (!isNowCancelled) {
-        // Update block dates if they changed
         const { error: upErr } = await supabase.from('blocked_dates')
           .update({ start_date: booking.check_in, end_date: booking.check_out, updated_at: new Date().toISOString() })
           .eq('booking_id', id);
         if (upErr) {
-          // booking_id column missing — update by old dates
           await supabase.from('blocked_dates')
             .update({ start_date: booking.check_in, end_date: booking.check_out, updated_at: new Date().toISOString() })
             .eq('property_id', booking.property_id)
@@ -126,9 +175,8 @@ export async function PATCH(
       }
     }
 
-    // Record any new payment logs added during edit
-    if (booking && payment_intent !== 'none' && (payments as {amount:number}[]).length > 0) {
-      for (const pmt of payments as {amount:number; method:string; date_type:string; date:string|null; notes:string}[]) {
+    if (booking && payment_intent !== undefined && payment_intent !== 'none' && paymentEntries.length > 0) {
+      for (const pmt of paymentEntries) {
         const pmtAmt = Number(pmt.amount) || 0;
         if (pmtAmt <= 0) continue;
         const paidAt = pmt.date_type === 'pick' && pmt.date
@@ -140,8 +188,13 @@ export async function PATCH(
           property_id: booking.property_id,
           amount: pmtAmt,
           currency: 'KES',
-          payment_method: (pmt as {method:string}).method ?? 'cash',
+          payment_method: pmt.method ?? 'cash',
           paid_at: paidAt,
+          mpesa_code: pmt.extra?.mpesa_code || null,
+          cash_receipt_number: pmt.extra?.cash_receipt || null,
+          card_last_four: pmt.extra?.card_last4 || null,
+          bank_reference: pmt.extra?.bank_confirmation || pmt.extra?.bank_reference || null,
+          notes: pmt.notes || null,
         });
       }
     }

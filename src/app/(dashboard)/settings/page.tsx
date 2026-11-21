@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { AMENITY_CATALOG, normalizeUniversalAmenities, type Amenity } from '@/lib/amenities';
 
-type Tab = 'general' | 'brand' | 'categories' | 'sms' | 'tax' | 'account' | 'pos';
+type Tab = 'general' | 'brand' | 'categories' | 'sms' | 'tax' | 'account' | 'pos' | 'rules';
 type TaxLine = { label: string; rate: string };
 type SmsTemplate = { key: string; label: string; body: string; variables: string[] };
+type HouseRules = { noSmoking: boolean; noParties: boolean; noPets: boolean; quietHours: boolean; childrenAllowed: boolean; couplesOnly: boolean; noAlcohol: boolean; adultsOnly: boolean; removeShoes: boolean; sortRubbish: boolean };
 
 const COLOR_PRESETS = [
   { primary: '#1e293b', secondary: '#16a34a' },
@@ -26,6 +28,12 @@ const QUICK_COLORS = [
 function isValidHex(v: string) { return /^#[0-9a-fA-F]{6}$/.test(v); }
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const AMENITY_GROUPS = AMENITY_CATALOG.reduce<Record<string, Amenity[]>>((acc, amenity) => {
+  const cat = amenity.category || 'Other';
+  (acc[cat] ??= []).push(amenity);
+  return acc;
+}, {});
 
 export default function SettingsPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -100,6 +108,30 @@ export default function SettingsPage() {
   });
   const [posSaving,   setPosSaving]   = useState(false);
   const [posTesting,  setPosTesting]  = useState<'kitchen' | 'bar' | null>(null);
+
+  // Universal House Rules & Location state
+  const [universalRules, setUniversalRules] = useState<HouseRules>({
+    noSmoking: true, noParties: true, noPets: true, quietHours: true,
+    childrenAllowed: false, couplesOnly: false, noAlcohol: false,
+    adultsOnly: false, removeShoes: false, sortRubbish: false,
+  });
+  const [checkInTime, setCheckInTime] = useState('14:00');
+  const [checkOutTime, setCheckOutTime] = useState('11:00');
+  const [checkInMethod, setCheckInMethod] = useState('caretaker');
+  const [checkInInstructions, setCheckInInstructions] = useState('');
+  const [caretakerName, setCaretakerName] = useState('');
+  const [caretakerPhone, setCaretakerPhone] = useState('');
+  const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
+  const [additionalRules, setAdditionalRules] = useState('');
+  const [defaultPropertyLocation, setDefaultPropertyLocation] = useState('');
+  const [defaultPropertyCity, setDefaultPropertyCity] = useState('Nairobi');
+  const [defaultPropertyCounty, setDefaultPropertyCounty] = useState('Nairobi');
+  const [businessArea, setBusinessArea] = useState('');
+  const [businessAddress, setBusinessAddress] = useState('');
+  const [customRuleInput, setCustomRuleInput] = useState('');
+  const [universalAmenities, setUniversalAmenities] = useState<Amenity[]>([]);
+  const [customAmenityInput, setCustomAmenityInput] = useState('');
+  const [rulesSaving, setRulesSaving] = useState(false);
 
   useEffect(() => {
     fetch('/api/expense-categories')
@@ -191,10 +223,10 @@ export default function SettingsPage() {
       setProfName(meta.full_name ?? meta.name ?? '');
       setProfPhone(meta.phone ?? '');
       setProfEmail(data.user.email ?? '');
-      // Load KRA + tax config from profiles
+      // Load KRA + tax config + universal rules from profiles
       const { data: profile } = await supabase
         .from('profiles')
-        .select('kra_pin, tax_lines, logo_url, favicon_url')
+        .select('kra_pin, tax_lines, logo_url, favicon_url, default_house_rules, default_check_in_time, default_check_out_time, default_check_in_method, default_check_in_instructions, default_caretaker_name, default_caretaker_phone, default_cancellation_policy, default_additional_rules, default_property_location, default_property_city, default_property_county, business_area, business_address')
         .eq('id', data.user.id)
         .maybeSingle();
       if (profile) {
@@ -209,8 +241,32 @@ export default function SettingsPage() {
           setFaviconPreview(profile.favicon_url);
           localStorage.setItem('brand_favicon', profile.favicon_url);
         }
+        // Load universal rules
+        if (profile.default_house_rules) {
+          setUniversalRules(profile.default_house_rules as HouseRules);
+        }
+        setCheckInTime(profile.default_check_in_time ?? '14:00');
+        setCheckOutTime(profile.default_check_out_time ?? '11:00');
+        setCheckInMethod(profile.default_check_in_method ?? 'caretaker');
+        setCheckInInstructions(profile.default_check_in_instructions ?? '');
+        setCaretakerName(profile.default_caretaker_name ?? '');
+        setCaretakerPhone(profile.default_caretaker_phone ?? '');
+        setCancellationPolicy(profile.default_cancellation_policy ?? 'moderate');
+        setAdditionalRules(profile.default_additional_rules ?? '');
+        setDefaultPropertyLocation(profile.default_property_location ?? '');
+        setDefaultPropertyCity(profile.default_property_city ?? 'Nairobi');
+        setDefaultPropertyCounty(profile.default_property_county ?? 'Nairobi');
+        setBusinessArea(profile.business_area ?? '');
+        setBusinessAddress(profile.business_address ?? '');
       }
     });
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/settings/universal')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setUniversalAmenities(normalizeUniversalAmenities(d?.amenities)))
+      .catch(() => {});
   }, []);
 
   const handleSaveProfile = async () => {
@@ -365,6 +421,60 @@ export default function SettingsPage() {
     }
   };
 
+  const toggleUniversalAmenity = (amenity: Amenity) => {
+    setUniversalAmenities(prev => prev.some(a => a.id === amenity.id)
+      ? prev.filter(a => a.id !== amenity.id)
+      : [...prev, amenity]);
+  };
+
+  const addCustomUniversalAmenity = () => {
+    const label = customAmenityInput.trim();
+    if (!label) return;
+    const id = `custom-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'amenity'}`;
+    setUniversalAmenities(prev => prev.some(a => a.id === id || a.label.toLowerCase() === label.toLowerCase())
+      ? prev
+      : [...prev, { id, label, category: 'Custom' }]);
+    setCustomAmenityInput('');
+  };
+
+  const removeUniversalAmenity = (id: string) => {
+    setUniversalAmenities(prev => prev.filter(a => a.id !== id));
+  };
+
+  const handleSaveUniversalRules = async () => {
+    setRulesSaving(true);
+    try {
+      const res = await fetch('/api/settings/universal', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          houseRules: universalRules,
+          checkInTime,
+          checkOutTime,
+          checkInMethod,
+          checkInInstructions,
+          caretakerName,
+          caretakerPhone,
+          cancellationPolicy,
+          additionalRules,
+          defaultPropertyLocation,
+          defaultPropertyCity,
+          defaultPropertyCounty,
+          businessArea,
+          businessAddress,
+          amenities: universalAmenities,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        toast.error(data.error?.message || 'Failed to save universal settings');
+        return;
+      }
+      toast.success('Universal settings saved');
+    } catch { toast.error('Network error'); }
+    finally { setRulesSaving(false); }
+  };
+
   const tabs: { id: Tab; label: string }[] = [
     { id: 'general', label: 'General' },
     { id: 'brand', label: 'Brand' },
@@ -372,6 +482,7 @@ export default function SettingsPage() {
     { id: 'sms', label: 'SMS Templates' },
     { id: 'tax', label: 'Tax & KRA' },
     { id: 'pos', label: 'POS Printers' },
+    { id: 'rules', label: 'Universal Settings' },
     { id: 'account', label: 'Account' },
   ];
 
@@ -916,6 +1027,290 @@ export default function SettingsPage() {
               <button onClick={handleSavePosSettings} disabled={posSaving}
                 className="px-5 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60">
                 {posSaving ? 'Saving…' : 'Save POS Settings'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── HOUSE RULES & LOCATION TAB ── */}
+        {activeTab === 'rules' && (
+          <div className="space-y-6 max-w-4xl">
+            {/* House Rules Section */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <h2 className="text-base font-bold text-gray-900 mb-1">Universal House Rules & Check-in</h2>
+              <p className="text-sm text-gray-500 mb-6">These settings apply to all properties. They cannot be customized per property.</p>
+
+              {/* Check-in / Check-out times */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">Check-in time</label>
+                  <select value={checkInTime} onChange={e => setCheckInTime(e.target.value)}
+                    className="w-full appearance-none px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm outline-none focus:ring-1 focus:ring-green-600 pr-9">
+                    {['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'].map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">Check-out time</label>
+                  <select value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)}
+                    className="w-full appearance-none px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm outline-none focus:ring-1 focus:ring-green-600 pr-9">
+                    {['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00'].map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Check-in method */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-800 mb-2">Check-in method</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { id: 'caretaker', icon: '👤', label: 'Caretaker' },
+                    { id: 'self', icon: '📋', label: 'Self Check-in' },
+                    { id: 'host', icon: '🤝', label: 'Host Handover' },
+                  ].map(m => {
+                    const sel = checkInMethod === m.id;
+                    return (
+                      <button key={m.id} onClick={() => setCheckInMethod(m.id)}
+                        className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm text-left transition-all ${sel ? 'border-2 border-green-600 bg-green-50 text-gray-900' : 'border border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
+                        <span>{m.icon}</span>
+                        <span className="font-medium">{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Check-in instructions */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-800 mb-1.5">Check-in instructions</label>
+                <textarea value={checkInInstructions} onChange={e => setCheckInInstructions(e.target.value)} rows={4}
+                  placeholder="e.g. Call caretaker John on arrival. Gate code is 1234. Apartment is on 3rd floor, door B12."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600 resize-y" />
+              </div>
+
+              {/* Caretaker */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">Caretaker name</label>
+                  <input value={caretakerName} onChange={e => setCaretakerName(e.target.value)}
+                    placeholder="e.g. John Kamau"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-1.5">Caretaker phone</label>
+                  <input type="tel" value={caretakerPhone}
+                    onChange={e => setCaretakerPhone(e.target.value)}
+                    placeholder="e.g. 0712 345 678"
+                    pattern="^(\+254|0)[17]\d{8}$"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600" />
+                  {caretakerPhone && !/^(\+254|0)[17]\d{8}$/.test(caretakerPhone.replace(/\s/g,'')) && (
+                    <p className="text-xs text-amber-600 mt-1">Enter a valid Kenyan number (e.g. 0712345678 or +254712345678)</p>
+                  )}
+                </div>
+              </div>
+
+              {/* House rules pills */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-800 mb-1">House rules</label>
+                <p className="text-xs text-gray-400 mb-3">Active rules are shown highlighted in green.</p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {['No parties or events','No smoking','No pets','Quiet hours 10pm–7am','No unregistered guests','Remove shoes at entrance','Sort rubbish before leaving'].map(rule => {
+                    const KEY_MAP: Record<string, keyof HouseRules> = {
+                      'No parties or events': 'noParties',
+                      'No smoking': 'noSmoking',
+                      'No pets': 'noPets',
+                      'Quiet hours 10pm–7am': 'quietHours',
+                      'No unregistered guests': 'adultsOnly',
+                      'Remove shoes at entrance': 'removeShoes',
+                      'Sort rubbish before leaving': 'sortRubbish',
+                    };
+                    const key = KEY_MAP[rule];
+                    const active = key ? !!(universalRules[key]) : false;
+                    return (
+                      <button key={rule} type="button"
+                        onClick={() => key && setUniversalRules(r => ({ ...r, [key]: !active }))}
+                        className={`px-3 py-2 rounded-full text-sm font-medium border transition-colors ${
+                          active
+                            ? 'border-green-600 bg-green-50 text-green-700'
+                            : 'border-gray-300 text-gray-600 hover:border-green-400 hover:bg-green-50/50'
+                        }`}>
+                        {active && <span className="mr-1">✓</span>}{rule}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Additional / custom rules</label>
+                  {additionalRules && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {additionalRules.split('\n').filter(Boolean).map((rule, i) => (
+                        <span key={i} className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium border border-green-600 bg-green-50 text-green-700">
+                          ✓ {rule}
+                          <button type="button" onClick={() => { const updated = additionalRules.split('\n').filter(Boolean).filter((_,idx) => idx !== i).join('\n'); setAdditionalRules(updated); }} className="ml-0.5 text-green-400 hover:text-red-500 text-base leading-none">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      value={customRuleInput}
+                      onChange={e => setCustomRuleInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (customRuleInput.trim()) { const updated = [...additionalRules.split('\n').filter(Boolean), customRuleInput.trim()].join('\n'); setAdditionalRules(updated); setCustomRuleInput(''); } } }}
+                      placeholder="Type a custom rule…"
+                      className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600"
+                    />
+                    <button type="button"
+                      onClick={() => { if (customRuleInput.trim()) { const updated = [...additionalRules.split('\n').filter(Boolean), customRuleInput.trim()].join('\n'); setAdditionalRules(updated); setCustomRuleInput(''); } }}
+                      className="px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors">
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cancellation policy */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-800 mb-3">Cancellation policy</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ['flexible', 'Flexible', 'Full refund 24h before check-in'],
+                    ['moderate', 'Moderate', 'Full refund 5 days before check-in'],
+                    ['strict', 'Strict', '50% refund up to 1 week before check-in'],
+                    ['nonrefundable', 'Non-Refundable', 'No refund after booking'],
+                  ].map(([val, label, desc]) => {
+                    const sel = cancellationPolicy === val;
+                    return (
+                      <button key={val} onClick={() => setCancellationPolicy(val)}
+                        className={`text-left px-4 py-3 border rounded-lg transition-all ${sel ? 'border-2 border-green-600 bg-green-50' : 'border border-gray-200 bg-white hover:border-gray-300'}`}>
+                        <p className="font-semibold text-sm text-gray-900">{label}</p>
+                        <p className={`text-xs mt-0.5 ${sel ? 'text-green-600' : 'text-gray-500'}`}>{desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Universal Amenities Section */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <h2 className="text-base font-bold text-gray-900 mb-1">Universal Amenities</h2>
+              <p className="text-sm text-gray-500 mb-6">These amenities apply to every property and appear on all guest-facing room pages. Room-specific extras can still be added per property.</p>
+
+              {universalAmenities.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {universalAmenities.map(a => (
+                    <span key={a.id} className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium border border-green-600 bg-green-50 text-green-700">
+                      ✓ {a.label}
+                      <button type="button" onClick={() => removeUniversalAmenity(a.id)} className="ml-0.5 text-green-400 hover:text-red-500 text-base leading-none">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2 mb-6">
+                <input
+                  value={customAmenityInput}
+                  onChange={e => setCustomAmenityInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomUniversalAmenity(); } }}
+                  placeholder="Add a custom universal amenity…"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600"
+                />
+                <button type="button" onClick={addCustomUniversalAmenity}
+                  className="px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors">
+                  Add
+                </button>
+              </div>
+
+              <div className="space-y-5 max-h-[420px] overflow-y-auto pr-1">
+                {Object.entries(AMENITY_GROUPS).map(([category, items]) => (
+                  <div key={category}>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{category}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {items.map(item => {
+                        const selected = universalAmenities.some(a => a.id === item.id);
+                        return (
+                          <button key={item.id} type="button" onClick={() => toggleUniversalAmenity(item)}
+                            className={`px-3 py-2 rounded-full text-sm font-medium border transition-colors ${selected ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-300 text-gray-600 hover:border-green-400 hover:bg-green-50/50'}`}>
+                            {selected && <span className="mr-1">✓</span>}{item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Location Section */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <h2 className="text-base font-bold text-gray-900 mb-1">Universal Location Settings</h2>
+              <p className="text-sm text-gray-500 mb-6">Default location for new properties and general business information.</p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Default Property Location</label>
+                  <input
+                    type="text"
+                    value={defaultPropertyLocation}
+                    onChange={e => setDefaultPropertyLocation(e.target.value)}
+                    placeholder="e.g. Kilimani, Nairobi"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Used as default address when creating new properties</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Default City</label>
+                    <input
+                      type="text"
+                      value={defaultPropertyCity}
+                      onChange={e => setDefaultPropertyCity(e.target.value)}
+                      placeholder="e.g. Nairobi"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Default County</label>
+                    <input
+                      type="text"
+                      value={defaultPropertyCounty}
+                      onChange={e => setDefaultPropertyCounty(e.target.value)}
+                      placeholder="e.g. Nairobi"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Business / Service Area</label>
+                  <input
+                    type="text"
+                    value={businessArea}
+                    onChange={e => setBusinessArea(e.target.value)}
+                    placeholder="e.g. Greater Nairobi Area"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">General service area for your business</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Main Business Address</label>
+                  <input
+                    type="text"
+                    value={businessAddress}
+                    onChange={e => setBusinessAddress(e.target.value)}
+                    placeholder="e.g. 123 Business Street, Nairobi"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Official business address for invoices and correspondence</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleSaveUniversalRules}
+                disabled={rulesSaving}
+                className="px-5 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
+              >
+                {rulesSaving ? 'Saving…' : 'Save Universal Settings'}
               </button>
             </div>
           </div>

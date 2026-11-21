@@ -43,16 +43,15 @@ export async function GET() {
         .lte('check_in', in7)
         .order('check_in'),
 
-      // Unpaid / partial balances on upcoming/active bookings
+      // Unpaid / partial balances on active bookings (including past check-outs)
       supabase
         .from('bookings')
-        .select('id, check_in, check_out, total_amount, amount_paid, balance_due, payment_status, guests(name, phone), properties(name)')
+        .select('id, check_in, check_out, nights, total_amount, amount_paid, balance_due, payment_status, booking_source, guests(name, phone), properties(name)')
         .eq('user_id', uid)
         .not('status', 'in', `(${INACTIVE})`)
         .in('payment_status', ['unpaid', 'partial'])
         .gt('balance_due', 0)
-        .gte('check_out', today)
-        .order('check_in'),
+        .order('check_out', { ascending: true }),
     ]);
 
     return NextResponse.json({

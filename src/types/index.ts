@@ -66,12 +66,15 @@ export interface Booking {
   num_children: number;
   nightly_rate: number;
   cleaning_fee: number;
+  extra_fees: number;
+  discount_amount: number;
   security_deposit: number;
+  commission_amount: number | null;
   total_amount: number;
   amount_paid: number;
   balance_due: number;
-  payment_status: 'unpaid' | 'partial' | 'paid';
-  status: 'confirmed' | 'tentative' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show';
+  payment_status: 'unpaid' | 'partial' | 'paid' | 'overpaid';
+  status: 'confirmed' | 'tentative' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show' | 'blocked';
   booking_source: string;
   created_at: string;
   updated_at: string;

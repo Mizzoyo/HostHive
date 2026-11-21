@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { fetchAvailableProperties } from '@/lib/stay/fetchProperties';
+import { fetchAvailableProperties, fetchUniversalStaySettings } from '@/lib/stay/fetchProperties';
 import RoomsListClient from '@/components/stay/rooms/RoomsListClient';
 
 type SearchParams = Promise<{ checkIn?: string; checkOut?: string; guests?: string; rooms?: string }>;
@@ -13,7 +13,10 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
   const guests   = Number(p.guests ?? 2);
   const rooms    = Number(p.rooms  ?? 1);
 
-  const properties = await fetchAvailableProperties(checkIn, checkOut);
+  const [properties, universalSettings] = await Promise.all([
+    fetchAvailableProperties(checkIn, checkOut),
+    fetchUniversalStaySettings(),
+  ]);
 
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full" /></div>}>
@@ -23,6 +26,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
         initialCheckOut={checkOut}
         initialGuests={guests}
         initialRooms={rooms}
+        universalSettings={universalSettings}
       />
     </Suspense>
   );

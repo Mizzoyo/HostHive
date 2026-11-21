@@ -8,7 +8,7 @@ import { DatePickerModal, GuestsModal } from '@/components/stay/SearchWidget';
 import SearchWidget from '@/components/stay/SearchWidget';
 import CardImageCarousel from '@/components/stay/CardImageCarousel';
 import { createClient } from '@/lib/supabase/client';
-import type { StayProperty } from '@/lib/stay/fetchProperties';
+import type { StayProperty, UniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
 
 const ROOM_TYPES = ['All', 'Studio', 'Bedsitter', 'One Bedroom', 'Two Bedroom'];
@@ -30,15 +30,23 @@ interface Props {
   initialCheckOut: string;
   initialGuests: number;
   initialRooms: number;
+  universalSettings: UniversalStaySettings;
 }
 
 export default function RoomsListClient({
-  initialProperties, initialCheckIn, initialCheckOut, initialGuests, initialRooms,
+  initialProperties, initialCheckIn, initialCheckOut, initialGuests, initialRooms, universalSettings,
 }: Props) {
   const params  = useSearchParams();
   const router  = useRouter();
   const today    = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const brandName = universalSettings.businessName || 'Kogelo Suites';
+  const locationLabel = [universalSettings.businessArea, universalSettings.businessAddress]
+    .filter(Boolean)
+    .join(' • ') || [universalSettings.defaultPropertyLocation, universalSettings.defaultPropertyCity, universalSettings.defaultPropertyCounty]
+    .filter(Boolean)
+    .join(', ') || 'Kenya';
+  const mapQuery = encodeURIComponent(universalSettings.mapQuery || locationLabel || 'Kenya');
 
   const [properties,  setProperties]  = useState<StayProperty[]>(initialProperties);
   const [loading,     setLoading]     = useState(false);
@@ -171,7 +179,7 @@ export default function RoomsListClient({
             style={{ border: '2.5px solid #d97706' }}>
             <Search className="w-5 h-5 flex-shrink-0 text-gray-400" />
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-gray-900 text-sm truncate">Kogelo Suites</p>
+              <p className="font-bold text-gray-900 text-sm truncate">{brandName}</p>
               <p className="text-xs text-gray-500 truncate">
                 {checkIn && checkOut ? `${fmt(checkIn)} – ${fmt(checkOut)}${nights > 0 ? ` (${nights} night${nights !== 1 ? 's' : ''})` : ''} · ` : 'Any dates · '}
                 {adults} adult{adults !== 1 ? 's' : ''}{children > 0 ? `, ${children} child${children !== 1 ? 'ren' : ''}` : ''}
@@ -277,11 +285,11 @@ export default function RoomsListClient({
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Location</p>
                 <div className="rounded-xl overflow-hidden mb-3" style={{ height: '160px' }}>
                   <iframe
-                    src="https://maps.google.com/maps?q=Kogelo,Siaya,Kenya&t=&z=14&ie=UTF8&iwloc=&output=embed"
+                    src={`https://maps.google.com/maps?q=${mapQuery}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
                     className="w-full h-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                    title="Kogelo Suites location" />
+                    title={`${brandName} location`} />
                 </div>
-                <a href="https://maps.google.com/maps?q=Kogelo+Suites,Kogelo,Siaya,Kenya" target="_blank" rel="noopener noreferrer"
+                <a href={`https://maps.google.com/maps?q=${mapQuery}`} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
                   style={{ background: '#1e293b' }}>
                   <Map className="w-4 h-4 flex-shrink-0" /> View on Map
@@ -522,12 +530,12 @@ export default function RoomsListClient({
             </button>
             <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 gap-2">
               <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span className="text-sm text-gray-500">Kogelo Suites, Kogelo</span>
+              <span className="text-sm text-gray-500">{locationLabel}</span>
             </div>
           </div>
           <div className="flex-1 relative" style={{ overscrollBehavior: 'contain' }}>
-            <iframe src="https://maps.google.com/maps?q=Kogelo,Siaya,Kenya&t=&z=13&ie=UTF8&iwloc=&output=embed"
-              className="w-full h-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            <iframe src={`https://maps.google.com/maps?q=${mapQuery}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+              className="w-full h-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" title={`${brandName} map`} />
             <button onClick={() => { setShowMapView(false); setShowFilterSheet(true); }}
               className="absolute top-3 left-3 flex items-center gap-1.5 bg-white rounded-xl shadow-md px-3 py-2 text-sm font-bold text-gray-700 border border-gray-200">
               <SlidersHorizontal className="w-4 h-4" /> Filter

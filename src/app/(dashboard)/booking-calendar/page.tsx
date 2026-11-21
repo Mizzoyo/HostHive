@@ -27,6 +27,7 @@ const PAYMENT_STATUS_CONFIG: Record<string, { bg: string; icon: string; label: s
 
 interface Booking {
   id: string;
+  guest_id?: string | null;
   guest_name: string;
   guest_phone: string;
   guest_email: string;
@@ -34,7 +35,15 @@ interface Booking {
   check_out: string;
   nights: number;
   nightly_rate: number;
+  cleaning_fee?: number;
+  extra_fees?: number;
+  discount_amount?: number;
+  security_deposit?: number;
+  commission_amount: number | null;
   total_amount: number;
+  amount_paid?: number;
+  balance_due?: number;
+  payment_status?: string;
   property_id: string;
   booking_source: string;
   status: string;
@@ -102,12 +111,14 @@ const EMPTY_FORM = {
   extra_fees: '',
   discount: '',
   security_deposit: '',
+  commission_amount: '',
   notes: '',
 };
 
 interface Property {
   id: string;
   name: string;
+  unit_number?: string | null;
   nightly_rate?: number;
   cleaning_fee?: number;
 }
@@ -231,6 +242,7 @@ export default function BookingCalendarPage() {
     setForm({
       ...EMPTY_FORM,
       is_blocked: b.status === 'blocked',
+      selected_guest_id: b.guest_id ?? '',
       guest_name: b.status === 'blocked' ? '' : b.guest_name,
       guest_phone: b.guest_phone ?? '',
       guest_email: b.guest_email ?? '',
@@ -238,7 +250,13 @@ export default function BookingCalendarPage() {
       check_in: b.check_in,
       check_out: b.check_out,
       nightly_rate: b.nightly_rate ? String(b.nightly_rate) : '',
+      cleaning_fee: b.cleaning_fee ? String(b.cleaning_fee) : '',
+      extra_fees: b.extra_fees ? String(b.extra_fees) : '',
+      discount: b.discount_amount ? String(b.discount_amount) : '',
+      security_deposit: b.security_deposit ? String(b.security_deposit) : '',
+      commission_amount: b.commission_amount !== null && b.commission_amount !== undefined ? String(b.commission_amount) : '',
       booking_source: b.booking_source ?? 'Direct',
+      status: b.status || 'confirmed',
       notes: b.notes ?? '',
       block_reason: b.status === 'blocked' ? b.guest_name : '',
     });
@@ -275,9 +293,14 @@ export default function BookingCalendarPage() {
     if (intent === 'full') {
       const ni = (form.check_in && form.check_out && form.check_out > form.check_in)
         ? Math.round((parseDate(form.check_out).getTime() - parseDate(form.check_in).getTime()) / 86400000) : 0;
-      const tot = (parseFloat(form.nightly_rate) || 0) * ni
-        + (parseFloat(form.cleaning_fee) || 0) + (parseFloat(form.extra_fees) || 0);
-      setPayments([{ ...EMPTY_PAYMENT, amount: tot > 0 ? String(tot) : '' }]);
+      const tot = Math.max(0, (parseFloat(form.nightly_rate) || 0) * ni
+        + (parseFloat(form.cleaning_fee) || 0) + (parseFloat(form.extra_fees) || 0)
+        - (parseFloat(form.discount) || 0));
+      const remaining = modalMode === 'edit' && editBooking
+        ? Math.max(0, Number(editBooking.total_amount || 0) - Number(editBooking.amount_paid || 0))
+        : 0;
+      const fullAmount = remaining > 0 ? remaining : tot;
+      setPayments([{ ...EMPTY_PAYMENT, amount: fullAmount > 0 ? String(fullAmount) : '' }]);
     } else if (intent === 'partial') {
       setPayments([{ ...EMPTY_PAYMENT }]);
     }
@@ -290,6 +313,10 @@ export default function BookingCalendarPage() {
     const _clean = parseFloat(form.cleaning_fee) || 0;
     const _extra = parseFloat(form.extra_fees) || 0;
     const _discount = parseFloat(form.discount) || 0;
+    const _commission = form.commission_amount === '' ? null : Number(form.commission_amount);
+    if (_commission !== null && (!Number.isFinite(_commission) || _commission < 0)) {
+      setFormError('Commission amount must be a valid non-negative number.'); return;
+    }
     const _paid = paymentIntent !== 'none'
       ? payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) : 0;
     if (paymentIntent !== 'none' && _paid <= 0) {
@@ -314,6 +341,15 @@ export default function BookingCalendarPage() {
       date_type: p.date_type, date: p.date || null, notes: p.notes,
       extra: p,
     })) : [];
+    const pricingChanged = modalMode === 'edit' && editBooking
+      ? form.check_in !== editBooking.check_in ||
+        form.check_out !== editBooking.check_out ||
+        (parseFloat(form.nightly_rate) || 0) !== Number(editBooking.nightly_rate || 0) ||
+        (parseFloat(form.cleaning_fee) || 0) !== Number(editBooking.cleaning_fee || 0) ||
+        (parseFloat(form.extra_fees) || 0) !== Number(editBooking.extra_fees || 0) ||
+        (parseFloat(form.discount) || 0) !== Number(editBooking.discount_amount || 0)
+      : false;
+    const preserveTotal = modalMode === 'edit' && !pricingChanged;
     setSaving(true); setFormError('');
     try {
       const body = {
@@ -328,10 +364,12 @@ export default function BookingCalendarPage() {
         extra_fees: _extra,
         discount: _discount,
         security_deposit: parseFloat(form.security_deposit) || 0,
+        commission_amount: _commission,
         notes: form.notes,
         payment_intent: paymentIntent,
         payment_amount: _paid,
         payments: _pmts,
+        preserve_total: preserveTotal,
       };
       const url = modalMode === 'edit' ? `/api/bookings/${editBooking!.id}` : '/api/bookings';
       const method = modalMode === 'edit' ? 'PATCH' : 'POST';
@@ -350,14 +388,14 @@ export default function BookingCalendarPage() {
       if (!form.property_id) { setFormError('Please select a property.'); return; }
       if (!form.check_in || !form.check_out) { setFormError('Check-in and check-out are required.'); return; }
       if (form.check_out <= form.check_in) { setFormError('Check-out must be after check-in.'); return; }
-      if (form.check_in < todayStr) { setFormError('Cannot create a booking for a past date.'); return; }
+      if (modalMode === 'create' && form.check_in < todayStr) { setFormError('Cannot create a booking for a past date.'); return; }
     }
     if (step === 2) {
       if (!form.guest_name.trim()) { setFormError('Guest name is required.'); return; }
       if (!form.guest_phone.trim()) { setFormError('Guest phone is required.'); return; }
       if (!validatePhone(form.guest_phone).valid) { setFormError('Please enter a valid Kenyan phone number (e.g. 0712 345 678).'); return; }
     }
-    if (step === 3 && !form.is_blocked) {
+    if (step === 3 && !form.is_blocked && modalMode === 'create') {
       if (!form.nightly_rate || parseFloat(form.nightly_rate) <= 0) { setFormError('Nightly rate is required to calculate the total.'); return; }
     }
     setStep(s => s + 1);
@@ -410,13 +448,27 @@ export default function BookingCalendarPage() {
   const extraFeesAmt = parseFloat(form.extra_fees) || 0;
   const discountAmt = parseFloat(form.discount) || 0;
   const securityDeposit = parseFloat(form.security_deposit) || 0;
+  const commissionAmount = form.commission_amount === '' ? null : parseFloat(form.commission_amount);
   const totalAmount = Math.max(0, rate * nights + cleaningFeeAmt + extraFeesAmt - discountAmt);
-  const totalPaid = paymentIntent !== 'none'
+  const pricingChangedForDisplay = modalMode === 'edit' && editBooking
+    ? form.check_in !== editBooking.check_in ||
+      form.check_out !== editBooking.check_out ||
+      (parseFloat(form.nightly_rate) || 0) !== Number(editBooking.nightly_rate || 0) ||
+      (parseFloat(form.cleaning_fee) || 0) !== Number(editBooking.cleaning_fee || 0) ||
+      (parseFloat(form.extra_fees) || 0) !== Number(editBooking.extra_fees || 0) ||
+      (parseFloat(form.discount) || 0) !== Number(editBooking.discount_amount || 0)
+    : false;
+  const effectiveTotalAmount = modalMode === 'edit' && !pricingChangedForDisplay
+    ? Number(editBooking?.total_amount || 0)
+    : totalAmount;
+  const existingPaid = modalMode === 'edit' ? Number(editBooking?.amount_paid || 0) : 0;
+  const newPaymentsTotal = paymentIntent !== 'none'
     ? payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0) : 0;
-  const balanceDue = Math.max(0, totalAmount - totalPaid);
-  const paymentStatus = totalPaid === 0 ? 'unpaid'
-    : totalPaid > totalAmount ? 'overpaid'
-    : totalPaid >= totalAmount ? 'paid' : 'partial';
+  const projectedPaid = existingPaid + newPaymentsTotal;
+  const balanceDue = Math.max(0, effectiveTotalAmount - projectedPaid);
+  const paymentStatus = projectedPaid === 0 ? 'unpaid'
+    : projectedPaid > effectiveTotalAmount ? 'overpaid'
+    : projectedPaid >= effectiveTotalAmount ? 'paid' : 'partial';
   const isLastStep = form.is_blocked ? step === 1 : step === STEPS.length;
 
   return (
@@ -718,11 +770,11 @@ export default function BookingCalendarPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={LBL}>Check-in <span className="text-red-500">*</span></label>
-                      <input type="date" value={form.check_in} min={todayStr} onChange={e => setF('check_in', e.target.value)} className={INP} />
+                      <input type="date" value={form.check_in} min={modalMode === 'create' ? todayStr : undefined} onChange={e => setF('check_in', e.target.value)} className={INP} />
                     </div>
                     <div>
                       <label className={LBL}>Check-out <span className="text-red-500">*</span></label>
-                      <input type="date" value={form.check_out} min={form.check_in || todayStr} onChange={e => setF('check_out', e.target.value)} className={INP} />
+                      <input type="date" value={form.check_out} min={form.check_in || (modalMode === 'create' ? todayStr : undefined)} onChange={e => setF('check_out', e.target.value)} className={INP} />
                     </div>
                   </div>
 
@@ -792,6 +844,8 @@ export default function BookingCalendarPage() {
                         <option value="confirmed">Confirmed</option>
                         <option value="pending">Pending</option>
                         <option value="tentative">Tentative</option>
+                        <option value="checked_in">Checked in</option>
+                        <option value="checked_out">Checked out</option>
                       </select>
                     </div>
                   </div>
@@ -825,12 +879,18 @@ export default function BookingCalendarPage() {
 
                   <div className="w-1/2">
                     <label className={LBL}>Total (KES) <span className="text-red-500">*</span></label>
-                    <input type="number" value={totalAmount || ''} readOnly placeholder="0" className={`${INP} bg-gray-50 cursor-default`} />
+                    <input type="number" value={effectiveTotalAmount || ''} readOnly placeholder="0" className={`${INP} bg-gray-50 cursor-default`} />
                   </div>
 
-                  <div className="w-1/2">
-                    <label className={LBL}>Security deposit (KES)</label>
-                    <input type="number" value={form.security_deposit} onChange={e => setF('security_deposit', e.target.value)} placeholder="0" className={INP} />
+                  <div className="grid grid-cols-2 gap-3 w-full md:w-3/4">
+                    <div>
+                      <label className={LBL}>Security deposit (KES)</label>
+                      <input type="number" value={form.security_deposit} onChange={e => setF('security_deposit', e.target.value)} placeholder="0" className={INP} />
+                    </div>
+                    <div>
+                      <label className={LBL}>Commission amount (KES)</label>
+                      <input type="number" value={form.commission_amount} onChange={e => setF('commission_amount', e.target.value)} placeholder="0" className={INP} min="0" />
+                    </div>
                   </div>
 
                   <div>
@@ -862,15 +922,20 @@ export default function BookingCalendarPage() {
                       {extraFeesAmt > 0 && <div className="flex justify-between text-gray-700"><span>Extra fees</span><span>KSH {extraFeesAmt.toLocaleString()}</span></div>}
                       {discountAmt > 0 && <div className="flex justify-between text-green-700"><span>Discount</span><span>− KSH {discountAmt.toLocaleString()}</span></div>}
                       <div className="flex justify-between font-bold border-t border-amber-200 pt-2 mt-1 uppercase text-amber-900">
-                        <span>Total Booking Value</span><span>KSH {totalAmount.toLocaleString()}</span>
+                        <span>Total Booking Value</span><span>KSH {effectiveTotalAmount.toLocaleString()}</span>
                       </div>
+                      {commissionAmount !== null && Number.isFinite(commissionAmount) && (
+                        <div className="flex justify-between text-teal-700 font-medium">
+                          <span>Commission Amount</span><span>KSH {commissionAmount.toLocaleString()}</span>
+                        </div>
+                      )}
                       {securityDeposit > 0 && (
                         <>
                           <div className="flex justify-between text-gray-600">
                             <span>Security Deposit (refundable)</span><span>KSH {securityDeposit.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between font-extrabold border-t border-amber-300 pt-2 mt-1 text-amber-900 uppercase">
-                            <span>Total Due from Guest</span><span>KSH {(totalAmount + securityDeposit).toLocaleString()}</span>
+                            <span>Total Due from Guest</span><span>KSH {(effectiveTotalAmount + securityDeposit).toLocaleString()}</span>
                           </div>
                         </>
                       )}
@@ -1128,8 +1193,24 @@ export default function BookingCalendarPage() {
                   <div className="border border-gray-200 rounded-xl overflow-hidden">
                     <div className="px-4 py-3 space-y-2 text-sm">
                       <div className="flex justify-between">
+                        <span className="text-gray-500">Booking Total:</span>
+                        <span className="font-semibold">KSH {effectiveTotalAmount.toLocaleString()}</span>
+                      </div>
+                      {existingPaid > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Already Paid:</span>
+                          <span className="font-semibold text-green-700">KSH {existingPaid.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {newPaymentsTotal > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">New Payments:</span>
+                          <span className="font-semibold">KSH {newPaymentsTotal.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
                         <span className="text-gray-500">Total Paid:</span>
-                        <span className="font-semibold">KSH {totalPaid.toLocaleString()}</span>
+                        <span className="font-semibold">KSH {projectedPaid.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-500">Balance Due:</span>

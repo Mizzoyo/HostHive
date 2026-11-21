@@ -97,7 +97,7 @@ export async function PATCH(
             user_id: hostId, property_id: room.property_id, guest_id: guestId,
             check_in: bReq.check_in, check_out: bReq.check_out, nights: bNights,
             nightly_rate: Number(room.nightly_rate) || 0, cleaning_fee: 0,
-            security_deposit: 0, total_amount: totalAmt, amount_paid: 0,
+            security_deposit: 0, commission_amount: null, total_amount: totalAmt, amount_paid: 0,
             balance_due: totalAmt, payment_status: 'unpaid', status: 'confirmed',
             booking_source: 'Online', notes: bReq.special_requests || '',
           });

@@ -3,11 +3,15 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AirbnbPropertyWizard, WizardFormData } from '@/components/properties/AirbnbPropertyWizard';
 import { createClient } from '@/lib/supabase/client';
+import { mergeAmenityLabels } from '@/lib/amenities';
+import { sortProperties } from '@/lib/propertySort';
 
 type PropStatus = 'active' | 'inactive' | 'maintenance' | 'draft' | 'blocked';
 
 interface Property {
   id: string;
+  unit_number?: string | null;
+  created_at?: string | null;
   name: string;
   type: string;
   category: string;
@@ -50,6 +54,8 @@ function dbRowToProperty(row: any): Property {
     : 'Apartment';
   return {
     id: row.id,
+    unit_number: row.unit_number ?? null,
+    created_at: row.created_at ?? null,
     name: row.name || row.title || 'Untitled',
     type: bedsLabel,
     category: safeCategory,
@@ -103,7 +109,7 @@ const STATUS_DOT: Record<PropStatus, string> = {
   blocked: 'bg-orange-500',
 };
 
-const STEP_LABELS = ['','Property Type','Location','Basics','Amenities','Photos','Title & Description','Pricing','Rules & Check-in','Review & Publish'];
+const STEP_LABELS = ['','Property Type','Location','Basics','Amenities','Photos','Title & Description','Pricing','Review & Publish'];
 
 const TYPES = ['All types', 'Studio', '1BR', '2BR', '3BR', 'Villa'];
 const STATUSES = ['All statuses', 'active', 'inactive', 'maintenance', 'draft'];
@@ -209,7 +215,10 @@ export default function PropertiesPage() {
     if (!viewingProperty) { setViewingPropertyDetails(null); return; }
     fetch(`/api/properties/wizard?id=${viewingProperty.id}`)
       .then(r => r.ok ? r.json() : null)
-      .then(json => json && setViewingPropertyDetails({ amenities: json.amenities ?? [], photos: json.photos ?? [] }))
+      .then(json => json && setViewingPropertyDetails({
+        amenities: mergeAmenityLabels(json.universalAmenities ?? [], json.amenities ?? []),
+        photos: json.photos ?? [],
+      }))
       .catch(() => {});
   }, [viewingProperty?.id]);
 
@@ -218,7 +227,6 @@ export default function PropertiesPage() {
     if (!res.ok) return null;
     const { property: p, amenities, photos } = await res.json();
     if (!p) return null;
-    const hr = p.house_rules || {};
     return {
       propertyType: p.type || 'apartment',
       title: p.title || p.name || '',
@@ -228,7 +236,6 @@ export default function PropertiesPage() {
       amenities,
       photos,
       pricing: { nightly: p.nightly_rate ? String(parseFloat(p.nightly_rate)) : '', weekend: p.weekend_rate ? String(parseFloat(p.weekend_rate)) : '', monthly: p.monthly_rate ? String(parseFloat(p.monthly_rate)) : '', cleaning: p.cleaning_fee ? String(parseFloat(p.cleaning_fee)) : '', deposit: p.security_deposit ? String(parseFloat(p.security_deposit)) : '', extraGuest: '', baseGuests: 2, minStay: p.min_stay_nights?.toString() || '1', maxStay: p.max_stay_nights?.toString() || '', seasonal: [] },
-      rules: { checkIn: p.check_in_time || '14:00', checkOut: p.check_out_time || '11:00', checkInMethod: p.check_in_method || 'caretaker', instructions: p.check_in_instructions || '', caretakerName: p.caretaker_name || '', caretakerPhone: p.caretaker_phone || '', noSmoking: hr.noSmoking ?? true, noParties: hr.noParties ?? true, noPets: hr.noPets ?? true, quietHours: hr.quietHours ?? true, childrenAllowed: hr.childrenAllowed ?? false, couplesOnly: hr.couplesOnly ?? false, noAlcohol: hr.noAlcohol ?? false, adultsOnly: hr.adultsOnly ?? false, additionalRules: p.additional_rules || '', cancellation: p.cancellation_policy || 'moderate', nonRefundableDiscount: '10', removeShoes: hr.removeShoes ?? false, sortRubbish: hr.sortRubbish ?? false },
     };
   }, []);
 
@@ -261,12 +268,12 @@ export default function PropertiesPage() {
     setUserEmail(email);
   }, []);
 
-  const filtered = useMemo(() => properties.filter(p => {
+  const filtered = useMemo(() => sortProperties(properties.filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.location.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterType !== 'All types' && p.type !== filterType) return false;
     if (filterStatus !== 'All statuses' && p.status !== filterStatus) return false;
     return true;
-  }), [properties, search, filterType, filterStatus]);
+  })), [properties, search, filterType, filterStatus]);
 
   const activeCount = properties.filter(p => p.status === 'active').length;
 
@@ -309,7 +316,6 @@ export default function PropertiesPage() {
         location: { neighbourhood: row.location || row.neighbourhood || 'Nairobi', address: row.address || '', city: row.city || 'Nairobi', county: row.county || 'Nairobi', building: '', unit: '', floor: '', lat: null, lng: null },
         basics: { bedrooms: parseInt(row.bedrooms) || 1, bathrooms: parseInt(row.bathrooms) || 1, maxGuests: parseInt(row.max_guests || row.maxguests) || 2, size: '', sizeUnit: 'sq m', beds: [] },
         pricing: { nightly: row.nightly_rate || row.price || row.price_per_night || '0', weekend: '', monthly: '', cleaning: row.cleaning_fee || '0', deposit: row.deposit || '0', extraGuest: '', baseGuests: 2, minStay: row.min_stay || '1 night', maxStay: '', seasonal: [] },
-        rules: { checkIn: '14:00', checkOut: '11:00', checkInMethod: '', instructions: '', caretakerName: '', caretakerPhone: '', noSmoking: true, noParties: true, noPets: true, childrenAllowed: false, quietHours: true, couplesOnly: false, noAlcohol: false, adultsOnly: false, additionalRules: '', cancellation: 'moderate', nonRefundableDiscount: '10' },
         description: row.description || '',
         status: (['active','inactive','maintenance','draft'].includes(row.status) ? row.status : 'active'),
         photos: [],

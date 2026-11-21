@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { publicSupabase } from '@/lib/supabase/public';
+import { fetchUniversalStaySettings } from '@/lib/stay/fetchProperties';
+import { mergeAmenityLabels } from '@/lib/amenities';
+import { sortProperties } from '@/lib/propertySort';
 
 export async function GET(req: Request) {
   try {
     const hostId = process.env.STAY_HOST_USER_ID;
+    const universalSettings = await fetchUniversalStaySettings();
     const { searchParams } = new URL(req.url);
     const checkIn  = searchParams.get('checkIn');
     const checkOut = searchParams.get('checkOut');
@@ -65,7 +69,7 @@ export async function GET(req: Request) {
     } catch { /* ignore */ }
 
     const withPhotos = await Promise.all(
-      (properties ?? []).filter((p: any) => !blockedIds.has(p.id)).map(async (p: any) => {
+      sortProperties((properties ?? []).filter((p: any) => !blockedIds.has(p.id))).map(async (p: any) => {
         const { data: photos } = await publicSupabase
           .from('property_photos')
           .select('url, sort_order')
@@ -79,7 +83,7 @@ export async function GET(req: Request) {
         return {
           ...p,
           photos: photos?.map((ph: any) => ph.url) ?? (p.cover_photo ? [p.cover_photo] : []),
-          amenities: amenities?.map((a: any) => a.name) ?? [],
+          amenities: mergeAmenityLabels(universalSettings.amenities, amenities?.map((a: { name: string }) => a.name) ?? []),
         };
       })
     );

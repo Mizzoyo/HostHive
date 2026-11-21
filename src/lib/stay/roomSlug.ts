@@ -10,7 +10,12 @@ export function toRoomSlug(slug: string | null | undefined, name: string, id: st
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
-  return nameSlug || id;
+  return nameSlug ? `${nameSlug}-${id}` : id;
+}
+
+export function resolveRoomParam(param: string): { col: 'id' | 'slug'; value: string } {
+  const uid = idFromSlug(param);
+  return isUUID(uid) ? { col: 'id', value: uid } : { col: 'slug', value: param };
 }
 
 export function isUUID(s: string): boolean {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { amenityLabel } from '@/lib/amenities';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export interface WizardFormData {
@@ -16,7 +17,6 @@ export interface WizardFormData {
   descriptionAround: string;
   descriptionHost: string;
   pricing: { nightly: string; weekend: string; monthly: string; cleaning: string; deposit: string; extraGuest: string; baseGuests: number; minStay: string; maxStay: string; seasonal: { name: string; start: string; end: string; price: string }[] };
-  rules: { checkIn: string; checkOut: string; checkInMethod: string; instructions: string; caretakerName: string; caretakerPhone: string; noSmoking: boolean; noParties: boolean; noPets: boolean; childrenAllowed: boolean; quietHours: boolean; couplesOnly: boolean; noAlcohol: boolean; adultsOnly: boolean; additionalRules: string; cancellation: string; nonRefundableDiscount: string; removeShoes: boolean; sortRubbish: boolean };
   publish: { availableFrom: string; group: string; status: string };
 }
 
@@ -32,7 +32,6 @@ const INITIAL: WizardFormData = {
   descriptionAround: '',
   descriptionHost: '',
   pricing: { nightly: '', weekend: '', monthly: '', cleaning: '', deposit: '', extraGuest: '', baseGuests: 2, minStay: '1 night', maxStay: 'No maximum', seasonal: [] },
-  rules: { checkIn: '14:00', checkOut: '11:00', checkInMethod: 'caretaker', instructions: '', caretakerName: '', caretakerPhone: '', noSmoking: true, noParties: true, noPets: true, childrenAllowed: false, quietHours: true, couplesOnly: false, noAlcohol: false, adultsOnly: false, additionalRules: '', cancellation: 'moderate', nonRefundableDiscount: '10', removeShoes: false, sortRubbish: false },
   publish: { availableFrom: '', group: '', status: 'publish' },
 };
 
@@ -58,7 +57,7 @@ function deriveBedrooms(typeName: string): number | null {
   return null;
 }
 
-const STEP_NAMES = ['Property Type','Basics','Amenities','Photos','Title & Description','Pricing','Rules & Check-in','Review & Publish'];
+const STEP_NAMES = ['Property Type','Basics','Amenities','Photos','Title & Description','Pricing','Review & Publish'];
 
 function PropIcon({ id }: { id: string }) {
   const cls = 'w-7 h-7';
@@ -213,7 +212,6 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     location: { ...INITIAL.location, ...(initialData?.location ?? {}) },
     basics:   { ...INITIAL.basics,   ...(initialData?.basics   ?? {}) },
     pricing:  { ...INITIAL.pricing,  ...(initialData?.pricing  ?? {}) },
-    rules:    { ...INITIAL.rules,    ...(initialData?.rules    ?? {}) },
     publish:  { ...INITIAL.publish,  ...(initialData?.publish  ?? {}) },
   });
 
@@ -229,7 +227,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
   const [countdown, setCountdown] = useState(6);
   const [collapsedCats, setCollapsedCats] = useState<string[]>([]);
   const [customAmenity, setCustomAmenity] = useState('');
-  const [customRuleInput, setCustomRuleInput] = useState('');
+  const [universalAmenities, setUniversalAmenities] = useState<{ id: string; label: string; category?: string }[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const photoDragSrc = useRef<number | null>(null);
   const photoDragOverRef = useRef<number | null>(null);
@@ -244,7 +242,21 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
   const contentRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const TOTAL = 8;
+  const TOTAL = 7;
+
+  const universalAmenityIds = useMemo(() => new Set(universalAmenities.map(a => a.id)), [universalAmenities]);
+  const roomAmenityOptions = useMemo(
+    () => AMENITIES_FLAT.filter(item => !universalAmenityIds.has(item.id)),
+    [universalAmenityIds]
+  );
+  const totalAmenityCount = data.amenities.length + universalAmenities.length;
+
+  useEffect(() => {
+    fetch('/api/settings/universal')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setUniversalAmenities(Array.isArray(d?.amenities) ? d.amenities : []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (step !== 4) return;
@@ -307,7 +319,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       case 2:
         return '';
       case 3:
-        if (data.amenities.length === 0) return 'Please select at least 1 amenity before continuing.';
+        if (totalAmenityCount === 0) return 'Please select at least 1 amenity before continuing.';
         return '';
       case 4:
         if (data.photos.length === 0) return 'Please add at least 1 photo of your property before continuing.';
@@ -318,9 +330,6 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
         return '';
       case 6:
         if (!data.pricing.nightly) return 'Base nightly rate is required — enter the price per night for your property.';
-        return '';
-      case 7:
-        if (!data.rules.instructions?.trim()) return 'Check-in instructions are required — guests need to know how to access your property.';
         return '';
       default:
         return '';
@@ -585,30 +594,49 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       <div className="lg:px-[200px]">
         <h2 className="text-2xl font-bold text-gray-900 mb-1">What amenities do you offer?</h2>
         <p className="text-sm text-gray-500 mb-6">
-          Select all that apply. You can always update these later.{' '}
-          <span className="text-green-600 font-semibold">{data.amenities.length} selected</span>
+          Universal amenities are included on every property. Select any extra amenities for this room only.{' '}
+          <span className="text-green-600 font-semibold">{data.amenities.length} room extras selected</span>
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {AMENITIES_FLAT.map(item => {
-            const sel = data.amenities.includes(item.id);
-            return (
-              <button
-                key={item.id}
-                onClick={() => upd('amenities', sel ? data.amenities.filter(a => a !== item.id) : [...data.amenities, item.id])}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all duration-150 ${
-                  sel
-                    ? 'border-2 border-green-600 bg-green-50'
-                    : 'border border-gray-200 bg-white hover:border-green-600'
-                }`}
-              >
-                <span className={sel ? 'text-green-600' : 'text-gray-700'}>
-                  <AmenityIcon id={item.id} />
+
+        {universalAmenities.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Included everywhere</p>
+            <div className="flex flex-wrap gap-2">
+              {universalAmenities.map(a => (
+                <span key={a.id} className="px-3 py-2 rounded-full text-sm font-medium border border-green-600 bg-green-50 text-green-700">
+                  ✓ {a.label}
                 </span>
-                <span className="text-sm font-medium text-gray-800">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Room extras</p>
+        {roomAmenityOptions.length === 0 ? (
+          <p className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">All catalog amenities are already universal. You can continue without selecting room extras.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {roomAmenityOptions.map(item => {
+              const sel = data.amenities.includes(item.id);
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => upd('amenities', sel ? data.amenities.filter(a => a !== item.id) : [...data.amenities, item.id])}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all duration-150 ${
+                    sel
+                      ? 'border-2 border-green-600 bg-green-50'
+                      : 'border border-gray-200 bg-white hover:border-green-600'
+                  }`}
+                >
+                  <span className={sel ? 'text-green-600' : 'text-gray-700'}>
+                    <AmenityIcon id={item.id} />
+                  </span>
+                  <span className="text-sm font-medium text-gray-800">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
 
@@ -874,176 +902,14 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     );
 
     // STEP 7
-    const CHECK_METHODS = [
-      { id: 'keybox',    icon: '🔑', label: 'Key Box' },
-      { id: 'smartlock', icon: '📱', label: 'Smart Lock' },
-      { id: 'caretaker', icon: '👤', label: 'Caretaker' },
-      { id: 'self',      icon: '📋', label: 'Self Check-in' },
-      { id: 'host',      icon: '🤝', label: 'Host Handover' },
-    ];
-    const PRESET_RULES = ['No parties or events','No smoking','No pets','Quiet hours 10pm–7am','No unregistered guests','Remove shoes at entrance','Sort rubbish before leaving'];
-    const CHECK_IN_TIMES  = ['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
-    const CHECK_OUT_TIMES = ['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00'];
-    if (step === 7) return (
-      <div className="lg:px-[200px] space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">House rules &amp; check-in</h2>
-          <p className="text-sm text-gray-500 mb-6">Set expectations upfront to attract the right guests.</p>
-        </div>
-
-        {/* Check-in / Check-out times */}
-        <div className="grid grid-cols-2 gap-4">
-          {([['Check-in time','checkIn', CHECK_IN_TIMES],['Check-out time','checkOut', CHECK_OUT_TIMES]] as [string,string,string[]][]).map(([label, key, opts]) => (
-            <div key={key}>
-              <p className="text-sm font-semibold text-gray-800 mb-1.5">{label}</p>
-              <div className="relative">
-                <select value={(data.rules as unknown as Record<string,string>)[key]} onChange={e => upd('rules', { ...data.rules, [key]: e.target.value })}
-                  className="w-full appearance-none px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm outline-none focus:ring-1 focus:ring-green-600 pr-9">
-                  {opts.map(t => <option key={t}>{t}</option>)}
-                </select>
-                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Check-in method */}
-        <div>
-          <p className="text-sm font-semibold text-gray-800 mb-2">Check-in method</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {CHECK_METHODS.map(m => {
-              const sel = data.rules.checkInMethod === m.id;
-              return (
-                <button key={m.id} onClick={() => upd('rules', { ...data.rules, checkInMethod: m.id })}
-                  className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm text-left transition-all ${sel ? 'border-2 border-green-600 bg-green-50 text-gray-900' : 'border border-gray-200 bg-white text-gray-700 hover:border-gray-300'}`}>
-                  <span>{m.icon}</span>
-                  <span className="font-medium">{m.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Check-in instructions */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-800 mb-1.5">Check-in instructions <span className="text-red-500">*</span></label>
-          <textarea value={data.rules.instructions} onChange={e => upd('rules', { ...data.rules, instructions: e.target.value })} rows={4}
-            placeholder="e.g. Call caretaker John on arrival. Gate code is 1234. Apartment is on 3rd floor, door B12."
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600 resize-y" />
-        </div>
-
-        {/* Caretaker */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-1.5">Caretaker name</label>
-            <input value={data.rules.caretakerName} onChange={e => upd('rules', { ...data.rules, caretakerName: e.target.value })}
-              placeholder="e.g. John Kamau"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-1.5">Caretaker phone</label>
-            <input type="tel" value={data.rules.caretakerPhone}
-              onChange={e => upd('rules', { ...data.rules, caretakerPhone: e.target.value })}
-              placeholder="e.g. 0712 345 678"
-              pattern="^(\+254|0)[17]\d{8}$"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600" />
-            {data.rules.caretakerPhone && !/^(\+254|0)[17]\d{8}$/.test(data.rules.caretakerPhone.replace(/\s/g,'')) && (
-              <p className="text-xs text-amber-600 mt-1">Enter a valid Kenyan number (e.g. 0712345678 or +254712345678)</p>
-            )}
-          </div>
-        </div>
-
-        {/* House rules pills */}
-        <div>
-          <p className="text-sm font-semibold text-gray-800 mb-1">House rules <span className="text-xs font-normal text-gray-400">(tap to toggle on/off)</span></p>
-          <p className="text-xs text-gray-400 mb-3">Active rules are shown highlighted in green.</p>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {PRESET_RULES.map(rule => {
-              const KEY_MAP: Record<string, keyof WizardFormData['rules']> = {
-                'No parties or events': 'noParties',
-                'No smoking': 'noSmoking',
-                'No pets': 'noPets',
-                'Quiet hours 10pm–7am': 'quietHours',
-                'No unregistered guests': 'adultsOnly',
-                'Remove shoes at entrance': 'removeShoes',
-                'Sort rubbish before leaving': 'sortRubbish',
-              };
-              const key = KEY_MAP[rule] as keyof typeof data.rules;
-              const active = key ? !!(data.rules[key]) : false;
-              return (
-                <button key={rule} type="button"
-                  onClick={() => key && upd('rules', { ...data.rules, [key]: !active })}
-                  className={`px-3 py-2 rounded-full text-sm font-medium border transition-colors ${
-                    active
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-300 text-gray-600 hover:border-green-400 hover:bg-green-50/50'
-                  }`}>
-                  {active && <span className="mr-1">✓</span>}{rule}
-                </button>
-              );
-            })}
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1.5">Additional / custom rules</label>
-            {data.rules.additionalRules && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {data.rules.additionalRules.split('\n').filter(Boolean).map((rule, i) => (
-                  <span key={i} className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium border border-green-600 bg-green-50 text-green-700">
-                    ✓ {rule}
-                    <button type="button" onClick={() => { const updated = data.rules.additionalRules.split('\n').filter(Boolean).filter((_,idx) => idx !== i).join('\n'); upd('rules', { ...data.rules, additionalRules: updated }); }} className="ml-0.5 text-green-400 hover:text-red-500 text-base leading-none">×</button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <input
-                value={customRuleInput}
-                onChange={e => setCustomRuleInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (customRuleInput.trim()) { const updated = [...data.rules.additionalRules.split('\n').filter(Boolean), customRuleInput.trim()].join('\n'); upd('rules', { ...data.rules, additionalRules: updated }); setCustomRuleInput(''); } } }}
-                placeholder="Type a custom rule…"
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600"
-              />
-              <button type="button"
-                onClick={() => { if (customRuleInput.trim()) { const updated = [...data.rules.additionalRules.split('\n').filter(Boolean), customRuleInput.trim()].join('\n'); upd('rules', { ...data.rules, additionalRules: updated }); setCustomRuleInput(''); } }}
-                className="px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors">
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Cancellation policy */}
-        <div>
-          <p className="text-sm font-semibold text-gray-800 mb-3">Cancellation policy</p>
-          <div className="grid grid-cols-2 gap-3">
-            {([
-              ['flexible',      'Flexible',       'Full refund 24h before check-in'],
-              ['moderate',      'Moderate',       'Full refund 5 days before check-in'],
-              ['strict',        'Strict',         '50% refund up to 1 week before check-in'],
-              ['nonrefundable', 'Non-Refundable', 'No refund after booking'],
-            ] as [string,string,string][]).map(([val, label, desc]) => {
-              const sel = data.rules.cancellation === val;
-              return (
-                <button key={val} onClick={() => upd('rules', { ...data.rules, cancellation: val })}
-                  className={`text-left px-4 py-3 border rounded-lg transition-all ${sel ? 'border-2 border-green-600 bg-green-50' : 'border border-gray-200 bg-white hover:border-gray-300'}`}>
-                  <p className="font-semibold text-sm text-gray-900">{label}</p>
-                  <p className={`text-xs mt-0.5 ${sel ? 'text-green-600' : 'text-gray-500'}`}>{desc}</p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-
-    // STEP 8
+    // STEP 7
     const reviewRow = (label: string, value: React.ReactNode, bold = false) => (
       <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
         <span className="text-sm text-gray-500">{label}</span>
         <span className={`text-sm ${bold ? 'font-bold text-gray-900' : 'text-gray-800'}`}>{value}</span>
       </div>
     );
-    if (step === 8) return (
+    if (step === 7) return (
       <div className="lg:px-[200px] space-y-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">Review your listing</h2>
@@ -1104,16 +970,15 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
           {reviewRow('Max Guests', data.basics.maxGuests)}
           {reviewRow('Base Rate', data.pricing.nightly ? <span>KSh {data.pricing.nightly} / <strong>night</strong></span> : '—')}
           {reviewRow('Min Stay', data.pricing.minStay ? `${data.pricing.minStay} night` : '—')}
-          {reviewRow('Check-in', data.rules.checkIn || '—')}
-          {reviewRow('Check-out', data.rules.checkOut || '—')}
-          {reviewRow('Cancellation', data.rules.cancellation || '—', true)}
         </div>
 
         {/* Amenities card */}
-        {data.amenities.length > 0 && (
+        {totalAmenityCount > 0 && (
           <div className="border border-gray-200 rounded-xl px-5 py-4">
             <p className="text-xs font-bold text-gray-400 tracking-widest mb-2">AMENITIES</p>
-            <p className="text-sm text-gray-800">{data.amenities.map(id => AMENITIES_FLAT.find(a => a.id === id)?.label ?? id).join(', ')}</p>
+            <p className="text-sm text-gray-800">
+              {[...universalAmenities.map(a => a.label), ...data.amenities.map(id => amenityLabel(id))].join(', ')}
+            </p>
           </div>
         )}
 

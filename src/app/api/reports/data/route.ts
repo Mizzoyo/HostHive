@@ -71,7 +71,7 @@ async function expenseReport(sb: any, uid: string, from: string, to: string): Pr
 async function profitLossReport(sb: any, uid: string, from: string, to: string): Promise<ReportData> {
   const [bkRes, exRes] = await Promise.all([
     sb.from('bookings')
-      .select('total_amount, booking_source')
+      .select('total_amount, booking_source, commission_amount')
       .eq('user_id', uid)
       .not('status', 'in', `(${ACTIVE_STATUSES})`)
       .gte('check_in', from)
@@ -86,10 +86,11 @@ async function profitLossReport(sb: any, uid: string, from: string, to: string):
   const bookings: any[] = bkRes.data ?? [];
   const expenses: any[] = exRes.data ?? [];
 
-  const totalIncome   = bookings.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
-  const totalExpenses = expenses.reduce((s, r) => s + (Number(r.gross)        || 0), 0);
-  const grossProfit   = totalIncome - totalExpenses;
-  const margin        = totalIncome > 0 ? ((grossProfit / totalIncome) * 100).toFixed(1) : '0';
+  const totalIncome     = bookings.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
+  const totalCommission = bookings.reduce((s, r) => s + (Number(r.commission_amount) || 0), 0);
+  const totalExpenses   = expenses.reduce((s, r) => s + (Number(r.gross)        || 0), 0);
+  const grossProfit     = totalIncome - totalExpenses;
+  const margin          = totalIncome > 0 ? ((grossProfit / totalIncome) * 100).toFixed(1) : '0';
 
   const incomeBySource: Record<string, number> = {};
   bookings.forEach(r => {
@@ -111,6 +112,7 @@ async function profitLossReport(sb: any, uid: string, from: string, to: string):
     period: `${from} to ${to}`,
     summary: [
       { label: 'Total Income',    value: fmt(totalIncome) },
+      { label: 'Total Commission', value: fmt(totalCommission) },
       { label: 'Total Expenses',  value: fmt(totalExpenses) },
       { label: 'Gross Profit',    value: fmt(grossProfit) },
       { label: 'Profit Margin',   value: `${margin}%` },
@@ -124,7 +126,7 @@ async function profitLossReport(sb: any, uid: string, from: string, to: string):
 async function revenueReport(sb: any, uid: string, from: string, to: string): Promise<ReportData> {
   const { data, error } = await sb
     .from('bookings')
-    .select('check_in, check_out, nightly_rate, cleaning_fee, total_amount, amount_paid, balance_due, payment_status, booking_source, guests(name), properties(name)')
+    .select('check_in, check_out, nightly_rate, cleaning_fee, commission_amount, total_amount, amount_paid, balance_due, payment_status, booking_source, guests(name), properties(name)')
     .eq('user_id', uid)
     .not('status', 'in', `(${ACTIVE_STATUSES})`)
     .gte('check_in', from)
@@ -134,6 +136,7 @@ async function revenueReport(sb: any, uid: string, from: string, to: string): Pr
   if (error) throw new Error(error.message);
   const rows: any[] = data ?? [];
   const totalRev = rows.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
+  const totalCommission = rows.reduce((s, r) => s + (Number(r.commission_amount) || 0), 0);
   const totalPaid = rows.reduce((s, r) => s + (Number(r.amount_paid) || 0), 0);
   const avg      = rows.length > 0 ? Math.round(totalRev / rows.length) : 0;
 
@@ -142,21 +145,23 @@ async function revenueReport(sb: any, uid: string, from: string, to: string): Pr
     period: `${from} to ${to}`,
     summary: [
       { label: 'Total Revenue',    value: fmt(totalRev) },
+      { label: 'Total Commission', value: fmt(totalCommission) },
       { label: 'Total Collected',  value: fmt(totalPaid) },
       { label: 'No. of Bookings',  value: String(rows.length) },
       { label: 'Avg. per Booking', value: fmt(avg) },
     ],
-    columns: ['Property', 'Guest', 'Check-In', 'Check-Out', 'Nightly Rate', 'Cleaning Fee', 'Total (KSh)', 'Paid (KSh)', 'Balance', 'Source'],
+    columns: ['Property', 'Guest', 'Check-In', 'Check-Out', 'Nightly Rate', 'Cleaning Fee', 'Commission (KSh)', 'Total (KSh)', 'Paid (KSh)', 'Balance', 'Source'],
     rows: rows.map(r => [
       (r.properties as any)?.name    ?? '—',
       (r.guests     as any)?.name    ?? '—',
       r.check_in, r.check_out,
-      Number(r.nightly_rate)  || 0,
-      Number(r.cleaning_fee)  || 0,
-      Number(r.total_amount)  || 0,
-      Number(r.amount_paid)   || 0,
-      Number(r.balance_due)   || 0,
-      r.booking_source        || '—',
+      Number(r.nightly_rate)     || 0,
+      Number(r.cleaning_fee)     || 0,
+      Number(r.commission_amount) || 0,
+      Number(r.total_amount)     || 0,
+      Number(r.amount_paid)      || 0,
+      Number(r.balance_due)      || 0,
+      r.booking_source           || '—',
     ]),
   };
 }
@@ -211,7 +216,7 @@ async function cashFlowReport(sb: any, uid: string, from: string, to: string): P
 async function bookingSummaryReport(sb: any, uid: string, from: string, to: string): Promise<ReportData> {
   const { data, error } = await sb
     .from('bookings')
-    .select('check_in, check_out, nights, total_amount, amount_paid, balance_due, booking_source, status, payment_status, guests(name, phone), properties(name)')
+    .select('check_in, check_out, nights, commission_amount, total_amount, amount_paid, balance_due, booking_source, status, payment_status, guests(name, phone), properties(name)')
     .eq('user_id', uid)
     .gte('check_in', from)
     .lte('check_in', to)
@@ -221,6 +226,7 @@ async function bookingSummaryReport(sb: any, uid: string, from: string, to: stri
   const rows: any[] = data ?? [];
   const activeRows = rows.filter(r => !['cancelled', 'no_show', 'blocked'].includes(r.status));
   const totalAmt   = activeRows.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
+  const totalCommission = activeRows.reduce((s, r) => s + (Number(r.commission_amount) || 0), 0);
 
   return {
     title: 'Booking Summary',
@@ -228,22 +234,24 @@ async function bookingSummaryReport(sb: any, uid: string, from: string, to: stri
     summary: [
       { label: 'Total Bookings', value: String(rows.length) },
       { label: 'Active Revenue', value: fmt(totalAmt) },
+      { label: 'Total Commission', value: fmt(totalCommission) },
       { label: 'Confirmed',      value: String(rows.filter(r => r.status === 'confirmed').length) },
       { label: 'Cancelled',      value: String(rows.filter(r => r.status === 'cancelled').length) },
     ],
-    columns: ['Guest', 'Phone', 'Property', 'Check-In', 'Check-Out', 'Nights', 'Total (KSh)', 'Paid (KSh)', 'Balance', 'Source', 'Status', 'Payment'],
+    columns: ['Guest', 'Phone', 'Property', 'Check-In', 'Check-Out', 'Nights', 'Commission (KSh)', 'Total (KSh)', 'Paid (KSh)', 'Balance', 'Source', 'Status', 'Payment'],
     rows: rows.map(r => [
       (r.guests     as any)?.name  ?? '—',
       (r.guests     as any)?.phone ?? '—',
       (r.properties as any)?.name  ?? '—',
       r.check_in, r.check_out,
-      r.nights         || 0,
-      Number(r.total_amount) || 0,
-      Number(r.amount_paid)  || 0,
-      Number(r.balance_due)  || 0,
-      r.booking_source || '—',
-      r.status         || '—',
-      r.payment_status || '—',
+      r.nights                    || 0,
+      Number(r.commission_amount) || 0,
+      Number(r.total_amount)      || 0,
+      Number(r.amount_paid)       || 0,
+      Number(r.balance_due)       || 0,
+      r.booking_source            || '—',
+      r.status                    || '—',
+      r.payment_status            || '—',
     ]),
   };
 }
@@ -288,7 +296,7 @@ async function upcomingBookingsReport(sb: any, uid: string): Promise<ReportData>
 
   const { data, error } = await sb
     .from('bookings')
-    .select('check_in, check_out, nights, total_amount, balance_due, booking_source, guests(name, phone, email), properties(name)')
+    .select('check_in, check_out, nights, commission_amount, total_amount, balance_due, booking_source, guests(name, phone, email), properties(name)')
     .eq('user_id', uid)
     .eq('status', 'confirmed')
     .gte('check_in', today)
@@ -298,6 +306,7 @@ async function upcomingBookingsReport(sb: any, uid: string): Promise<ReportData>
   if (error) throw new Error(error.message);
   const rows: any[] = data ?? [];
   const totalRev   = rows.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
+  const totalCommission = rows.reduce((s, r) => s + (Number(r.commission_amount) || 0), 0);
   const totalBal   = rows.reduce((s, r) => s + (Number(r.balance_due)  || 0), 0);
 
   return {
@@ -306,19 +315,21 @@ async function upcomingBookingsReport(sb: any, uid: string): Promise<ReportData>
     summary: [
       { label: 'Upcoming',         value: String(rows.length) },
       { label: 'Expected Revenue', value: fmt(totalRev) },
+      { label: 'Expected Commission', value: fmt(totalCommission) },
       { label: 'Outstanding',      value: fmt(totalBal) },
     ],
-    columns: ['Guest', 'Phone', 'Email', 'Property', 'Check-In', 'Check-Out', 'Nights', 'Total (KSh)', 'Balance (KSh)', 'Source'],
+    columns: ['Guest', 'Phone', 'Email', 'Property', 'Check-In', 'Check-Out', 'Nights', 'Commission (KSh)', 'Total (KSh)', 'Balance (KSh)', 'Source'],
     rows: rows.map(r => [
       (r.guests     as any)?.name  ?? '—',
       (r.guests     as any)?.phone ?? '—',
       (r.guests     as any)?.email ?? '—',
       (r.properties as any)?.name  ?? '—',
       r.check_in, r.check_out,
-      r.nights                 || 0,
-      Number(r.total_amount)   || 0,
-      Number(r.balance_due)    || 0,
-      r.booking_source         || '—',
+      r.nights                    || 0,
+      Number(r.commission_amount) || 0,
+      Number(r.total_amount)      || 0,
+      Number(r.balance_due)       || 0,
+      r.booking_source            || '—',
     ]),
   };
 }
@@ -373,14 +384,14 @@ async function occupancyReport(sb: any, uid: string, from: string, to: string): 
   const properties: any[] = prRes.data ?? [];
   const bookings: any[]   = bkRes.data ?? [];
   const fromMs = new Date(from).getTime();
-  const toMs   = new Date(to).getTime();
-  const totalDays = Math.max(1, Math.round((toMs - fromMs) / 86400000));
+  const periodEndMs = new Date(to).getTime() + 86400000;
+  const totalDays = Math.max(1, Math.round((periodEndMs - fromMs) / 86400000));
 
   const tableRows: Row[] = properties.map(p => {
     const pb = bookings.filter(b => b.property_id === p.id);
     const bookedNights = pb.reduce((s: number, b: any) => {
       const ci = Math.max(new Date(b.check_in).getTime(),  fromMs);
-      const co = Math.min(new Date(b.check_out).getTime(), toMs);
+      const co = Math.min(new Date(b.check_out).getTime(), periodEndMs);
       return s + Math.max(0, Math.round((co - ci) / 86400000));
     }, 0);
     const occ = Math.min(100, Math.round((bookedNights / totalDays) * 100));

@@ -3,6 +3,20 @@ import { NextResponse } from 'next/server';
 
 type Period = { from: string; to: string; label: string; days: number };
 
+function addDays(date: string, days: number) {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+function overlapNights(checkIn: string, checkOut: string, from: string, to: string) {
+  const endExclusive = addDays(to, 1);
+  const start = checkIn > from ? checkIn : from;
+  const end = checkOut < endExclusive ? checkOut : endExclusive;
+  if (end <= start) return 0;
+  return Math.round((new Date(`${end}T00:00:00Z`).getTime() - new Date(`${start}T00:00:00Z`).getTime()) / 86400000);
+}
+
 function buildPeriods(fromParam: string | null, toParam: string | null): Period[] {
   const now = new Date();
 
@@ -87,7 +101,7 @@ export async function GET(request: Request) {
     const rangeFrom = periods[0].from;
     const rangeTo   = periods[periods.length - 1].to;
 
-    const [bkRes, exRes, prRes] = await Promise.all([
+    const [bkRes, exRes, prRes, occRes] = await Promise.all([
       supabase.from('bookings')
         .select('check_in, total_amount, nights, status')
         .eq('user_id', userId)
@@ -103,10 +117,17 @@ export async function GET(request: Request) {
         .select('id')
         .eq('user_id', userId)
         .neq('status', 'draft'),
+      supabase.from('bookings')
+        .select('check_in, check_out')
+        .eq('user_id', userId)
+        .not('status', 'in', '(cancelled,no_show,blocked)')
+        .lte('check_in', rangeTo)
+        .gt('check_out', rangeFrom),
     ]);
 
     const bookings: any[] = bkRes.data ?? [];
     const expenses: any[] = exRes.data ?? [];
+    const occupancyBookings: { check_in: string; check_out: string }[] = occRes.data ?? [];
     const numProps = prRes.data?.length ?? 0;
 
     const monthly = periods.map(p => {
@@ -115,7 +136,7 @@ export async function GET(request: Request) {
       const revenue    = mb.reduce((s, b) => s + (Number(b.total_amount) || 0), 0);
       const gross      = me.reduce((s, e) => s + (Number(e.gross)        || 0), 0);
       const profit     = revenue - gross;
-      const nights     = mb.reduce((s, b) => s + (Number(b.nights)       || 0), 0);
+      const nights     = occupancyBookings.reduce((s, b) => s + overlapNights(b.check_in, b.check_out, p.from, p.to), 0);
       const totalAvail = numProps * p.days;
       const occupancy  = totalAvail > 0 ? Math.min(100, Math.round((nights / totalAvail) * 100)) : 0;
       return { label: p.label, from: p.from, to: p.to, revenue, expenses: gross, profit, occupancy };

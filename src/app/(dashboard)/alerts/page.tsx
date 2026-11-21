@@ -30,6 +30,17 @@ function fmt(n: number) {
   return `KSh ${Number(n).toLocaleString()}`;
 }
 
+const PAYMENT_METHODS = [
+  { value: 'mpesa', label: 'M-Pesa' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'card', label: 'Card' },
+  { value: 'bank', label: 'Bank Transfer' },
+  { value: 'airtel', label: 'Airtel Money' },
+  { value: 'paypal', label: 'PayPal' },
+  { value: 'platform', label: 'Platform Payout' },
+  { value: 'other', label: 'Other' },
+];
+
 function AlertCard({
   icon, title, count, accent, children, emptyText,
 }: {
@@ -88,6 +99,13 @@ export default function AlertsPage() {
   const [newDueDate,  setNewDueDate]  = useState('');
   const [newNotes,    setNewNotes]    = useState('');
   const [saving,      setSaving]      = useState(false);
+
+  const [payBooking, setPayBooking] = useState<BookingAlert | null>(null);
+  const [payAmount,  setPayAmount]  = useState('');
+  const [payMethod,  setPayMethod]  = useState('cash');
+  const [payDate,    setPayDate]    = useState('');
+  const [payNotes,   setPayNotes]   = useState('');
+  const [paySaving,  setPaySaving]  = useState(false);
 
   useEffect(() => {
     const h = (e: CustomEvent) => setSidebarCollapsed(e.detail.collapsed);
@@ -174,7 +192,59 @@ export default function AlertsPage() {
     }
   };
 
-  const BookingRow = ({ b, showBalance = false }: { b: BookingAlert; showBalance?: boolean }) => (
+  const openPayment = (b: BookingAlert) => {
+    setPayBooking(b);
+    setPayAmount(String(b.balance_due ?? ''));
+    setPayMethod('cash');
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayNotes('');
+  };
+
+  const closePayment = () => {
+    setPayBooking(null);
+    setPayAmount(''); setPayMethod('cash'); setPayDate(''); setPayNotes('');
+  };
+
+  const handleRecordPayment = async () => {
+    if (!payBooking) return;
+    const amount = Number(payAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter a valid payment amount');
+      return;
+    }
+    setPaySaving(true);
+    try {
+      const res = await fetch(`/api/bookings/${payBooking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_intent: 'partial',
+          payments: [{
+            amount,
+            method: payMethod,
+            date_type: payDate ? 'pick' : 'now',
+            date: payDate || null,
+            notes: payNotes || null,
+          }],
+          preserve_total: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        toast.error(data.error || 'Failed to record payment');
+        return;
+      }
+      toast.success('Payment recorded');
+      closePayment();
+      loadData();
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
+  const BookingRow = ({ b, showBalance = false, onRecordPayment }: { b: BookingAlert; showBalance?: boolean; onRecordPayment?: (b: BookingAlert) => void }) => (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-gray-100 last:border-0 gap-1">
       <div>
         <p className="text-sm font-medium text-gray-900">{b.guests?.name ?? '—'}</p>
@@ -186,6 +256,14 @@ export default function AlertsPage() {
           <>
             <p className="text-sm font-semibold text-red-600">{fmt(b.balance_due)} owed</p>
             <p className="text-xs text-gray-400">{fmt(b.amount_paid)} of {fmt(b.total_amount)} paid</p>
+            {onRecordPayment && b.balance_due > 0 && (
+              <button
+                onClick={() => onRecordPayment(b)}
+                className="mt-1.5 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2.5 py-1 hover:bg-teal-100 transition-colors"
+              >
+                Record payment
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -254,7 +332,7 @@ export default function AlertsPage() {
                 accent="bg-amber-400"
                 emptyText="No check-outs today."
               >
-                {checkOuts.map(b => <BookingRow key={b.id} b={b} showBalance={b.balance_due > 0} />)}
+                {checkOuts.map(b => <BookingRow key={b.id} b={b} showBalance={b.balance_due > 0} onRecordPayment={openPayment} />)}
               </AlertCard>
             </div>
 
@@ -266,7 +344,7 @@ export default function AlertsPage() {
               accent="bg-red-500"
               emptyText="All bookings paid in full."
             >
-              {unpaid.map(b => <BookingRow key={b.id} b={b} showBalance />)}
+              {unpaid.map(b => <BookingRow key={b.id} b={b} showBalance onRecordPayment={openPayment} />)}
             </AlertCard>
 
             {/* Upcoming this week */}
@@ -328,6 +406,74 @@ export default function AlertsPage() {
           </div>
         )}
       </div>
+
+      {/* Record Payment Modal */}
+      {payBooking && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Record payment</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {payBooking.guests?.name ?? 'Guest'} · {payBooking.properties?.name ?? 'Property'}
+            </p>
+            <div className="space-y-3 mb-5">
+              <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-sm">
+                <span className="text-gray-500">Balance due: </span>
+                <span className="font-bold text-red-600">{fmt(payBooking.balance_due)}</span>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Amount (KSh) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={payAmount}
+                  onChange={e => setPayAmount(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Method</label>
+                <select
+                  value={payMethod}
+                  onChange={e => setPayMethod(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+                >
+                  {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Payment date</label>
+                <input
+                  type="date"
+                  value={payDate}
+                  onChange={e => setPayDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Notes (optional)</label>
+                <input
+                  type="text"
+                  value={payNotes}
+                  onChange={e => setPayNotes(e.target.value)}
+                  placeholder="e.g. Paid on checkout"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={closePayment} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleRecordPayment} disabled={paySaving}
+                className="px-4 py-2 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors">
+                {paySaving ? 'Saving...' : 'Record payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Reminder Modal */}
       {showAddModal && (

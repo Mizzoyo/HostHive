@@ -1,8 +1,47 @@
 import { createClient } from '@/lib/supabase/server';
+import { isUniversalAmenity, normalizeUniversalAmenities } from '@/lib/amenities';
 import { NextRequest, NextResponse } from 'next/server';
 
 function missingEnv() {
   return !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+}
+
+const DEFAULT_UNIVERSAL_RULES = {
+  noSmoking: true,
+  noParties: true,
+  noPets: true,
+  quietHours: true,
+  childrenAllowed: false,
+  couplesOnly: false,
+  noAlcohol: false,
+  adultsOnly: false,
+  removeShoes: false,
+  sortRubbish: false,
+};
+
+async function fetchUniversalProfile(supabase: any, userId: string) {
+  const baseSelect = 'default_house_rules, default_check_in_time, default_check_out_time, default_check_in_method, default_check_in_instructions, default_caretaker_name, default_caretaker_phone, default_cancellation_policy, default_additional_rules, default_property_location, default_property_city, default_property_county';
+  let profileRes = await supabase
+    .from('profiles')
+    .select(`${baseSelect}, default_amenities`)
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (profileRes.error) {
+    profileRes = await supabase
+      .from('profiles')
+      .select(baseSelect)
+      .eq('id', userId)
+      .maybeSingle();
+  }
+  return profileRes.data;
+}
+
+function getUniversalHouseRules(profile: any) {
+  if (!profile?.default_house_rules || typeof profile.default_house_rules !== 'object' || Array.isArray(profile.default_house_rules)) {
+    return { ...DEFAULT_UNIVERSAL_RULES };
+  }
+  return { ...DEFAULT_UNIVERSAL_RULES, ...(profile.default_house_rules as Record<string, boolean>) };
 }
 
 export async function GET(request: NextRequest) {
@@ -19,10 +58,11 @@ export async function GET(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: { message: 'Property ID required.' } }, { status: 400 });
     }
-    const [propRes, amenRes, photoRes] = await Promise.all([
+    const [propRes, amenRes, photoRes, profile] = await Promise.all([
       supabase.from('properties').select('*').eq('id', id).eq('user_id', session.user.id).single(),
       supabase.from('property_amenities').select('name').eq('property_id', id).order('created_at'),
       supabase.from('property_photos').select('url, sort_order').eq('property_id', id).order('sort_order'),
+      fetchUniversalProfile(supabase, session.user.id),
     ]);
     if (propRes.error || !propRes.data) {
       return NextResponse.json({ error: { message: propRes.error?.message || 'Property not found.' } }, { status: 404 });
@@ -34,9 +74,14 @@ export async function GET(request: NextRequest) {
         : p.cover_photo
         ? [{ url: p.cover_photo, label: '', isCover: true }]
         : [];
+    const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
+    const roomAmenities = (amenRes.data?.map((a: any) => a.name) ?? [])
+      .filter((name: string) => !isUniversalAmenity(name, universalAmenities));
+
     return NextResponse.json({
       property: p,
-      amenities: amenRes.data?.map((a: any) => a.name) ?? [],
+      amenities: roomAmenities,
+      universalAmenities,
       photos,
     });
   } catch (err) {
@@ -61,16 +106,25 @@ export async function POST(request: NextRequest) {
 
     const d = await request.json();
 
+    const profile = await fetchUniversalProfile(supabase, userId);
+    const universalRules = getUniversalHouseRules(profile);
+    const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
+    const roomAmenities = (Array.isArray(d.amenities) ? d.amenities : [])
+      .filter((a: any) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
+    const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Nairobi';
+    const syncedCity = profile?.default_property_city || d.location?.city || 'Nairobi';
+    const syncedCounty = profile?.default_property_county || d.location?.county || 'Nairobi';
+
     const insertRow: Record<string, unknown> = {
       user_id: userId,
       name: d.title || 'Untitled Property',
       title: d.title || 'Untitled Property',
       type: d.propertyType || 'apartment',
       description: d.description || '',
-      location: d.location?.neighbourhood || d.location?.address || 'Kisumu',
-      address: d.location?.address || '',
-      city: d.location?.city || 'Kisumu',
-      county: d.location?.county || 'Kisumu',
+      location: syncedLocation,
+      address: syncedLocation,
+      city: syncedCity,
+      county: syncedCounty,
       country: 'Kenya',
       building_name: d.location?.building || '',
       unit_number: d.location?.unit || '',
@@ -88,26 +142,15 @@ export async function POST(request: NextRequest) {
       cover_photo: d.photos?.find((p: any) => p.isCover)?.url || d.photos?.[0]?.url || '',
       latitude: d.location?.lat || null,
       longitude: d.location?.lng || null,
-      check_in_time: d.rules?.checkIn || '14:00',
-      check_out_time: d.rules?.checkOut || '11:00',
-      check_in_method: d.rules?.checkInMethod || '',
-      check_in_instructions: d.rules?.instructions || '',
-      caretaker_name: d.rules?.caretakerName || '',
-      caretaker_phone: d.rules?.caretakerPhone || '',
-      cancellation_policy: d.rules?.cancellation || 'moderate',
-      house_rules: {
-        noSmoking: d.rules?.noSmoking ?? true,
-        noParties: d.rules?.noParties ?? true,
-        noPets: d.rules?.noPets ?? true,
-        quietHours: d.rules?.quietHours ?? true,
-        childrenAllowed: d.rules?.childrenAllowed ?? false,
-        couplesOnly: d.rules?.couplesOnly ?? false,
-        noAlcohol: d.rules?.noAlcohol ?? false,
-        adultsOnly: d.rules?.adultsOnly ?? false,
-        removeShoes: d.rules?.removeShoes ?? false,
-        sortRubbish: d.rules?.sortRubbish ?? false,
-      },
-      additional_rules: d.rules?.additionalRules || '',
+      check_in_time: profile?.default_check_in_time || '14:00',
+      check_out_time: profile?.default_check_out_time || '11:00',
+      check_in_method: profile?.default_check_in_method || 'caretaker',
+      check_in_instructions: profile?.default_check_in_instructions || '',
+      caretaker_name: profile?.default_caretaker_name || '',
+      caretaker_phone: profile?.default_caretaker_phone || '',
+      cancellation_policy: profile?.default_cancellation_policy || 'moderate',
+      house_rules: universalRules,
+      additional_rules: profile?.default_additional_rules || '',
       status: d.status || 'active',
     };
     if (d.setup_step != null) insertRow.setup_step = d.setup_step;
@@ -125,8 +168,8 @@ export async function POST(request: NextRequest) {
 
     const propertyId = property.id;
 
-    if (Array.isArray(d.amenities) && d.amenities.length > 0) {
-      const amenityRows = d.amenities.map((a: any) => ({
+    if (roomAmenities.length > 0) {
+      const amenityRows = roomAmenities.map((a: any) => ({
         property_id: propertyId,
         user_id: userId,
         name: typeof a === 'string' ? a : a.name,
@@ -173,6 +216,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: { message: 'Property id is required for updates' } }, { status: 400 });
     }
 
+    const profile = await fetchUniversalProfile(supabase, userId);
+    const universalRules = getUniversalHouseRules(profile);
+    const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
+    const roomAmenities = (Array.isArray(d.amenities) ? d.amenities : [])
+      .filter((a: any) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
+    const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Nairobi';
+    const syncedCity = profile?.default_property_city || d.location?.city || 'Nairobi';
+    const syncedCounty = profile?.default_property_county || d.location?.county || 'Nairobi';
+
     const { data: property, error } = await supabase
       .from('properties')
       .update({
@@ -180,10 +232,10 @@ export async function PUT(request: NextRequest) {
         title: d.title || 'Untitled Property',
         type: d.propertyType || 'apartment',
         description: d.description || '',
-        location: d.location?.neighbourhood || '',
-        address: d.location?.address || '',
-        city: d.location?.city || 'Kisumu',
-        county: d.location?.county || 'Kisumu',
+        location: syncedLocation,
+        address: syncedLocation,
+        city: syncedCity,
+        county: syncedCounty,
         building_name: d.location?.building || '',
         unit_number: d.location?.unit || '',
         floor_level: d.location?.floor || '',
@@ -200,26 +252,15 @@ export async function PUT(request: NextRequest) {
         cover_photo: d.photos?.find((p: any) => p.isCover)?.url || d.photos?.[0]?.url || '',
         latitude: d.location?.lat || null,
         longitude: d.location?.lng || null,
-        check_in_time: d.rules?.checkIn || '14:00',
-        check_out_time: d.rules?.checkOut || '11:00',
-        check_in_method: d.rules?.checkInMethod || '',
-        check_in_instructions: d.rules?.instructions || '',
-        caretaker_name: d.rules?.caretakerName || '',
-        caretaker_phone: d.rules?.caretakerPhone || '',
-        cancellation_policy: d.rules?.cancellation || 'moderate',
-        house_rules: {
-          noSmoking: d.rules?.noSmoking ?? true,
-          noParties: d.rules?.noParties ?? true,
-          noPets: d.rules?.noPets ?? true,
-          quietHours: d.rules?.quietHours ?? true,
-          childrenAllowed: d.rules?.childrenAllowed ?? false,
-          couplesOnly: d.rules?.couplesOnly ?? false,
-          noAlcohol: d.rules?.noAlcohol ?? false,
-          adultsOnly: d.rules?.adultsOnly ?? false,
-          removeShoes: d.rules?.removeShoes ?? false,
-          sortRubbish: d.rules?.sortRubbish ?? false,
-        },
-        additional_rules: d.rules?.additionalRules || '',
+        check_in_time: profile?.default_check_in_time || '14:00',
+        check_out_time: profile?.default_check_out_time || '11:00',
+        check_in_method: profile?.default_check_in_method || 'caretaker',
+        check_in_instructions: profile?.default_check_in_instructions || '',
+        caretaker_name: profile?.default_caretaker_name || '',
+        caretaker_phone: profile?.default_caretaker_phone || '',
+        cancellation_policy: profile?.default_cancellation_policy || 'moderate',
+        house_rules: universalRules,
+        additional_rules: profile?.default_additional_rules || '',
         ...(d.status && { status: d.status }),
         ...(d.setup_step != null && { setup_step: d.setup_step }),
         updated_at: new Date().toISOString(),
@@ -236,8 +277,8 @@ export async function PUT(request: NextRequest) {
 
     if (Array.isArray(d.amenities)) {
       await supabase.from('property_amenities').delete().eq('property_id', id).eq('user_id', userId);
-      if (d.amenities.length > 0) {
-        const amenityRows = d.amenities.map((a: any) => ({
+      if (roomAmenities.length > 0) {
+        const amenityRows = roomAmenities.map((a: any) => ({
           property_id: id,
           user_id: userId,
           name: typeof a === 'string' ? a : a.name,

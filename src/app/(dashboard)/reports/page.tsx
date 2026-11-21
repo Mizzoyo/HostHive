@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { presetRange, type RangePreset } from '@/lib/dateRange';
 
 type NavSection = 'quick' | 'financial' | 'property' | 'booking' | 'guest' | 'operational';
 
@@ -148,10 +149,14 @@ export default function ReportsPage() {
   const [previewName, setPreviewName] = useState<string | null>(null);
   const [reportData, setReportData]   = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
-  const today = new Date().toISOString().split('T')[0];
-  const jan1  = `${new Date().getFullYear()}-01-01`;
-  const [dateFrom, setDateFrom] = useState(jan1);
-  const [dateTo,   setDateTo]   = useState(today);
+  const [dateFrom, setDateFrom] = useState(() => presetRange('this year').from);
+  const [dateTo,   setDateTo]   = useState(() => presetRange('this year').to);
+  const applyPreset = (preset: RangePreset) => {
+    const { from, to } = presetRange(preset);
+    setDateFrom(from);
+    setDateTo(to);
+    if (previewName) handleOpenReport(previewName, from, to);
+  };
 
   useEffect(() => {
     const h = (e: CustomEvent) => setSidebarCollapsed(e.detail.collapsed);
@@ -429,7 +434,17 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Date range + refresh */}
-                <div className="flex items-center gap-1.5 text-sm">
+                <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                  {(['today', 'this week', 'this month', 'this year'] as RangePreset[]).map(p => {
+                    const r = presetRange(p);
+                    const active = r.from === dateFrom && r.to === dateTo;
+                    return (
+                      <button key={p} onClick={() => applyPreset(p)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize whitespace-nowrap transition-colors ${active ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        {p}
+                      </button>
+                    );
+                  })}
                   <input type="date" value={dateFrom}
                     onChange={e => setDateFrom(e.target.value)}
                     className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-teal-500" />

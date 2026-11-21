@@ -1,4 +1,19 @@
 import { publicSupabase } from '@/lib/supabase/public';
+import { mergeAmenityLabels, normalizeUniversalAmenities, type Amenity } from '@/lib/amenities';
+import { sortProperties } from '@/lib/propertySort';
+
+const DEFAULT_HOUSE_RULES = {
+  noSmoking: true,
+  noParties: true,
+  noPets: true,
+  quietHours: true,
+  childrenAllowed: false,
+  couplesOnly: false,
+  noAlcohol: false,
+  adultsOnly: false,
+  removeShoes: false,
+  sortRubbish: false,
+};
 
 export type StayProperty = {
   id: string;
@@ -28,10 +43,113 @@ export type StayProperty = {
   amenities: string[];
 };
 
+export type UniversalStaySettings = {
+  businessName: string;
+  houseRules: Record<string, boolean>;
+  checkInTime: string;
+  checkOutTime: string;
+  checkInMethod: string;
+  checkInInstructions: string;
+  caretakerName: string;
+  caretakerPhone: string;
+  cancellationPolicy: string;
+  additionalRules: string;
+  defaultPropertyLocation: string;
+  defaultPropertyCity: string;
+  defaultPropertyCounty: string;
+  businessArea: string;
+  businessAddress: string;
+  mapQuery: string;
+  amenities: Amenity[];
+};
+
 function addDays(d: string, n: number): string {
   const dt = new Date(d);
   dt.setDate(dt.getDate() + n);
   return dt.toISOString().split('T')[0];
+}
+
+function normalizeHouseRules(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_HOUSE_RULES };
+  return { ...DEFAULT_HOUSE_RULES, ...(value as Record<string, boolean>) };
+}
+
+function buildMapQuery({
+  businessAddress,
+  businessArea,
+  defaultPropertyLocation,
+  defaultPropertyCity,
+  defaultPropertyCounty,
+}: Pick<UniversalStaySettings, 'businessAddress' | 'businessArea' | 'defaultPropertyLocation' | 'defaultPropertyCity' | 'defaultPropertyCounty'>) {
+  return [businessAddress, businessArea, defaultPropertyLocation, defaultPropertyCity, defaultPropertyCounty]
+    .filter(Boolean)
+    .join(', ') || 'Kenya';
+}
+
+export async function fetchUniversalStaySettings(): Promise<UniversalStaySettings> {
+  const defaults: UniversalStaySettings = {
+    businessName: 'Kogelo Suites',
+    houseRules: { ...DEFAULT_HOUSE_RULES },
+    checkInTime: '14:00',
+    checkOutTime: '11:00',
+    checkInMethod: 'caretaker',
+    checkInInstructions: '',
+    caretakerName: '',
+    caretakerPhone: '',
+    cancellationPolicy: 'moderate',
+    additionalRules: '',
+    defaultPropertyLocation: '',
+    defaultPropertyCity: 'Nairobi',
+    defaultPropertyCounty: 'Nairobi',
+    businessArea: '',
+    businessAddress: '',
+    mapQuery: 'Kenya',
+    amenities: [],
+  };
+
+  const hostId = process.env.STAY_HOST_USER_ID;
+  if (!hostId) return defaults;
+
+  const baseSelect = 'business_name, default_house_rules, default_check_in_time, default_check_out_time, default_check_in_method, default_check_in_instructions, default_caretaker_name, default_caretaker_phone, default_cancellation_policy, default_additional_rules, default_property_location, default_property_city, default_property_county, business_area, business_address';
+  let profileRes = await publicSupabase
+    .from('profiles')
+    .select(`${baseSelect}, default_amenities`)
+    .eq('id', hostId)
+    .maybeSingle();
+
+  if (profileRes.error) {
+    profileRes = await publicSupabase
+      .from('profiles')
+      .select(baseSelect)
+      .eq('id', hostId)
+      .maybeSingle();
+  }
+
+  const data = profileRes.data;
+  if (!data) return defaults;
+
+  const settings: UniversalStaySettings = {
+    businessName: data.business_name ?? defaults.businessName,
+    houseRules: normalizeHouseRules(data.default_house_rules),
+    checkInTime: data.default_check_in_time ?? defaults.checkInTime,
+    checkOutTime: data.default_check_out_time ?? defaults.checkOutTime,
+    checkInMethod: data.default_check_in_method ?? defaults.checkInMethod,
+    checkInInstructions: data.default_check_in_instructions ?? defaults.checkInInstructions,
+    caretakerName: data.default_caretaker_name ?? defaults.caretakerName,
+    caretakerPhone: data.default_caretaker_phone ?? defaults.caretakerPhone,
+    cancellationPolicy: data.default_cancellation_policy ?? defaults.cancellationPolicy,
+    additionalRules: data.default_additional_rules ?? defaults.additionalRules,
+    defaultPropertyLocation: data.default_property_location ?? defaults.defaultPropertyLocation,
+    defaultPropertyCity: data.default_property_city ?? defaults.defaultPropertyCity,
+    defaultPropertyCounty: data.default_property_county ?? defaults.defaultPropertyCounty,
+    businessArea: data.business_area ?? defaults.businessArea,
+    businessAddress: data.business_address ?? defaults.businessAddress,
+    mapQuery: 'Kenya',
+    amenities: normalizeUniversalAmenities(data.default_amenities),
+  };
+
+  settings.mapQuery = buildMapQuery(settings);
+  return settings;
 }
 
 export async function fetchAvailableProperties(
@@ -39,6 +157,7 @@ export async function fetchAvailableProperties(
   checkOut?: string
 ): Promise<StayProperty[]> {
   const hostId = process.env.STAY_HOST_USER_ID;
+  const universalSettings = await fetchUniversalStaySettings();
 
   let query = publicSupabase
     .from('properties')
@@ -69,7 +188,7 @@ export async function fetchAvailableProperties(
     if (hostId) bq = (bq as any).eq('user_id', hostId);
     const { data: bRows } = await bq;
     (bRows ?? []).forEach((b: any) => { if (b.property_id) blockedIds.add(b.property_id); });
-  } catch { /* ignore */ }
+  } catch { }
 
   try {
     let rq = publicSupabase
@@ -84,9 +203,9 @@ export async function fetchAvailableProperties(
       const rooms = Array.isArray(r.room_details) ? r.room_details : [];
       rooms.forEach((room: any) => { if (room.property_id) blockedIds.add(room.property_id); });
     });
-  } catch { /* ignore */ }
+  } catch { }
 
-  const available = (properties as any[]).filter((p) => !blockedIds.has(p.id));
+  const available = sortProperties((properties as any[]).filter((p) => !blockedIds.has(p.id)));
 
   const withPhotos = await Promise.all(
     available.map(async (p) => {
@@ -105,7 +224,7 @@ export async function fetchAvailableProperties(
       return {
         ...p,
         photos: photos?.map((ph: any) => ph.url) ?? (p.cover_photo ? [p.cover_photo] : []),
-        amenities: amenities?.map((a: any) => a.name) ?? [],
+        amenities: mergeAmenityLabels(universalSettings.amenities, amenities?.map((a: { name: string }) => a.name) ?? []),
       } as StayProperty;
     })
   );

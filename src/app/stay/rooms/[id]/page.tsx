@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import { MapPin, Clock, DoorOpen, ShieldOff, PawPrint, VolumeX } from 'lucide-react';
 import { publicSupabase } from '@/lib/supabase/public';
-import { isUUID, toRoomSlug } from '@/lib/stay/roomSlug';
+import { isUUID, toRoomSlug, resolveRoomParam } from '@/lib/stay/roomSlug';
+import { fetchUniversalStaySettings } from '@/lib/stay/fetchProperties';
+import { mergeAmenityLabels } from '@/lib/amenities';
 
 import RoomDetailGallery from '@/components/stay/room-detail/RoomDetailGallery';
 import RoomDetailBooking from '@/components/stay/room-detail/RoomDetailBooking';
@@ -12,9 +14,9 @@ export const revalidate = 3600;
 export async function generateStaticParams() {
   const { data } = await publicSupabase
     .from('properties')
-    .select('id, slug')
+    .select('id, name, slug')
     .eq('status', 'active');
-  return (data ?? []).map(p => ({ id: p.slug || p.id }));
+  return (data ?? []).map(p => ({ id: toRoomSlug(p.slug, p.name, p.id) }));
 }
 
 const IC = 'w-6 h-6 flex-shrink-0';
@@ -58,18 +60,18 @@ export default async function RoomDetailPage({
   const initialCheckOut = sp.checkOut ?? tomorrow;
   const initialGuests   = Number(sp.guests ?? 1);
 
-  const propCol = isUUID(slug) ? 'id' : 'slug';
+  const { col, value } = resolveRoomParam(slug);
   const { data: property } = await publicSupabase
     .from('properties')
     .select('id, name, type, description, location, city, county, bedrooms, bathrooms, max_guests, nightly_rate, check_in_time, check_out_time, cancellation_policy, house_rules, cover_photo, slug, status')
-    .eq(propCol, slug)
+    .eq(col, value)
     .eq('status', 'active')
     .single();
 
   if (!property) notFound();
   const id = property.id;
 
-  const [photosResult, amenitiesResult] = await Promise.all([
+  const [photosResult, amenitiesResult, universalSettings] = await Promise.all([
     publicSupabase
       .from('property_photos')
       .select('url, sort_order')
@@ -79,10 +81,11 @@ export default async function RoomDetailPage({
       .from('property_amenities')
       .select('name')
       .eq('property_id', id),
+    fetchUniversalStaySettings(),
   ]);
 
   const photos    = photosResult.data?.map((p: any) => p.url) ?? (property.cover_photo ? [property.cover_photo] : []);
-  const amenities = amenitiesResult.data?.map((a: any) => a.name) ?? [];
+  const amenities = mergeAmenityLabels(universalSettings.amenities, amenitiesResult.data?.map((a: any) => a.name) ?? []);
 
   const typeLabel = property.type && !isUUID(property.type)
     ? property.type.charAt(0).toUpperCase() + property.type.slice(1) : 'Room';

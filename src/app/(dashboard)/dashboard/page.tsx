@@ -4,15 +4,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { StatsRow } from '@/components/stats/StatsRow';
 import toast from 'react-hot-toast';
+import { presetRange, toLocalYMD, type RangePreset } from '@/lib/dateRange';
 
 export default function DashboardPage() {
   const [timeframe, setTimeframe] = useState('today');
-  const [customFrom, setCustomFrom] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d.toISOString().split('T')[0];
-  });
-  const [customTo, setCustomTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [customFrom, setCustomFrom] = useState(() => presetRange('this month').from);
+  const [customTo, setCustomTo] = useState(() => toLocalYMD(new Date()));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
 
@@ -43,22 +40,8 @@ export default function DashboardPage() {
   const [hoveredMonth, setHoveredMonth] = useState<number | null>(null);
 
   const getDateRange = useCallback(() => {
-    const today = new Date();
-    const fmt = (d: Date) => d.toISOString().split('T')[0];
-    if (timeframe === 'today') { const t = fmt(today); return { from: t, to: t }; }
-    if (timeframe === 'this week') {
-      const day = today.getDay();
-      const mon = new Date(today);
-      mon.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
-      return { from: fmt(mon), to: fmt(today) };
-    }
-    if (timeframe === 'this month') {
-      return { from: fmt(new Date(today.getFullYear(), today.getMonth(), 1)), to: fmt(today) };
-    }
-    if (timeframe === 'this year') {
-      return { from: fmt(new Date(today.getFullYear(), 0, 1)), to: fmt(today) };
-    }
-    return { from: customFrom, to: customTo };
+    if (timeframe === 'custom') return { from: customFrom, to: customTo };
+    return presetRange(timeframe as RangePreset);
   }, [timeframe, customFrom, customTo]);
 
   useEffect(() => {
@@ -369,8 +352,11 @@ export default function DashboardPage() {
             <div className="space-y-4">
               {/* Total Revenue */}
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <p className="text-xs text-gray-600 uppercase tracking-wide font-medium">TOTAL REVENUE</p>
+                <p className="text-xs text-gray-600 uppercase tracking-wide font-medium">Booked Revenue</p>
                 <p className="text-3xl font-bold text-teal-600 mt-2">{loading ? '…' : `KSH ${(stats?.revenue.total ?? 0).toLocaleString()}`}</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Collected KSH {(stats?.revenue.collected ?? 0).toLocaleString()} · Outstanding KSH {(stats?.revenue.outstanding ?? 0).toLocaleString()}
+                </p>
               </div>
 
               {/* Revenue Breakdown - Stacked Progress Bar */}
@@ -419,7 +405,7 @@ export default function DashboardPage() {
               {/* Revenue sparkline — period-aware */}
               {(() => {
                 const rangeDays = Math.round((new Date(_drTo).getTime() - new Date(_drFrom).getTime()) / 86400000) + 1;
-                const sparkLabel = rangeDays <= 60 ? 'Daily payments' : rangeDays <= 365 ? 'Weekly payments' : 'Monthly payments';
+                const sparkLabel = rangeDays <= 60 ? 'Daily payments received' : rangeDays <= 365 ? 'Weekly payments received' : 'Monthly payments received';
 
                 const buildSparkData = (cf: any[]): Array<{ total: number }> => {
                   if (rangeDays <= 60) return cf.map((r: any) => ({ total: Number(r.total) || 0 }));
@@ -945,6 +931,31 @@ export default function DashboardPage() {
               </>
             );
           })()}
+        </div>
+
+        {/* Universal Settings Footer */}
+        <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-gray-900">Universal Settings</h3>
+            <a href="/settings" className="text-xs text-teal-600 hover:text-teal-700 font-medium hover:underline">Edit in Settings</a>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* House Rules */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">House Rules</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-1">Check-in: {stats?.universalSettings?.checkInTime || '14:00'}</span>
+                <span className="text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-1">Check-out: {stats?.universalSettings?.checkOutTime || '11:00'}</span>
+                <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-1">{stats?.universalSettings?.checkInMethod || 'Caretaker'}</span>
+              </div>
+            </div>
+            {/* Location */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Default Location</p>
+              <p className="text-sm text-gray-700">{stats?.universalSettings?.defaultPropertyCity || 'Nairobi'}, {stats?.universalSettings?.defaultPropertyCounty || 'Nairobi'}</p>
+              {stats?.universalSettings?.businessArea && <p className="text-xs text-gray-500 mt-1">Service Area: {stats.universalSettings.businessArea}</p>}
+            </div>
+          </div>
         </div>
 
       </div>

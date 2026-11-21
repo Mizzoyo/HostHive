@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       cleaning_fee = 0,
       extra_fees = 0,
       discount = 0,
+      discount_amount,
       security_deposit = 0,
       booking_source = 'Direct',
       status = 'confirmed',
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
       payment_intent = 'none',
       payment_amount = 0,
       payments = [],
+      commission_amount,
     } = body;
 
     if (!property_id || !check_in || !check_out) {
@@ -68,7 +70,13 @@ export async function POST(request: NextRequest) {
     const rate = is_blocked ? 0 : Number(nightly_rate);
     const cleaningFee = is_blocked ? 0 : Number(cleaning_fee);
     const extraFees = is_blocked ? 0 : Number(extra_fees);
-    const discountVal = is_blocked ? 0 : Number(discount);
+    const discountVal = is_blocked ? 0 : Number(discount_amount ?? discount);
+    const commissionAmount = is_blocked || commission_amount === '' || commission_amount === null || commission_amount === undefined
+      ? null
+      : Number(commission_amount);
+    if (commissionAmount !== null && (!Number.isFinite(commissionAmount) || commissionAmount < 0)) {
+      return NextResponse.json({ error: 'commission_amount must be a valid non-negative number' }, { status: 400 });
+    }
     const totalAmount = Math.max(0, rate * nights + cleaningFee + extraFees - discountVal);
     // Support both legacy single-payment and new payments array
     const paid = payment_intent !== 'none'
@@ -107,11 +115,14 @@ export async function POST(request: NextRequest) {
         nights,
         nightly_rate: rate,
         cleaning_fee: cleaningFee,
+        extra_fees: extraFees,
+        discount_amount: discountVal,
         security_deposit: Number(security_deposit) || 0,
+        commission_amount: commissionAmount,
         total_amount: totalAmount,
         amount_paid: paid,
-        balance_due: totalAmount - paid,
-        payment_status: paid >= totalAmount && totalAmount > 0 ? 'paid' : paid > 0 ? 'partial' : 'unpaid',
+        balance_due: Math.max(0, totalAmount - paid),
+        payment_status: paid > totalAmount && totalAmount > 0 ? 'overpaid' : paid >= totalAmount && totalAmount > 0 ? 'paid' : paid > 0 ? 'partial' : 'unpaid',
         status: is_blocked ? 'blocked' : status,
         booking_source: is_blocked ? 'blocked' : booking_source,
         notes,

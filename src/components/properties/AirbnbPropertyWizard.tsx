@@ -43,7 +43,22 @@ const DEFAULT_PROPERTY_TYPES = [
   { id: 'two-bedroom',  label: 'Two Bedroom',  desc: 'Two separate bedrooms' },
 ];
 
-const STEP_NAMES = ['Property Type','Location','Basics','Amenities','Photos','Title & Description','Pricing','Rules & Check-in','Review & Publish'];
+const BEDROOM_NUM_WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+
+function deriveBedrooms(typeName: string): number | null {
+  const t = typeName.toLowerCase().replace(/[-_]/g, ' ').trim();
+  if (!t) return null;
+  if (/\bstudio\b/.test(t)) return null;
+  if (/\bbedsit/.test(t)) return 1;
+  const digit = t.match(/(\d+)\s*(?:br|bed)/);
+  if (digit) return parseInt(digit[1], 10);
+  for (const [word, n] of Object.entries(BEDROOM_NUM_WORDS)) {
+    if (new RegExp(`\\b${word}\\s*(?:br|bed)`).test(t)) return n;
+  }
+  return null;
+}
+
+const STEP_NAMES = ['Property Type','Basics','Amenities','Photos','Title & Description','Pricing','Rules & Check-in','Review & Publish'];
 
 function PropIcon({ id }: { id: string }) {
   const cls = 'w-7 h-7';
@@ -63,15 +78,6 @@ function PropIcon({ id }: { id: string }) {
     default:          return <svg {...s}><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2 2"/></svg>;
   }
 }
-
-const COUNTIES = [
-  'Nairobi','Mombasa','Kisumu','Nakuru','Uasin Gishu','Kiambu','Kilifi','Machakos','Meru',
-  'Kakamega','Bungoma','Kisii','Nyeri','Murang\'a','Kirinyaga','Embu','Makueni','Kajiado',
-  'Nandi','Kericho','Bomet','Migori','Homa Bay','Siaya','Vihiga','Busia','Trans Nzoia',
-  'Elgeyo-Marakwet','Baringo','Laikipia','Nyandarua','Nyamira','Narok','Kwale','Taita-Taveta',
-  'Tana River','Lamu','Garissa','Wajir','Mandera','Marsabit','Isiolo','Tharaka-Nithi',
-  'Samburu','Turkana','West Pokot','Kitui',
-];
 
 const AMENITY_CATEGORIES = [
   { cat: '🌐 Internet & Entertainment', items: [{ id: 'wifi', icon: '📶', label: 'WiFi', sub: 'Fast 50+' }, { id: 'dstv', icon: '📺', label: 'DSTV' }, { id: 'netflix', icon: '🎬', label: 'Netflix' }, { id: 'smarttv', icon: '🎮', label: 'Smart TV' }, { id: 'speaker', icon: '🔊', label: 'Bluetooth Speaker' }] },
@@ -155,118 +161,6 @@ function AmenityIcon({ id }: { id: string }) {
   }
 }
 
-// ─── Google Places loader (autocomplete only) ────────────────────────────────
-const GMAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-function loadGoogleMaps(cb: () => void) {
-  if ((window as any).google?.maps) { cb(); return; }
-  if (document.getElementById('google-maps-js')) {
-    const t = setInterval(() => { if ((window as any).google?.maps) { clearInterval(t); cb(); } }, 100);
-    return;
-  }
-  const s = document.createElement('script');
-  s.id = 'google-maps-js';
-  s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_API_KEY}&libraries=places`;
-  s.onload = cb;
-  document.head.appendChild(s);
-}
-
-// ─── Airbnb-style Google Map ──────────────────────────────────────────────────
-const AIRBNB_MAP_STYLE = [
-  { featureType: 'all', elementType: 'geometry', stylers: [{ color: '#f7f4ef' }] },
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'road', elementType: 'geometry.fill', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#e8e2d6' }] },
-  { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: '#fdf6e9' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#d9ceba' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#aacde0' }] },
-  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#e8f0e0' }] },
-  { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#ede9e2' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#c5bdb0' }] },
-  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#3d3d3d' }] },
-  { featureType: 'administrative.neighborhood', elementType: 'labels.text.fill', stylers: [{ color: '#6b6b6b' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#717171' }] },
-  { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-];
-
-const AIRBNB_PIN_SVG = encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 11.6 16 24 16 24s16-12.4 16-24C32 7.163 24.837 0 16 0z" fill="#FF385C"/><circle cx="16" cy="16" r="7" fill="white"/></svg>`
-);
-
-function GoogleMapView({
-  lat, lng, onChange, onGeocode,
-}: {
-  lat: number | null; lng: number | null;
-  onChange: (lat: number, lng: number) => void;
-  onGeocode?: (components: any[]) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const onChangeRef = useRef(onChange);
-  const onGeocodeRef = useRef(onGeocode);
-  onChangeRef.current = onChange;
-  onGeocodeRef.current = onGeocode;
-  const DEFAULT_LAT = -1.2921, DEFAULT_LNG = 36.8219;
-
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-
-    const initMap = (initLat: number, initLng: number) => {
-      const G = (window as any).google?.maps;
-      if (!G || !containerRef.current) return;
-      const map = new G.Map(containerRef.current, {
-        center: { lat: initLat, lng: initLng }, zoom: 16,
-        mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
-        zoomControl: true, styles: AIRBNB_MAP_STYLE,
-      });
-      const marker = new G.Marker({
-        position: { lat: initLat, lng: initLng }, map, draggable: true, cursor: 'grab',
-        icon: { url: `data:image/svg+xml;charset=UTF-8,${AIRBNB_PIN_SVG}`, scaledSize: new G.Size(32, 40), anchor: new G.Point(16, 40) },
-        animation: G.Animation.DROP,
-      });
-      const handlePin = (latVal: number, lngVal: number) => {
-        onChangeRef.current(latVal, lngVal);
-        if (!onGeocodeRef.current) return;
-        new G.Geocoder().geocode({ location: { lat: latVal, lng: lngVal } }, (results: any[], status: string) => {
-          if (status === 'OK' && results[0]) onGeocodeRef.current!(results[0].address_components);
-        });
-      };
-      marker.addListener('dragend', () => {
-        const p = marker.getPosition();
-        handlePin(parseFloat(p.lat().toFixed(6)), parseFloat(p.lng().toFixed(6)));
-      });
-      map.addListener('click', (e: any) => {
-        marker.setPosition(e.latLng);
-        handlePin(parseFloat(e.latLng.lat().toFixed(6)), parseFloat(e.latLng.lng().toFixed(6)));
-      });
-      mapRef.current = map; markerRef.current = marker;
-      if (lat === null) handlePin(parseFloat(initLat.toFixed(6)), parseFloat(initLng.toFixed(6)));
-    };
-
-    if (lat === null && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        p => loadGoogleMaps(() => initMap(p.coords.latitude, p.coords.longitude)),
-        () => loadGoogleMaps(() => initMap(DEFAULT_LAT, DEFAULT_LNG))
-      );
-    } else {
-      loadGoogleMaps(() => initMap(lat ?? DEFAULT_LAT, lng ?? DEFAULT_LNG));
-    }
-
-    return () => { mapRef.current = null; markerRef.current = null; };
-  }, []);
-
-  useEffect(() => {
-    if (markerRef.current && lat !== null && lng !== null) {
-      const pos = { lat, lng };
-      markerRef.current.setPosition(pos);
-      mapRef.current?.panTo(pos);
-    }
-  }, [lat, lng]);
-
-  return <div ref={containerRef} className="w-full h-full" />;
-}
-
 // ─── Stepper Component ────────────────────────────────────────────────────────
 function Stepper({ value, onChange, min = 0, max = 20 }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
   return (
@@ -322,6 +216,14 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     rules:    { ...INITIAL.rules,    ...(initialData?.rules    ?? {}) },
     publish:  { ...INITIAL.publish,  ...(initialData?.publish  ?? {}) },
   });
+
+  useEffect(() => {
+    const n = deriveBedrooms(data.propertyType);
+    if (n !== null) {
+      setData(d => ({ ...d, basics: { ...d.basics, bedrooms: n } }));
+    }
+  }, [data.propertyType]);
+
   const [showSuccess, setShowSuccess] = useState(false);
   const [confetti, setConfetti] = useState(false);
   const [countdown, setCountdown] = useState(6);
@@ -339,22 +241,13 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
   const [publishing, setPublishing] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [geocoding, setGeocoding] = useState(false);
-  const [addrSearch, setAddrSearch] = useState('');
-  const [addrResults, setAddrResults] = useState<any[]>([]);
-  const [addrDropdown, setAddrDropdown] = useState(false);
-  const [manualEntry, setManualEntry] = useState(false);
-  const addrTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const addrSelectingRef = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const TOTAL = 9;
-
-  useEffect(() => { if (step === 2) loadGoogleMaps(() => {}); }, [step]);
+  const TOTAL = 8;
 
   useEffect(() => {
-    if (step !== 5) return;
+    if (step !== 4) return;
     const grid = photoGridRef.current;
     if (!grid) return;
     const onTouchMove = (e: TouchEvent) => {
@@ -412,26 +305,21 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
         if (!data.propertyType) return 'Please select a property type before continuing.';
         return '';
       case 2:
-        if (!data.location.address.trim()) return 'Street address is required — please enter your property\'s street address.';
-        if (!data.location.neighbourhood.trim()) return 'Estate / Area is required — e.g. Kilimani, Westlands.';
-        if (!data.location.city.trim()) return 'City / Town is required — e.g. Nairobi.';
         return '';
       case 3:
-        return '';
-      case 4:
         if (data.amenities.length === 0) return 'Please select at least 1 amenity before continuing.';
         return '';
-      case 5:
+      case 4:
         if (data.photos.length === 0) return 'Please add at least 1 photo of your property before continuing.';
         return '';
-      case 6:
+      case 5:
         if (!data.title.trim()) return 'Listing title is required — give your property a name guests will remember.';
         if (!data.description.trim()) return 'Description is required — tell guests what makes your place special.';
         return '';
-      case 7:
+      case 6:
         if (!data.pricing.nightly) return 'Base nightly rate is required — enter the price per night for your property.';
         return '';
-      case 8:
+      case 7:
         if (!data.rules.instructions?.trim()) return 'Check-in instructions are required — guests need to know how to access your property.';
         return '';
       default:
@@ -605,188 +493,8 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     );
 
     // STEP 2
-    if (step === 2) {
-      const extractComponents = (components: any[]) => {
-        const get = (type: string) =>
-          (components || []).find((c: any) => c.types.includes(type))?.long_name || '';
-        const city = get('locality') || get('administrative_area_level_2') || '';
-        const rawCounty = (get('administrative_area_level_1') || get('administrative_area_level_2') || '').replace(/ county$/i, '').trim();
-        const neighbourhood = [
-          get('sublocality_level_1'), get('sublocality_level_2'), get('sublocality'), get('neighborhood'),
-        ].filter(Boolean).find(n =>
-          n.toLowerCase() !== city.toLowerCase() && n.toLowerCase() !== rawCounty.toLowerCase()
-        ) || '';
-        const matched = COUNTIES.find(c =>
-          rawCounty.toLowerCase() === c.toLowerCase() ||
-          rawCounty.toLowerCase().includes(c.toLowerCase()) ||
-          c.toLowerCase().includes(rawCounty.toLowerCase())
-        ) || '';
-        return { city, neighbourhood, county: matched };
-      };
-
-      const handleGeocode = (components: any[]) => {
-        const { city, neighbourhood, county } = extractComponents(components);
-        upd('location', {
-          ...data.location,
-          ...(neighbourhood ? { neighbourhood } : {}),
-          ...(city ? { city } : {}),
-          ...(county ? { county } : {}),
-        });
-      };
-
-      const handlePlaceSelect = (r: any) => {
-        addrSelectingRef.current = true;
-        const G = (window as any).google?.maps;
-        if (!G?.places) { addrSelectingRef.current = false; return; }
-        new G.places.PlacesService(document.createElement('div')).getDetails(
-          { placeId: r.place_id, fields: ['name', 'geometry', 'address_components', 'formatted_address'] },
-          (place: any) => {
-            addrSelectingRef.current = false;
-            if (!place?.geometry) return;
-            const lat = parseFloat(place.geometry.location.lat().toFixed(6));
-            const lng = parseFloat(place.geometry.location.lng().toFixed(6));
-            const { city, neighbourhood, county } = extractComponents(place.address_components || []);
-            upd('location', {
-              ...data.location,
-              address: place.name || place.formatted_address?.split(',')[0].trim() || '',
-              neighbourhood, city, county, lat, lng,
-            });
-            setAddrDropdown(false);
-          }
-        );
-      };
-
-      return (
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Where is your property located?</h2>
-          <p className="text-sm text-gray-500 mb-4">Guests won't see your exact address until their booking is confirmed.</p>
-          <div className="space-y-4">
-
-            {/* ── Search bar (hidden in manual mode) ── */}
-            {!manualEntry && (
-              <div className="relative">
-                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input
-                  value={data.location.address}
-                  onChange={e => {
-                    const q = e.target.value;
-                    upd('location', { ...data.location, address: q });
-                    if (addrTimerRef.current) clearTimeout(addrTimerRef.current);
-                    if (!q.trim() || q.length < 3) { setAddrResults([]); setAddrDropdown(false); return; }
-                    addrTimerRef.current = setTimeout(() => {
-                      const G = (window as any).google?.maps;
-                      if (!G?.places) return;
-                      new G.places.AutocompleteService().getPlacePredictions(
-                        { input: q, componentRestrictions: { country: 'ke' } },
-                        (preds: any[]) => {
-                          if (preds?.length) { setAddrResults(preds); setAddrDropdown(true); }
-                          else { setAddrResults([]); setAddrDropdown(false); }
-                        }
-                      );
-                    }, 350);
-                  }}
-                  onBlur={() => { if (!addrSelectingRef.current) setTimeout(() => setAddrDropdown(false), 200); }}
-                  onFocus={() => addrResults.length > 0 && setAddrDropdown(true)}
-                  placeholder="Search for your property or address…"
-                  className="w-full pl-10 pr-4 py-3.5 border border-gray-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#FF385C] focus:border-[#FF385C] shadow-sm bg-white"
-                  autoComplete="off"
-                />
-                {addrDropdown && addrResults.length > 0 && (
-                  <div className="absolute z-50 top-full mt-1 w-full bg-white rounded-xl border border-gray-200 shadow-2xl overflow-hidden">
-                    {addrResults.map((r, i) => (
-                      <button key={i} type="button" onMouseDown={() => handlePlaceSelect(r)}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 flex items-start gap-3">
-                        <span className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{r.structured_formatting?.main_text || r.description}</p>
-                          <p className="text-xs text-gray-500 truncate">{r.structured_formatting?.secondary_text || ''}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── Map ── */}
-            <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm" style={{ height: 420 }}>
-              <GoogleMapView
-                lat={data.location.lat}
-                lng={data.location.lng}
-                onChange={(lat, lng) => upd('location', { ...data.location, lat, lng })}
-                onGeocode={handleGeocode}
-              />
-            </div>
-            <p className="text-xs text-gray-500 flex items-center gap-1.5">
-              <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#FF385C' }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              Drag the pin or click anywhere on the map to set the exact position.
-              {data.location.lat && <span className="ml-2 font-mono text-gray-400">{data.location.lat.toFixed(5)}, {data.location.lng?.toFixed(5)}</span>}
-            </p>
-
-            {/* ── Address details card ── */}
-            <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Address details</p>
-                <button type="button" onClick={() => setManualEntry(v => !v)}
-                  className="text-xs font-medium hover:underline" style={{ color: '#FF385C' }}>
-                  {manualEntry ? '← Search instead' : "Can't find it? Enter manually"}
-                </button>
-              </div>
-
-              {manualEntry && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Property name / Street address <span className="text-red-500">*</span></label>
-                  <input
-                    value={data.location.address}
-                    onChange={e => upd('location', { ...data.location, address: e.target.value })}
-                    placeholder="e.g. Groovehart Apartments, 45 Ngong Road"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:border-[#FF385C] bg-white"
-                    style={{ '--tw-ring-color': '#FF385C' } as any}
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Estate / Area <span className="text-red-500">*</span></label>
-                  <input value={data.location.neighbourhood}
-                    onChange={e => upd('location', { ...data.location, neighbourhood: e.target.value })}
-                    placeholder="e.g. Kilimani"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:border-[#FF385C] bg-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">City / Town <span className="text-red-500">*</span></label>
-                  <input value={data.location.city}
-                    onChange={e => upd('location', { ...data.location, city: e.target.value })}
-                    placeholder="e.g. Nairobi"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:border-[#FF385C] bg-white" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">County <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <select value={data.location.county}
-                    onChange={e => upd('location', { ...data.location, county: e.target.value })}
-                    className="w-full appearance-none px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:border-[#FF385C] pr-9">
-                    <option value="">Select county…</option>
-                    {COUNTIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      );
-    }
-
-    // STEP 3
     const BED_TYPES = ['Double Bed','King Bed','Queen Bed','Single Bed','Sofa Bed','Bunk Bed','Floor Mattress'];
-    const cntStepper = (key: 'bedrooms'|'bathrooms'|'maxGuests') => (
+    const cntStepper = (key: 'bathrooms'|'maxGuests') => (
       <div className="flex items-center gap-3">
         <button onClick={() => { const v = data.basics[key]; if (v > 1) upd('basics', { ...data.basics, [key]: v - 1 }); }}
           className="w-11 h-11 sm:w-9 sm:h-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:border-gray-900 transition-all text-xl font-bold">−</button>
@@ -795,14 +503,14 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
           className="w-11 h-11 sm:w-9 sm:h-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-600 hover:border-gray-900 transition-all text-xl font-bold">+</button>
       </div>
     );
-    if (step === 3) return (
+    if (step === 2) return (
       <div className="lg:px-[300px]">
         <h2 className="text-2xl font-bold text-gray-900 mb-1">Share the basics</h2>
         <p className="text-sm text-gray-500 mb-6">All fields below are required.</p>
 
-        {/* Bedrooms / Bathrooms / Max Guests card */}
+        {/* Bathrooms / Max Guests card */}
         <div className="border border-gray-200 rounded-xl mb-6">
-          {([['Bedrooms','bedrooms'],['Bathrooms','bathrooms'],['Max Guests','maxGuests']] as [string,'bedrooms'|'bathrooms'|'maxGuests'][]).map(([label, key], i, arr) => (
+          {([['Bathrooms','bathrooms'],['Max Guests','maxGuests']] as [string,'bathrooms'|'maxGuests'][]).map(([label, key], i, arr) => (
             <div key={key} className={`flex items-center justify-between px-5 py-4 ${i < arr.length - 1 ? 'border-b border-gray-200' : ''}`}>
               <span className="font-semibold text-gray-900 text-sm">{label} <span className="text-red-500">*</span></span>
               {cntStepper(key)}
@@ -872,8 +580,8 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       </div>
     );
 
-    // STEP 4
-    if (step === 4) return (
+    // STEP 3
+    if (step === 3) return (
       <div className="lg:px-[200px]">
         <h2 className="text-2xl font-bold text-gray-900 mb-1">What amenities do you offer?</h2>
         <p className="text-sm text-gray-500 mb-6">
@@ -904,8 +612,8 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       </div>
     );
 
-    // STEP 5
-    if (step === 5) return (
+    // STEP 4
+    if (step === 4) return (
       <div className="lg:px-[200px]">
         <h2 className="text-2xl font-bold text-gray-900 mb-1">Add photos of your place</h2>
         <p className="text-sm text-gray-500 mb-6">Listings with professional-looking photos get up to 40% more bookings. Drag to reorder — the first photo is the cover. <span className="text-red-500 font-medium">* At least 1 photo required.</span></p>
@@ -975,8 +683,8 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       </div>
     );
 
-    // STEP 6
-    if (step === 6) return (
+    // STEP 5
+    if (step === 5) return (
       <div className="lg:px-[200px] space-y-5">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">Create your listing title &amp; description</h2>
@@ -1058,7 +766,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       </div>
     );
 
-    // STEP 7
+    // STEP 6
     const kshField = (key: string) => (
       <div className="flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden focus-within:ring-1 focus-within:ring-green-600 focus-within:border-green-600">
         <span className="px-3 text-sm text-gray-500 shrink-0">KSh</span>
@@ -1070,7 +778,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
         />
       </div>
     );
-    if (step === 7) return (
+    if (step === 6) return (
       <div className="lg:px-[200px] space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">Set your pricing</h2>
@@ -1165,7 +873,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       </div>
     );
 
-    // STEP 8
+    // STEP 7
     const CHECK_METHODS = [
       { id: 'keybox',    icon: '🔑', label: 'Key Box' },
       { id: 'smartlock', icon: '📱', label: 'Smart Lock' },
@@ -1176,7 +884,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     const PRESET_RULES = ['No parties or events','No smoking','No pets','Quiet hours 10pm–7am','No unregistered guests','Remove shoes at entrance','Sort rubbish before leaving'];
     const CHECK_IN_TIMES  = ['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
     const CHECK_OUT_TIMES = ['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00'];
-    if (step === 8) return (
+    if (step === 7) return (
       <div className="lg:px-[200px] space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">House rules &amp; check-in</h2>
@@ -1328,14 +1036,14 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       </div>
     );
 
-    // STEP 9
+    // STEP 8
     const reviewRow = (label: string, value: React.ReactNode, bold = false) => (
       <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
         <span className="text-sm text-gray-500">{label}</span>
         <span className={`text-sm ${bold ? 'font-bold text-gray-900' : 'text-gray-800'}`}>{value}</span>
       </div>
     );
-    if (step === 9) return (
+    if (step === 8) return (
       <div className="lg:px-[200px] space-y-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">Review your listing</h2>
@@ -1391,12 +1099,6 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
         <div className="border border-gray-200 rounded-xl px-5 pt-4 pb-1">
           <h3 className="text-lg font-bold text-gray-900 mb-2">{data.title || 'Untitled Property'}</h3>
           {reviewRow('Type', data.propertyType || '—', true)}
-          {reviewRow('Location', (
-            <span className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
-              {[data.location.neighbourhood, data.location.city, data.location.county].filter(Boolean).join(', ') || '—'}
-            </span>
-          ))}
           {reviewRow('Bedrooms', `${data.basics.bedrooms} bedroom${data.basics.bedrooms !== 1 ? 's' : ''}`, true)}
           {reviewRow('Bathrooms', data.basics.bathrooms)}
           {reviewRow('Max Guests', data.basics.maxGuests)}

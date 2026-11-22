@@ -127,7 +127,10 @@ export async function fetchUniversalStaySettings(): Promise<UniversalStaySetting
   }
 
   const data = profileRes.data;
-  if (!data) return defaults;
+  if (!data) {
+    console.error('[stay] universal settings fallback:', profileRes.error ?? 'profile not found');
+    return defaults;
+  }
 
   const settings: UniversalStaySettings = {
     businessName: data.business_name ?? defaults.businessName,

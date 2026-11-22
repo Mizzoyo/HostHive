@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { normalizeUniversalAmenities } from '@/lib/amenities';
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 const DEFAULT_HOUSE_RULES = {
   noSmoking: true,
@@ -150,6 +151,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: { message: propertiesError.message } }, { status: 400 });
     }
 
+    revalidatePath('/stay', 'layout');
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[settings/universal] Error:', err);

@@ -3,3 +3,5 @@
 
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS default_amenities JSONB DEFAULT '[]';
+
+NOTIFY pgrst, 'reload schema';

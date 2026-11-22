@@ -185,6 +185,7 @@ interface Props {
 
 export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initialStep = 1, propertyId }: Props) {
   const isEdit = mode === 'edit';
+  const TOTAL = 7;
   const [propertyTypes, setPropertyTypes] = useState<{ id: string; label: string; desc: string }[]>(DEFAULT_PROPERTY_TYPES);
   const [typesLoading, setTypesLoading] = useState(true);
 
@@ -205,8 +206,8 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       .finally(() => setTypesLoading(false));
   }, []);
 
-  const [step, setStep] = useState(Math.max(1, Math.min(initialStep, 9)));
-  const [highestStep, setHighestStep] = useState(Math.max(1, Math.min(initialStep, 9)));
+  const [step, setStep] = useState(Math.max(1, Math.min(initialStep, TOTAL)));
+  const [highestStep, setHighestStep] = useState(isEdit ? TOTAL : Math.max(1, Math.min(initialStep, TOTAL)));
   const [dir, setDir] = useState<'fwd' | 'bwd'>('fwd');
   const [animating, setAnimating] = useState(false);
   const [data, setData] = useState<WizardFormData>({
@@ -245,7 +246,6 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
   const contentRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const TOTAL = 7;
 
   const universalAmenityIds = useMemo(() => new Set(universalAmenities.map(a => a.id)), [universalAmenities]);
   const roomAmenityOptions = useMemo(
@@ -385,7 +385,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       const res = await fetch('/api/properties/wizard', {
         method: propertyId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(propertyId ? { id: propertyId } : {}), ...data, status: 'draft', setup_step: step }),
+        body: JSON.stringify({ ...(propertyId ? { id: propertyId } : {}), ...data, ...(isEdit ? {} : { status: 'draft', setup_step: step }) }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -406,7 +406,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       const res = await fetch('/api/properties/wizard', {
         method: propertyId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(propertyId ? { id: propertyId } : {}), ...data, status: 'active' }),
+        body: JSON.stringify({ ...(propertyId ? { id: propertyId } : {}), ...data, ...(isEdit ? {} : { status: 'active' }) }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -1153,8 +1153,36 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           Save & Exit
         </button>
-        <span className="text-sm text-gray-400">Auto-saved</span>
+        {isEdit ? (
+          <button onClick={handlePublish} disabled={publishing}
+            className="flex items-center gap-1.5 px-5 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
+            {publishing ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+            ) : null}
+            {publishing ? 'Saving…' : 'Save Changes'}
+          </button>
+        ) : (
+          <span className="text-sm text-gray-400">Auto-saved</span>
+        )}
       </div>
+
+      {/* ── Mobile step tabs (edit mode) ── */}
+      {isEdit && (
+        <div className="lg:hidden flex gap-1.5 overflow-x-auto px-4 py-2.5 border-b border-gray-100 shrink-0">
+          {STEP_NAMES.map((name, i) => {
+            const n = i + 1;
+            const active = step === n;
+            return (
+              <button key={n} onClick={() => navigate(n)}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">

@@ -1,0 +1,284 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays,
+  CircleParking, Clock3, Coffee, Flower2, House, LockKeyhole, Minus,
+  Plus, ShieldCheck, Sparkles, Utensils, Wifi, X,
+} from 'lucide-react';
+
+type Room = { name: string; type: string; poolside: boolean; url: string; photos: string[] };
+
+const photoBase =
+  'https://hihmgvaaidqhdimauthk.supabase.co/storage/v1/object/public/property-photos/626db9cc-8f80-422a-a70b-1a68b28a833a/tmp/';
+
+const toInputDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function formatDate(date: string) {
+  if (!date) return 'Select a date';
+  return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+const roomData: Room[] = [
+  { name: 'R3', type: 'Studio', poolside: true, url: '/stay/rooms/r3-362f23b5-734f-4510-949d-08909d556c48', photos: ['1795078191666_awerxk66bvq.jpeg', '1795078189936_7yijtsf5dvl.jpeg', '1795078190883_dmd12owcmo9.jpeg', '1795078192449_fec9bobjfwa.jpeg', '1795078193239_ttfictwb12.jpeg'] },
+  { name: 'R6', type: 'Studio', poolside: true, url: '/stay/rooms/r6-149f6e3b-3f24-4904-91b6-9ef767157bb7', photos: ['1795078753591_5ib4sziet1n.jpeg', '1795078754421_avndoitms4t.jpeg', '1795078755119_jsgyfl3zla.jpeg', '1795078755822_8gd1ttmczbb.jpeg', '1795078756549_nud8kf3nep.jpeg'] },
+  { name: 'Room 14/2', type: 'Budget room', poolside: false, url: '/stay/rooms/room-142-0563b8c3-6fcb-4afa-a567-c5fa1526ab3c', photos: ['1781088163917_am27p0cs2y9.jpg', '1781088170866_7apejcye8mw.jpg', '1781088176491_qym37u5u2zq.jpg', '1781088182312_d0sfoi9livs.jpg', '1781088188582_4jg0m4y9dk.jpg'] },
+  { name: 'R15', type: 'One Bedroom', poolside: true, url: '/stay/rooms/r15-1b25fae5-cd58-45c6-8428-c3c272d6114a', photos: ['1780413083441_rqy05awi89f.jpg', '1780413083441_rqy05awi89f.jpg', '1780413087213_g8h2cl5ybov.jpg', '1780413087213_g8h2cl5ybov.jpg', '1780413090229_1qwwvuazirjk.jpg'] },
+  { name: 'G15', type: 'Studio', poolside: false, url: '/stay/rooms/g15-26b8a4a8-8376-4ef1-a214-ef26f7f0c8c', photos: ['1783432125027_p1ztpxw4lds.jpg', '1783432128300_m8f0tmn5m5f.jpg', '1783432130726_nfvnubp5smf.jpg', '1783432133316_ck2lquht8q.jpg', '1783432135736_v2lqxf8wzc.jpg'] },
+  { name: 'Garage 16', type: 'Studio', poolside: false, url: '/stay/rooms/garage-16-86bf5984-5017-4e1b-8333-f818d917fee7', photos: ['1780389648309_51p88j4wgzs.jpg', '1780389653741_v96q1pnv5a.jpg', '1780389657774_1u76njj1vn7.jpg', '1780389661122_h0t23d2rbi.jpg', '1780389665724_w4492ocj0td.jpg'] },
+  { name: 'Jokowiny', type: 'Studio', poolside: false, url: '/stay/rooms/jokowiny-33e6516e-297d-4cee-a58a-612c460e9bee', photos: ['1779734171428_3ld0pgh7kfn.jpg', '1779734172890_9y9wxv3ytvq.jpg', '1779734174000_gvqvw6z0wqk.jpg', '1779734174832_1dnqltogmys.jpg', '1779734175934_1yal19530ks.jpg'] },
+  { name: 'R14', type: 'One Bedroom', poolside: true, url: '/stay/rooms/r14-0d400c75-a7f5-439a-858f-555a48465822', photos: ['1780412720430_e9nffcgq18.jpg', '1780412703332_7fx9qnulee9.jpg', '1780412706802_i6e41n3r8sc.jpg', '1780412709338_ymw2opfp40o.jpg', '1780412712513_mkkdc21yz5p.jpg'] },
+  { name: 'R20', type: 'One Bedroom', poolside: true, url: '/stay/rooms/r20-ecf7b319-9bde-4bae-8040-973124b2b5ad', photos: ['1783508920481_tpopclfm1bc.jpg', '1783508922266_htbotj3edej.jpg', '1783508923522_8rk9qve8pen.jpg', '1783508925235_ztrkc623t1.jpg', '1783508926264_5djs8j6lnpf.jpg'] },
+  { name: 'F13', type: 'Executive Studio', poolside: false, url: '/stay/rooms/f13-ec6556c3-2e3a-4aff-af75-f6740f234208', photos: ['1783707661667_hm284l90cd.jpg', '1783707672499_eb7rltags3.jpg', '1783707683539_eniard2ybqt.jpg', '1783707705343_ic2jpl5s0h.jpg', '1783707717335_s29klgxtkb.jpg'] },
+  { name: 'Omuga', type: 'Studio', poolside: true, url: '/stay/rooms/omuga-e91b75bb-bb87-4484-89a8-e8c27cc44f48', photos: ['1780412159192_wgtzgsiwgb.jpg', '1780412140127_35bu8succt9.jpg', '1780412143452_xka47v6q3j9.jpg', '1780412145570_v5b2g8hsfz.jpg', '1780412148583_r71atobjxvd.jpg'] },
+  { name: 'R12', type: 'Executive Studio', poolside: true, url: '/stay/rooms/r12-3196cf98-1998-43ac-aee5-3ac24f94a9b6', photos: ['1783522157936_2m20evy6ekf.jpg', '1783522162036_ydf35ckf1o.jpg', '1783522165484_lax7owd0lnd.jpg', '1783522169294_92om9jgu.jpg', '1783522172464_uozbg0567rn.jpg'] },
+  { name: 'R17', type: 'One Bedroom', poolside: true, url: '/stay/rooms/r17-ddd1d002-a2b3-447c-bdf8-dc5bbc94d58c', photos: ['1795254048505_62tdz1vsn3x.jpeg', '1795254040404_fow7tmctkt.jpeg', '1795254041730_q1gm5bfwiu.jpeg', '1795254042877_s60v4136ky7.jpeg', '1795254043498_gnvmujjbgx.jpeg'] },
+  { name: 'Cottage 16', type: 'One Bedroom', poolside: false, url: '/stay/rooms/cottage-16-7b28aa8b-3b6e-4020-a334-0ee7cfeebbd8', photos: ['1780390343004_ueayq35qjzh.jpg', '1780390344201_4zgr333eqdc.jpg', '1780390345428_3qijk12s2t.jpg', '1780390346200_uolbmv2xy5a.jpg', '1780390346946_mpirmc9a0fd.jpg'] },
+  { name: 'Robert Ouko', type: 'One Bedroom', poolside: false, url: '/stay/rooms/robert-ouko-d2b8e034-1f82-44d0-a5c2-feeaa85867d2', photos: ['1794469193271_oa32nbas11.jpeg', '1794469186365_15385x9ranl.jpeg', '1794469187732_2xpu3ys8otu.jpeg', '1794469188742_kep205a5yf.jpeg', '1794469189732_gfvq4ao728.jpeg'] },
+  { name: 'R23', type: 'One Bedroom', poolside: true, url: '/stay/rooms/r23-0490368d-7bde-4a1c-bb36-1bc3563cea66', photos: ['1795252956355_0gttsfeybym.jpeg', '1795252957659_65xhp0zebuy.jpeg', '1795252958907_4l4j020ahio.jpeg', '1795252959526_hlr247f0txc.jpeg', '1795252960204_7u53h4k3gq9.jpeg'] },
+  { name: 'Front 16', type: 'Four Bedroom', poolside: false, url: '/stay/rooms/front-16-e7edfd4a-772c-4d6e-af47-2e7b6b5a83c5', photos: ['1780482735495_mawfy5gw49.jpg', '1780482737876_ea9od89hccg.jpg', '1780482739440_f7euzr5dd7g.jpg', '1780482740258_5szi7kiztw7.jpg', '1780482742943_cvnlgnjauxe.jpg'] },
+];
+
+function Counter({
+  label, value, min, onChange,
+}: { label: string; value: number; min: number; onChange: (value: number) => void }) {
+  return (
+    <div className="field-group">
+      <label>{label}</label>
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        className="field-control"
+      >
+        <button
+          type="button"
+          aria-label={`Decrease ${label.toLowerCase()}`}
+          onClick={() => onChange(Math.max(min, value - 1))}
+          style={{ display: 'grid', placeItems: 'center', width: 26, height: 30, border: 0, background: 'transparent', color: '#31503b', cursor: 'pointer' }}
+        >
+          <Minus size={14} />
+        </button>
+        <span aria-live="polite" data-testid={`text-${label.toLowerCase()}`}>{value}</span>
+        <button
+          type="button"
+          aria-label={`Increase ${label.toLowerCase()}`}
+          onClick={() => onChange(value + 1)}
+          style={{ display: 'grid', placeItems: 'center', width: 26, height: 30, border: 0, background: 'transparent', color: '#31503b', cursor: 'pointer' }}
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RoomCard({ room, index }: { room: Room; index: number }) {
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
+  const url = room.photos[photoIndex] ? `${photoBase}${room.photos[photoIndex]}` : '';
+  const shift = (step: number) =>
+    setPhotoIndex((current) => (current + step + room.photos.length) % room.photos.length);
+  return (
+    <article className="room-card" data-testid={`card-room-${room.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
+      <div
+        className="room-gallery"
+        onTouchStart={(event) => {
+          setTouch({ x: event.touches[0].clientX, y: event.touches[0].clientY });
+        }}
+        onTouchEnd={(event) => {
+          if (touch) {
+            const dx = event.changedTouches[0].clientX - touch.x;
+            if (Math.abs(dx) > 42) shift(dx < 0 ? 1 : -1);
+            setTouch(null);
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') { event.preventDefault(); shift(-1); }
+          if (event.key === 'ArrowRight') { event.preventDefault(); shift(1); }
+        }}
+        tabIndex={0}
+        aria-label={`${room.name} photo gallery. Use left and right arrow keys to change photos.`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={url} alt={`${room.name} ${room.type} — photo ${photoIndex + 1}`} loading={index < 3 ? 'eager' : 'lazy'} />
+        {room.poolside && <span className="room-tag">Poolside</span>}
+        <button type="button" className="gallery-arrow gallery-prev" aria-label={`Previous photo of ${room.name}`} onClick={() => shift(-1)} data-testid={`button-photo-prev-${index}`}><ArrowLeft size={17} /></button>
+        <button type="button" className="gallery-arrow gallery-next" aria-label={`Next photo of ${room.name}`} onClick={() => shift(1)} data-testid={`button-photo-next-${index}`}><ArrowRight size={17} /></button>
+        <span className="gallery-count" aria-live="polite">{photoIndex + 1} / {room.photos.length}</span>
+      </div>
+      <div className="room-body">
+        <span className="room-type">{room.type}</span>
+        <h3>{room.name}</h3>
+        <p className="room-detail">View room details, features and current options on the live Kogelo Suites site.</p>
+        <div className="room-card-foot">
+          <span>Room details & live rates</span>
+          <a className="room-link" href={room.url} target="_blank" rel="noreferrer" aria-label={`See details for ${room.name}`}>
+            See details <ArrowUpRight size={14} />
+          </a>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default function StayHomeClient() {
+  const [checkIn, setCheckIn] = useState(() => toInputDate(new Date()));
+  const [checkOut, setCheckOut] = useState(() => toInputDate(new Date(Date.now() + 86400000)));
+  const [adults, setAdults] = useState(2);
+  const [children, setChildren] = useState(0);
+  const [roomCount, setRoomCount] = useState(1);
+  const [showBookingInfo, setShowBookingInfo] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'poolside'>('all');
+
+  const liveRoomsUrl = `/stay/rooms?checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${adults + children}&rooms=${roomCount}`;
+  const bookingSummary = `${formatDate(checkIn)} — ${formatDate(checkOut)} · ${adults} adult${adults === 1 ? '' : 's'} · ${children} child${children === 1 ? '' : 'ren'} · ${roomCount} room${roomCount === 1 ? '' : 's'}`;
+  const shownRooms = filter === 'poolside' ? roomData.filter((room) => room.poolside) : roomData;
+
+  const amenities = [
+    { icon: Sparkles, title: 'Swimming pool', note: 'Relax in our pristine outdoor pool' },
+    { icon: Utensils, title: 'Restaurant', note: 'Authentic Kenyan & continental cuisine' },
+    { icon: Wifi, title: 'Free WiFi', note: 'High-speed internet throughout' },
+    { icon: CircleParking, title: 'Secure parking', note: 'Ample guarded parking on-site' },
+    { icon: Coffee, title: 'Room service', note: 'Order meals delivered to your room' },
+    { icon: Flower2, title: 'Garden lounge', note: 'Lush outdoor seating & relaxation' },
+    { icon: ShieldCheck, title: '24/7 security', note: 'Manned gate with CCTV' },
+    { icon: House, title: 'Daily housekeeping', note: 'Fresh linen and clean rooms every day' },
+  ];
+
+  return (
+    <main className="stay-shell">
+      <header className="stay-topbar">
+        <a className="stay-brand" href="#top" aria-label="Kogelo Suites home">
+          <span className="brand-mark">K</span>
+          <span><span className="brand-title">Kogelo Suites</span><span className="brand-sub">Stay a little longer</span></span>
+        </a>
+        <nav className="stay-nav" aria-label="Main navigation">
+          <a href="#rooms">Stay</a>
+          <a href="#amenities">Our place</a>
+          <a href="https://restaurant.kogelosuites.com/" target="_blank" rel="noreferrer">Dining</a>
+          <a className="nav-book" href="#booking"><CalendarDays size={15} /> Plan your stay</a>
+        </nav>
+      </header>
+
+      <section className="stay-hero" id="top">
+        <div className="stay-hero-copy">
+          <div className="eyebrow">A private compound in Kisumu</div>
+          <h1>Room to rest.<br /><em>Space to feel at home.</em></h1>
+          <p>Settle into a welcoming hideaway of studios and suites, tucked within one peaceful compound. Find a space that suits your stay, then check live dates with us.</p>
+          <div className="hero-links">
+            <a className="button-primary" href="#booking">Find your stay <ArrowDown size={16} /></a>
+            <a className="button-quiet" href="#rooms">Explore the rooms <ArrowRight size={15} /></a>
+          </div>
+        </div>
+        <div className="hero-visual" aria-label="Kogelo Suites property">
+          <div className="hero-image">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/hero.jpg" alt="A view of Kogelo Suites" fetchPriority="high" />
+          </div>
+          <div className="hero-stamp"><strong>17</strong><span>spaces to stay</span></div>
+          <div className="image-caption"><strong>Your own pace, your own space</strong>Studios, suites and a private compound</div>
+        </div>
+      </section>
+
+      <section className="booking-band" id="booking" aria-label="Plan your stay">
+        <div className="booking-panel">
+          <div className="field-group">
+            <label htmlFor="check-in">Check-in</label>
+            <input id="check-in" className="field-control" type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} data-testid="input-check-in" />
+          </div>
+          <div className="field-group">
+            <label htmlFor="check-out">Check-out</label>
+            <input id="check-out" className="field-control" type="date" min={checkIn} value={checkOut} onChange={(e) => setCheckOut(e.target.value)} data-testid="input-check-out" />
+          </div>
+          <Counter label="Adults" value={adults} min={1} onChange={setAdults} />
+          <Counter label="Children" value={children} min={0} onChange={setChildren} />
+          <Counter label="Rooms" value={roomCount} min={1} onChange={setRoomCount} />
+          <button className="button-primary book-action" type="button" onClick={() => setShowBookingInfo(true)} data-testid="button-check-availability">
+            Check live availability <ArrowRight size={16} />
+          </button>
+          <p className="booking-note">Your choices stay with you when you continue. Dates, space and rates are confirmed on our live booking site.</p>
+        </div>
+      </section>
+
+      <div className="facts-strip" aria-label="Stay highlights">
+        <div className="fact"><span className="fact-icon"><House size={17} /></span>17 studios & suites</div>
+        <div className="fact"><span className="fact-icon"><Sparkles size={17} /></span>9 poolside properties</div>
+        <div className="fact"><span className="fact-icon"><LockKeyhole size={17} /></span>Private compound</div>
+        <div className="fact"><span className="fact-icon"><Clock3 size={17} /></span>Made for a slower stay</div>
+      </div>
+
+      <section className="rooms-section" id="rooms">
+        <div className="section-head">
+          <div><div className="eyebrow">Choose your space</div><h2>A place for your kind of stay</h2></div>
+          <p>From easy-going studios to roomy suites, all set within one exclusive compound.</p>
+        </div>
+        <div className="room-controls">
+          <span className="room-count" data-testid="text-room-count">{filter === 'poolside' ? '9 poolside properties' : '17 spaces · studios to suites'}</span>
+          <div className="room-filters" role="group" aria-label="Filter room listings">
+            <button type="button" className={`filter-button ${filter === 'all' ? 'active' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')} data-testid="button-filter-all">All spaces</button>
+            <button type="button" className={`filter-button ${filter === 'poolside' ? 'active' : ''}`} aria-pressed={filter === 'poolside'} onClick={() => setFilter('poolside')} data-testid="button-filter-poolside">Poolside · 9</button>
+          </div>
+        </div>
+        <div className="rooms-grid">
+          {shownRooms.map((room, i) => <RoomCard key={room.name} room={room} index={i} />)}
+          {shownRooms.length === 0 && <div className="empty-rooms"><strong>No spaces found</strong>Try viewing all spaces.</div>}
+        </div>
+        <div className="hero-links" style={{ justifyContent: 'center', marginTop: 30 }}>
+          <button type="button" className="button-primary" onClick={() => setShowBookingInfo(true)}>Browse and book live <ArrowUpRight size={16} /></button>
+        </div>
+      </section>
+
+      <section className="amenities-section" id="amenities">
+        <div className="amenities-inner">
+          <div className="amenities-intro">
+            <div className="eyebrow">Everything you need</div>
+            <h2>Comfort, covered.</h2>
+            <p>Settle in, slow down and enjoy the thoughtful touches around the compound and in your room.</p>
+          </div>
+          <div className="amenities-list">
+            {amenities.map(({ icon: Icon, title, note }) => (
+              <div className="amenity" key={title} title={note}><Icon size={18} /><span>{title}</span></div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <footer className="stay-footer">
+        <div className="footer-inner">
+          <a className="stay-brand" href="#top"><span className="brand-mark">K</span><span><span className="brand-title">Kogelo Suites</span><span className="brand-sub">Stay a little longer</span></span></a>
+          <p>Studios, suites and a private compound.<br />Make yourself at home.</p>
+          <div className="footer-links">
+            <a href="#rooms">Explore rooms</a>
+            <a href="https://restaurant.kogelosuites.com/" target="_blank" rel="noreferrer">Dining</a>
+            <a href="#booking">Plan your stay</a>
+          </div>
+        </div>
+        <div className="live-note">Live rates and availability are checked on the Kogelo Suites booking site.</div>
+      </footer>
+
+      {showBookingInfo && (
+        <div
+          className="booking-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setShowBookingInfo(false); }}
+        >
+          <section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div className="modal-top">
+              <h2 id="modal-title">Let’s find your room</h2>
+              <button type="button" className="modal-close" onClick={() => setShowBookingInfo(false)} aria-label="Close availability details"><X size={17} /></button>
+            </div>
+            <p>Your dates and guest count are ready. Continue to Kogelo Suites to check live room availability, current rates and reservation details.</p>
+            <div className="modal-summary"><strong>Your selection</strong><br />{bookingSummary}</div>
+            <a className="button-primary modal-cta" href={liveRoomsUrl} target="_blank" rel="noreferrer" data-testid="link-live-rooms">
+              Continue to live room listings <ArrowUpRight size={16} />
+            </a>
+            <p className="modal-footnote">This preview does not take reservations or display live rates.</p>
+          </section>
+        </div>
+      )}
+    </main>
+  );
+}

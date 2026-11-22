@@ -1,9 +1,23 @@
 'use client';
 
 import Link from 'next/link';
+import { DM_Sans, Playfair_Display } from 'next/font/google';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+
+const dmSans = DM_Sans({
+  variable: '--font-dm-sans',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+});
+
+const playfair = Playfair_Display({
+  variable: '--font-playfair',
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  style: ['normal', 'italic'],
+});
 
 const NAV_LINKS = [
   {
@@ -66,6 +80,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   const pathname  = usePathname();
   const isPropertyPage = /^\/stay\/rooms\/[^/]+/.test(pathname);
   const isRoomsPage    = pathname === '/stay/rooms';
+  const isStayHome     = pathname === '/stay';
   const isCheckoutPage = pathname.startsWith('/stay/checkout');
   const isCartPage     = pathname.startsWith('/stay/book/cart');
   const router    = useRouter();
@@ -126,10 +141,10 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   }, [router, pathname]);
 
   return (
-    <div className="w-full min-h-screen flex flex-col" style={{ fontFamily: 'var(--font-sans), Plus Jakarta Sans, system-ui, sans-serif' }}>
+    <div className={`${dmSans.variable} ${playfair.variable} w-full min-h-screen flex flex-col`} style={{ fontFamily: 'var(--font-sans), Plus Jakarta Sans, system-ui, sans-serif' }}>
 
       {/* ── Top Navigation ── */}
-      {!isPropertyPage && <header className="fixed top-0 left-0 right-0 z-50" style={{ background: '#1e293b' }}>
+      {!isPropertyPage && !isStayHome && <header className="fixed top-0 left-0 right-0 z-50" style={{ background: '#1e293b' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
 
           {/* LEFT: back button (mobile rooms) + logo */}
@@ -302,7 +317,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
       )}
 
       {/* ── Page content ── */}
-      <main className={`w-full flex-1${isPropertyPage ? '' : ' pt-14'}`} style={{ overflowX: 'clip' }}>
+      <main className={`w-full flex-1${isPropertyPage || isStayHome ? '' : ' pt-14'}`} style={{ overflowX: 'clip' }}>
         {children}
       </main>
 
@@ -319,7 +334,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
       )}
 
       {/* ── Mobile sticky bottom nav ── */}
-      {!isPropertyPage && !isRoomsPage && !isCheckoutPage && !isCartPage && <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 flex items-stretch" style={{ background: '#1e293b' }}>
+      {!isPropertyPage && !isRoomsPage && !isCheckoutPage && !isCartPage && !isStayHome && <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 flex items-stretch" style={{ background: '#1e293b' }}>
         {NAV_LINKS.filter(l => {
           if (l.label === 'Rooms') return false;
           if (l.label === 'Trips' && !loggedIn) return false;
@@ -339,7 +354,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
       </nav>}
 
       {/* ── Footer (desktop only) ── */}
-      <footer className="hidden md:block text-white" style={{ background: '#0f172a' }}>
+      {!isStayHome && <footer className="hidden md:block text-white" style={{ background: '#0f172a' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-10">
 
           <div>
@@ -400,7 +415,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
             <p className="text-xs text-gray-600">Kogelo Suites &mdash; Milimani, Museum Road, Kisumu, Kenya</p>
           </div>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }

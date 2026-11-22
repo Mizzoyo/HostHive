@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Trash2, ShoppingCart, Home as HomeIcon } from 'lucide-react';
+import { roomTypeLabel } from '@/lib/stay/roomType';
 
 type CartItem = { property: any; qty: number };
 
@@ -97,7 +98,7 @@ export default function CartPage() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h3 className="font-bold text-gray-900 text-sm truncate">{p.name}</h3>
-                  <p className="text-xs text-gray-400 capitalize">{p.type || 'Room'}</p>
+                  <p className="text-xs text-gray-400 capitalize">{roomTypeLabel(p)}</p>
                 </div>
                 <button onClick={() => setQty(p.id, 0)} className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
                   <Trash2 className="w-4 h-4" />

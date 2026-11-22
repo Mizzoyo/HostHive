@@ -7,6 +7,7 @@ import { BedDouble, Droplets, Users, Heart, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import CardImageCarousel from '@/components/stay/CardImageCarousel';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
+import { roomTypeLabel } from '@/lib/stay/roomType';
 
 export default function WishlistPage() {
   const router = useRouter();
@@ -106,7 +107,7 @@ export default function WishlistPage() {
                 <div className="relative">
                   <CardImageCarousel photos={p.photos ?? []} alt={p.name} height="h-52" />
                   <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-xs font-bold text-white capitalize z-10" style={{ background: '#16a34a' }}>
-                    {p.type || 'Room'}
+                    {roomTypeLabel(p)}
                   </div>
                   {/* Remove from wishlist */}
                   <button

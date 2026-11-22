@@ -12,19 +12,9 @@ import type { StayProperty, UniversalStaySettings } from '@/lib/stay/fetchProper
 import { toRoomSlug } from '@/lib/stay/roomSlug';
 import { getSellOptions } from '@/lib/sellOptions';
 import { compareProperties } from '@/lib/propertySort';
+import { normalizeType } from '@/lib/stay/roomType';
 
 const ROOM_TYPES = ['All', 'Studio', 'Bedsitter', 'One Bedroom', 'Two Bedroom'];
-
-function normalizeType(t: string): string {
-  const m: Record<string, string> = {
-    'studio': 'Studio', 'bedsitter': 'Bedsitter',
-    '1br': 'One Bedroom', 'one-bedroom': 'One Bedroom', 'one bedroom': 'One Bedroom',
-    '2br': 'Two Bedroom', 'two-bedroom': 'Two Bedroom', 'two bedroom': 'Two Bedroom',
-  };
-  const key = (t || '').toLowerCase();
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return '';
-  return m[key] || (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
-}
 
 interface Props {
   initialProperties: StayProperty[];

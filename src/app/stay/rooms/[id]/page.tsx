@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import { MapPin, Clock, DoorOpen, ShieldOff, PawPrint, VolumeX } from 'lucide-react';
 import { publicSupabase } from '@/lib/supabase/public';
-import { isUUID, toRoomSlug, resolveRoomParam } from '@/lib/stay/roomSlug';
+import { toRoomSlug, resolveRoomParam } from '@/lib/stay/roomSlug';
+import { roomTypeLabel } from '@/lib/stay/roomType';
 import { fetchUniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { mergeAmenityLabels } from '@/lib/amenities';
 import { getSellOptions } from '@/lib/sellOptions';
@@ -94,8 +95,7 @@ export default async function RoomDetailPage({
   const photos    = photosResult.data?.map((p: any) => p.url) ?? (property.cover_photo ? [property.cover_photo] : []);
   const amenities = mergeAmenityLabels(universalSettings.amenities, amenitiesResult.data?.map((a: any) => a.name) ?? []);
 
-  const typeLabel = property.type && !isUUID(property.type)
-    ? property.type.charAt(0).toUpperCase() + property.type.slice(1) : 'Room';
+  const typeLabel = roomTypeLabel(property);
 
   const HOUSE_RULES = [
     { Icon: Clock,     label: 'Check-in from ' + (property.check_in_time  ?? '14:00') },

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { mergeAmenityLabels } from '@/lib/amenities';
 import { sortProperties } from '@/lib/propertySort';
 import { normalizeSellOptions } from '@/lib/sellOptions';
+import { roomTypeLabel } from '@/lib/stay/roomType';
 
 type PropStatus = 'active' | 'inactive' | 'maintenance' | 'draft' | 'blocked';
 
@@ -58,7 +59,7 @@ function dbRowToProperty(row: any): Property {
     unit_number: row.unit_number ?? null,
     created_at: row.created_at ?? null,
     name: row.name || row.title || 'Untitled',
-    type: bedsLabel,
+    type: roomTypeLabel(row),
     category: safeCategory,
     bedrooms: bedsLabel,
     bathrooms: row.bathrooms ?? 1,
@@ -112,35 +113,9 @@ const STATUS_DOT: Record<PropStatus, string> = {
 
 const STEP_LABELS = ['','Property Type','Location','Basics','Amenities','Photos','Title & Description','Pricing','Review & Publish'];
 
-const TYPES = ['All types', 'Studio', '1BR', '2BR', '3BR', 'Villa'];
 const STATUSES = ['All statuses', 'active', 'inactive', 'maintenance', 'draft'];
 
 type ViewMode = 'grid' | 'list';
-
-function propertyToWizardData(p: Property): Partial<WizardFormData> {
-  return {
-    propertyType: p.category.toLowerCase() === 'villa' ? 'villa' : p.category.toLowerCase() === 'studio' ? 'studio' : 'apartment',
-    title: p.name,
-    location: {
-      building: '', unit: '', floor: '',
-      neighbourhood: p.location.split(',')[0]?.trim() || '',
-      city: p.location.split(',').slice(-2, -1)[0]?.trim() || 'Nairobi',
-      county: p.location.split(',').pop()?.trim() || 'Nairobi',
-      address: p.location, lat: null, lng: null,
-    },
-    basics: {
-      bedrooms: parseInt(p.bedrooms) || 1,
-      bathrooms: 1, maxGuests: 2,
-      size: '', sizeUnit: 'sq m',
-      beds: [{ type: 'Double Bed', count: parseInt(p.bedrooms) || 1 }],
-    },
-    pricing: {
-      nightly: p.pricePerNight.toString(),
-      weekend: '', monthly: '', cleaning: '', deposit: '', extraGuest: '',
-      baseGuests: 2, minStay: '1 night', maxStay: 'No maximum', seasonal: [], sellOptions: [],
-    },
-  };
-}
 
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -276,6 +251,11 @@ export default function PropertiesPage() {
     if (filterStatus !== 'All statuses' && p.status !== filterStatus) return false;
     return true;
   })), [properties, search, filterType, filterStatus]);
+
+  const typeOptions = useMemo(
+    () => ['All types', ...Array.from(new Set(properties.map(p => p.type)))],
+    [properties]
+  );
 
   const activeCount = properties.filter(p => p.status === 'active').length;
 
@@ -678,7 +658,7 @@ export default function PropertiesPage() {
                 onChange={e => setFilterType(e.target.value)}
                 className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-gray-900 cursor-pointer"
               >
-                {TYPES.map(t => <option key={t}>{t}</option>)}
+                {typeOptions.map(t => <option key={t}>{t}</option>)}
               </select>
               <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
             </div>

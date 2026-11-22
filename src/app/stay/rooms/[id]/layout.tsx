@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { publicSupabase } from '@/lib/supabase/public';
 import { resolveRoomParam } from '@/lib/stay/roomSlug';
+import { roomTypeLabel } from '@/lib/stay/roomType';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://kogelosuites.com';
 
@@ -25,8 +26,7 @@ export async function generateMetadata(
   }
 
   const id = property.id;
-  const beds = property.bedrooms ?? 1;
-  const bedLabel = beds === 0 ? 'Studio' : beds === 1 ? '1-Bedroom' : `${beds}-Bedroom`;
+  const bedLabel = roomTypeLabel(property);
   const title = property.name ?? `${bedLabel} Suite`;
   const description =
     property.description ||

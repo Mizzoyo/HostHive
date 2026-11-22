@@ -7,14 +7,14 @@ import { createClient } from '@/lib/supabase/client';
 import CardImageCarousel from '@/components/stay/CardImageCarousel';
 import type { StayProperty } from '@/lib/stay/fetchProperties';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
+import { roomTypeLabel } from '@/lib/stay/roomType';
 
 function RoomCard({ property, wishlisted, onToggle }: {
   property: StayProperty;
   wishlisted: boolean;
   onToggle: (e: React.MouseEvent, id: string) => void;
 }) {
-  const beds = property.bedrooms ?? 1;
-  const badge = beds === 0 ? 'Studio' : beds === 1 ? '1 Bedroom' : `${beds} Bedrooms`;
+  const badge = roomTypeLabel(property);
   return (
     <Link href={`/stay/rooms/${toRoomSlug(property.slug, property.name, property.id)}`} className="group block">
       <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">

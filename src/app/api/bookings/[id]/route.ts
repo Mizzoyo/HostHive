@@ -48,6 +48,7 @@ export async function PATCH(
       payments = [],
       commission_amount,
       preserve_total,
+      sold_as_bedrooms,
     } = body;
 
     const { data: existing, error: fetchErr } = await supabase
@@ -110,6 +111,7 @@ export async function PATCH(
     }
 
     if (property_id !== undefined) updates.property_id = property_id;
+    if (sold_as_bedrooms !== undefined) updates.sold_as_bedrooms = Number(sold_as_bedrooms) || null;
     if (booking_source !== undefined) updates.booking_source = booking_source;
     if (notes !== undefined) updates.notes = notes;
     if (status !== undefined) updates.status = status;

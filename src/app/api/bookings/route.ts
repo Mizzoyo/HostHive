@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
       payment_amount = 0,
       payments = [],
       commission_amount,
+      sold_as_bedrooms,
     } = body;
+    const soldAsBedrooms = is_blocked ? null : (Number(sold_as_bedrooms) || null);
 
     if (!property_id || !check_in || !check_out) {
       return NextResponse.json({ error: 'property_id, check_in, and check_out are required' }, { status: 400 });
@@ -126,6 +128,7 @@ export async function POST(request: NextRequest) {
         status: is_blocked ? 'blocked' : status,
         booking_source: is_blocked ? 'blocked' : booking_source,
         notes,
+        ...(soldAsBedrooms ? { sold_as_bedrooms: soldAsBedrooms } : {}),
       })
       .select()
       .single();

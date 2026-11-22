@@ -4,6 +4,7 @@ import { publicSupabase } from '@/lib/supabase/public';
 import { isUUID, toRoomSlug, resolveRoomParam } from '@/lib/stay/roomSlug';
 import { fetchUniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { mergeAmenityLabels } from '@/lib/amenities';
+import { getSellOptions } from '@/lib/sellOptions';
 
 import RoomDetailGallery from '@/components/stay/room-detail/RoomDetailGallery';
 import RoomDetailBooking from '@/components/stay/room-detail/RoomDetailBooking';
@@ -63,13 +64,19 @@ export default async function RoomDetailPage({
   const { col, value } = resolveRoomParam(slug);
   const { data: property } = await publicSupabase
     .from('properties')
-    .select('id, name, type, description, location, city, county, bedrooms, bathrooms, max_guests, nightly_rate, check_in_time, check_out_time, cancellation_policy, house_rules, cover_photo, slug, status')
+    // '*' so sell_options is included when migration 36 has run, without breaking the page if it hasn't
+    .select('*')
     .eq(col, value)
     .eq('status', 'active')
     .single();
 
   if (!property) notFound();
   const id = property.id;
+  const sellOptions = getSellOptions(property);
+  const smallerOptions = sellOptions.filter(o => !o.isFull);
+  const alsoAs = smallerOptions.length > 0
+    ? `Also bookable as ${smallerOptions.map(o => o.label).join(' or ')}`
+    : '';
 
   const [photosResult, amenitiesResult, universalSettings] = await Promise.all([
     publicSupabase
@@ -114,6 +121,7 @@ export default async function RoomDetailPage({
           {property.bedrooms  ?? 1} bedroom{(property.bedrooms  ?? 1) !== 1 ? 's' : ''} &middot;&nbsp;
           {property.bathrooms ?? 1} bath{(property.bathrooms ?? 1) !== 1 ? 's' : ''}
         </p>
+        {alsoAs && <p className="text-sm font-semibold mb-4 -mt-2" style={{ color: '#16a34a' }}>{alsoAs}</p>}
         <div className="flex items-center gap-2 rounded-full px-4 py-2 w-fit" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
           <span className="text-sm font-semibold" style={{ color: '#16a34a' }}>Prices include all fees</span>
         </div>
@@ -130,6 +138,7 @@ export default async function RoomDetailPage({
             {property.bedrooms  ?? 1} bedroom{(property.bedrooms  ?? 1) !== 1 ? 's' : ''} &middot;&nbsp;
             {property.bathrooms ?? 1} bath{(property.bathrooms ?? 1) !== 1 ? 's' : ''}
           </p>
+          {alsoAs && <p className="text-sm font-semibold mt-0.5" style={{ color: '#16a34a' }}>{alsoAs}</p>}
         </div>
         <div className="flex items-center gap-2 rounded-full px-4 py-2 flex-shrink-0" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
           <span className="text-sm font-semibold" style={{ color: '#16a34a' }}>Prices include all fees</span>
@@ -222,6 +231,7 @@ export default async function RoomDetailPage({
               check_in_time:   property.check_in_time,
               check_out_time:  property.check_out_time,
             }}
+            options={sellOptions}
             initialCheckIn={initialCheckIn}
             initialCheckOut={initialCheckOut}
             initialGuests={initialGuests}

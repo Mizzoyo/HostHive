@@ -6,11 +6,13 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, BedDouble, Droplets, Users, Calendar, Moon, Tag } from 'lucide-react';
+import { findSellOption } from '@/lib/sellOptions';
 
 type Property = {
   id: string; name: string; type: string; nightly_rate: number;
   breakfast_rate: number;
   bedrooms: number; bathrooms: number; max_guests: number;
+  sell_options?: unknown;
   photos: string[]; location: string;
 };
 
@@ -32,6 +34,7 @@ function CheckoutContent() {
   const checkOut    = params.get('checkOut')   ?? '';
   const guests      = Number(params.get('guests') ?? 1);
   const rooms       = Number(params.get('rooms')  ?? 1);
+  const sellAsParam = params.get('sellAs');
 
   const nights = checkIn && checkOut && checkOut > checkIn
     ? Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000) : 0;
@@ -128,7 +131,7 @@ function CheckoutContent() {
         const raw = d.discounts ?? [];
         // Compute saving per discount against stayTotal (computed inline since state not yet set)
         const base = property
-          ? property.nightly_rate * nights * rooms
+          ? findSellOption(property, sellAsParam).nightly_rate * nights * rooms
           : 0;
         const withSavings: AppliedDiscount[] = raw.map((disc: { id: string; name: string; value_type: 'percentage' | 'fixed'; value: number }) => ({
           id:         disc.id,
@@ -146,7 +149,9 @@ function CheckoutContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propertyId, checkIn, authUser, authLoading, property]);
 
-  const stayTotal       = property ? property.nightly_rate * nights * rooms : 0;
+  const sellOption      = property ? findSellOption(property, sellAsParam) : null;
+  const rate            = sellOption?.nightly_rate ?? 0;
+  const stayTotal       = rate * nights * rooms;
   const breakfastTotal  = addBreakfast && property?.breakfast_rate ? property.breakfast_rate * guests * nights : 0;
   const totalDiscount   = appliedDiscounts.reduce((sum, d) => {
     const saving = d.value_type === 'percentage'
@@ -186,8 +191,11 @@ function CheckoutContent() {
           num_children:     0,
           room_details: [{
             property_id:   property.id,
-            property_name: property.name,
-            nightly_rate:  property.nightly_rate,
+            // Label shows in SMS, emails, receipts and My Bookings
+            property_name: sellOption && !sellOption.isFull ? `${property.name} (as ${sellOption.label})` : property.name,
+            nightly_rate:  rate,
+            sold_as_bedrooms: sellOption && !sellOption.isFull ? sellOption.bedrooms : null,
+            sold_as_label:    sellOption && !sellOption.isFull ? sellOption.label : null,
             qty:           rooms,
             nights,
             subtotal:      total,
@@ -340,10 +348,15 @@ function CheckoutContent() {
                 <div className="p-5 space-y-4">
                   {/* Room specs */}
                   <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{property.bedrooms} bed</span>
+                    <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{sellOption?.bedrooms ?? property.bedrooms} bed</span>
                     <span className="flex items-center gap-1"><Droplets className="w-3.5 h-3.5" />{property.bathrooms} bath</span>
-                    <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />up to {property.max_guests}</span>
+                    <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />up to {sellOption?.max_guests ?? property.max_guests}</span>
                   </div>
+                  {sellOption && !sellOption.isFull && (
+                    <p className="text-xs font-semibold rounded-lg px-3 py-2" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                      Booked as {sellOption.label}
+                    </p>
+                  )}
 
                   <div className="border-t border-gray-100 pt-4 space-y-2.5 text-sm">
                     <div className="flex justify-between text-gray-600">
@@ -390,7 +403,7 @@ function CheckoutContent() {
 
                   <div className="border-t border-gray-100 pt-4 space-y-2 text-sm">
                     <div className="flex justify-between text-gray-500">
-                      <span>KSh {property.nightly_rate.toLocaleString()} × {nights} night{nights !== 1 ? 's' : ''}{rooms > 1 ? ` × ${rooms}` : ''}</span>
+                      <span>KSh {rate.toLocaleString()} × {nights} night{nights !== 1 ? 's' : ''}{rooms > 1 ? ` × ${rooms}` : ''}</span>
                       <span>KSh {stayTotal.toLocaleString()}</span>
                     </div>
                     {addBreakfast && breakfastTotal > 0 && (

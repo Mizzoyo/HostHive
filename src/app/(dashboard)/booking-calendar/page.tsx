@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { getSellOptions, sellOptionLabel } from '@/lib/sellOptions';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -34,6 +35,7 @@ interface Booking {
   check_in: string;
   check_out: string;
   nights: number;
+  sold_as_bedrooms?: number | null;
   nightly_rate: number;
   cleaning_fee?: number;
   extra_fees?: number;
@@ -96,6 +98,7 @@ const EMPTY_FORM = {
   block_reason: '',
   // Step 1
   property_id: '',
+  sold_as_bedrooms: '', // '' = full house
   check_in: '',
   check_out: '',
   // Step 2
@@ -121,6 +124,9 @@ interface Property {
   unit_number?: string | null;
   nightly_rate?: number;
   cleaning_fee?: number;
+  bedrooms?: number;
+  max_guests?: number;
+  sell_options?: unknown;
 }
 
 function parseDate(s: string): Date {
@@ -247,6 +253,7 @@ export default function BookingCalendarPage() {
       guest_phone: b.guest_phone ?? '',
       guest_email: b.guest_email ?? '',
       property_id: b.property_id,
+      sold_as_bedrooms: b.sold_as_bedrooms ? String(b.sold_as_bedrooms) : '',
       check_in: b.check_in,
       check_out: b.check_out,
       nightly_rate: b.nightly_rate ? String(b.nightly_rate) : '',
@@ -271,6 +278,9 @@ export default function BookingCalendarPage() {
   };
 
   const setF = (k: string, v: string | boolean) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const formProperty = properties.find(p => p.id === form.property_id);
+  const formSellOptions = formProperty ? getSellOptions(formProperty) : [];
 
   const handleGuestSelect = (guestId: string) => {
     if (guestId) {
@@ -370,6 +380,10 @@ export default function BookingCalendarPage() {
         payment_amount: _paid,
         payments: _pmts,
         preserve_total: preserveTotal,
+        // Only send when relevant, so bookings still save if migration 36 hasn't run
+        ...(!form.is_blocked && (formSellOptions.length > 1 || editBooking?.sold_as_bedrooms)
+          ? { sold_as_bedrooms: form.sold_as_bedrooms ? Number(form.sold_as_bedrooms) : null }
+          : {}),
       };
       const url = modalMode === 'edit' ? `/api/bookings/${editBooking!.id}` : '/api/bookings';
       const method = modalMode === 'edit' ? 'PATCH' : 'POST';
@@ -651,6 +665,9 @@ export default function BookingCalendarPage() {
                       <div>
                         <p className="text-sm font-semibold text-gray-900">
                           {b.guest_name} — {prop?.name ?? '—'}
+                          {b.sold_as_bedrooms ? (
+                            <span className="ml-2 text-[11px] font-medium text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">Sold as {sellOptionLabel(b.sold_as_bedrooms)}</span>
+                          ) : null}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
                           {b.check_in} → {b.check_out} · {b.nights} nights{b.booking_source && b.booking_source !== 'blocked' ? ` · ${b.booking_source}` : ''}
@@ -758,6 +775,7 @@ export default function BookingCalendarPage() {
                       setForm(f => ({
                         ...f,
                         property_id: pid,
+                        sold_as_bedrooms: '',
                         nightly_rate: prop?.nightly_rate ? String(prop.nightly_rate) : f.nightly_rate,
                         cleaning_fee: prop?.cleaning_fee ? String(prop.cleaning_fee) : f.cleaning_fee,
                       }));
@@ -766,6 +784,24 @@ export default function BookingCalendarPage() {
                       {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
+
+                  {!form.is_blocked && formSellOptions.length > 1 && (
+                    <div>
+                      <label className={LBL}>Sell as</label>
+                      <select value={form.sold_as_bedrooms} onChange={e => {
+                        const v = e.target.value;
+                        const opt = formSellOptions.find(o => (o.isFull ? '' : String(o.bedrooms)) === v);
+                        setForm(f => ({ ...f, sold_as_bedrooms: v, nightly_rate: opt ? String(opt.nightly_rate) : f.nightly_rate }));
+                      }} className={INP}>
+                        {formSellOptions.map(o => (
+                          <option key={o.bedrooms} value={o.isFull ? '' : String(o.bedrooms)}>
+                            {o.label}{o.isFull ? ' (entire house)' : ''} · KES {o.nightly_rate.toLocaleString()}/night · up to {o.max_guests} guests
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-400 mt-1">The whole house is blocked for these dates whichever option you pick.</p>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>

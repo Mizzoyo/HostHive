@@ -28,20 +28,22 @@ export async function GET(request: NextRequest) {
     };
 
     // Properties
-    const { data: properties } = await supabase
+    const { data: properties, error: propErr } = await supabase
       .from('properties')
       .select('id, name, status')
       .eq('user_id', userId)
       .neq('status', 'draft');
+    if (propErr) throw propErr;
     const totalProperties = properties?.length ?? 0;
 
-    // Bookings in period (by check_in date)
-    const { data: bookings } = await supabase
+    // Bookings in period (by check_in date). select('*') so optional fee columns never break the query.
+    const { data: bookings, error: bkErr } = await supabase
       .from('bookings')
-      .select('id, status, check_in, check_out, total_amount, amount_paid, balance_due, payment_status, cleaning_fee, extra_fees, discount_amount, booking_source, created_at, nightly_rate, nights, property_id')
+      .select('*')
       .eq('user_id', userId)
       .gte('check_in', from)
       .lte('check_in', to);
+    if (bkErr) throw bkErr;
 
     const confirmed = (bookings ?? []).filter(b => !['cancelled', 'blocked', 'no_show'].includes(b.status));
     const cancelled = (bookings ?? []).filter(b => b.status === 'cancelled');
@@ -68,21 +70,23 @@ export async function GET(request: NextRequest) {
       .in('status', ['tentative', 'pending']);
 
     // Payment logs in period
-    const { data: payments } = await supabase
+    const { data: payments, error: payErr } = await supabase
       .from('payment_logs')
       .select('amount, payment_method, paid_at')
       .eq('user_id', userId)
       .gte('paid_at', from + 'T00:00:00.000Z')
       .lte('paid_at', to + 'T23:59:59.999Z');
+    if (payErr) throw payErr;
 
     // Bookings that overlap the selected period for occupancy (not just check-ins inside it)
-    const { data: occupancyBookings } = await supabase
+    const { data: occupancyBookings, error: occErr } = await supabase
       .from('bookings')
-      .select('property_id, check_in, check_out, nights, nightly_rate, cleaning_fee, extra_fees, discount_amount, total_amount, status')
+      .select('property_id, check_in, check_out, status')
       .eq('user_id', userId)
       .not('status', 'in', '(cancelled,no_show,blocked)')
       .lte('check_in', to)
       .gt('check_out', from);
+    if (occErr) throw occErr;
 
     const totalRevenue = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0);
     const mpesaRevenue = (payments ?? []).filter(p => p.payment_method === 'mpesa').reduce((s, p) => s + Number(p.amount), 0);
@@ -152,7 +156,7 @@ export async function GET(request: NextRequest) {
       .select('total_amount')
       .eq('user_id', userId)
       .gte('check_in', today)
-      .neq('status', 'cancelled');
+      .not('status', 'in', '(cancelled,no_show,blocked)');
     const projectedRevenue = (futureBookings ?? []).reduce((s, b) => s + Number(b.total_amount), 0);
 
     // Forecast occupancy: next 7 and 30 days
@@ -160,10 +164,10 @@ export async function GET(request: NextRequest) {
     const next30 = new Date(today); next30.setDate(next30.getDate() + 30);
 
     const { data: f7 } = await supabase.from('bookings').select('nights')
-      .eq('user_id', userId).neq('status', 'cancelled')
+      .eq('user_id', userId).not('status', 'in', '(cancelled,no_show,blocked)')
       .gte('check_in', today).lte('check_in', next7.toISOString().split('T')[0]);
     const { data: f30 } = await supabase.from('bookings').select('nights')
-      .eq('user_id', userId).neq('status', 'cancelled')
+      .eq('user_id', userId).not('status', 'in', '(cancelled,no_show,blocked)')
       .gte('check_in', today).lte('check_in', next30.toISOString().split('T')[0]);
 
     const f7Nights = (f7 ?? []).reduce((s, b) => s + Number(b.nights), 0);

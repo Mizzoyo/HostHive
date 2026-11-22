@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/client';
 import { amenityLabel } from '@/lib/amenities';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+/** A smaller bedroom configuration this house can also be sold as (only enabled ones are stored). */
+export interface WizardSellOption { bedrooms: number; nightly: string; maxGuests: string }
+
 export interface WizardFormData {
   propertyType: string;
   location: { building: string; unit: string; floor: string; neighbourhood: string; county: string; city: string; address: string; lat: number | null; lng: number | null };
@@ -16,7 +19,7 @@ export interface WizardFormData {
   descriptionSpace: string;
   descriptionAround: string;
   descriptionHost: string;
-  pricing: { nightly: string; weekend: string; monthly: string; cleaning: string; deposit: string; extraGuest: string; baseGuests: number; minStay: string; maxStay: string; seasonal: { name: string; start: string; end: string; price: string }[] };
+  pricing: { nightly: string; weekend: string; monthly: string; cleaning: string; deposit: string; extraGuest: string; baseGuests: number; minStay: string; maxStay: string; seasonal: { name: string; start: string; end: string; price: string }[]; sellOptions: WizardSellOption[] };
   publish: { availableFrom: string; group: string; status: string };
 }
 
@@ -31,7 +34,7 @@ const INITIAL: WizardFormData = {
   descriptionSpace: '',
   descriptionAround: '',
   descriptionHost: '',
-  pricing: { nightly: '', weekend: '', monthly: '', cleaning: '', deposit: '', extraGuest: '', baseGuests: 2, minStay: '1 night', maxStay: 'No maximum', seasonal: [] },
+  pricing: { nightly: '', weekend: '', monthly: '', cleaning: '', deposit: '', extraGuest: '', baseGuests: 2, minStay: '1 night', maxStay: 'No maximum', seasonal: [], sellOptions: [] },
   publish: { availableFrom: '', group: '', status: 'publish' },
 };
 
@@ -330,6 +333,10 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
         return '';
       case 6:
         if (!data.pricing.nightly) return 'Base nightly rate is required — enter the price per night for your property.';
+        {
+          const bad = data.pricing.sellOptions.find(o => o.bedrooms < data.basics.bedrooms && !(parseFloat(o.nightly) > 0));
+          if (bad) return `Enter a nightly rate for the ${bad.bedrooms} Bedroom option, or turn it off.`;
+        }
         return '';
       default:
         return '';
@@ -868,6 +875,46 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
           </div>
         </div>
 
+        {/* Sell as fewer bedrooms */}
+        {data.basics.bedrooms >= 2 && (
+          <div className="border border-gray-200 rounded-xl p-5 mx-2">
+            <p className="text-sm font-semibold text-gray-800">Also sell this house as fewer bedrooms</p>
+            <p className="text-xs text-gray-400 mt-0.5 mb-4">
+              Guests can book it as a smaller unit at a lower rate. Unused bedrooms stay locked and the whole house is booked for those dates.
+            </p>
+            <div className="space-y-3">
+              {Array.from({ length: data.basics.bedrooms - 1 }, (_, i) => data.basics.bedrooms - 1 - i).map(n => {
+                const opt = data.pricing.sellOptions.find(o => o.bedrooms === n);
+                const setOpt = (patch: Partial<WizardSellOption> | null) => {
+                  const rest = data.pricing.sellOptions.filter(o => o.bedrooms !== n);
+                  const next = patch === null ? rest : [...rest, { bedrooms: n, nightly: '', maxGuests: String(Math.max(1, n * 2)), ...opt, ...patch }];
+                  upd('pricing', { ...data.pricing, sellOptions: next.sort((a, b) => b.bedrooms - a.bedrooms) });
+                };
+                return (
+                  <div key={n} className={`grid grid-cols-[auto_1fr_1fr] items-center gap-3 rounded-lg px-3 py-2.5 ${opt ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-800 cursor-pointer min-w-[120px]">
+                      <input type="checkbox" checked={!!opt} onChange={e => setOpt(e.target.checked ? {} : null)} className="accent-green-600 w-4 h-4" />
+                      {n} Bedroom
+                    </label>
+                    <div className={`flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden ${opt ? '' : 'opacity-50'}`}>
+                      <span className="px-3 text-sm text-gray-500 shrink-0">KSh</span>
+                      <input type="number" min={0} placeholder="Nightly rate" disabled={!opt} value={opt?.nightly ?? ''}
+                        onChange={e => setOpt({ nightly: e.target.value })}
+                        className="flex-1 py-2 pr-3 text-sm outline-none bg-transparent min-w-0" />
+                    </div>
+                    <div className={`flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden ${opt ? '' : 'opacity-50'}`}>
+                      <input type="number" min={1} placeholder="Max guests" disabled={!opt} value={opt?.maxGuests ?? ''}
+                        onChange={e => setOpt({ maxGuests: e.target.value })}
+                        className="flex-1 py-2 pl-3 text-sm outline-none bg-transparent min-w-0" />
+                      <span className="px-3 text-xs text-gray-500 shrink-0">guests</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Seasonal pricing */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -969,6 +1016,11 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
           {reviewRow('Bathrooms', data.basics.bathrooms)}
           {reviewRow('Max Guests', data.basics.maxGuests)}
           {reviewRow('Base Rate', data.pricing.nightly ? <span>KSh {data.pricing.nightly} / <strong>night</strong></span> : '—')}
+          {data.pricing.sellOptions.filter(o => o.bedrooms < data.basics.bedrooms).map(o => (
+            <React.Fragment key={o.bedrooms}>
+              {reviewRow(`Also as ${o.bedrooms} Bedroom`, <span>KSh {o.nightly || 0} / <strong>night</strong> · up to {o.maxGuests || 1} guests</span>)}
+            </React.Fragment>
+          ))}
           {reviewRow('Min Stay', data.pricing.minStay ? `${data.pricing.minStay} night` : '—')}
         </div>
 

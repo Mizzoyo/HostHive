@@ -216,7 +216,8 @@ async function cashFlowReport(sb: any, uid: string, from: string, to: string): P
 async function bookingSummaryReport(sb: any, uid: string, from: string, to: string): Promise<ReportData> {
   const { data, error } = await sb
     .from('bookings')
-    .select('check_in, check_out, nights, commission_amount, total_amount, amount_paid, balance_due, booking_source, status, payment_status, guests(name, phone), properties(name)')
+    // '*' so sold_as_bedrooms is included when migration 36 has run
+    .select('*, guests(name, phone), properties(name, bedrooms)')
     .eq('user_id', uid)
     .gte('check_in', from)
     .lte('check_in', to)
@@ -224,6 +225,10 @@ async function bookingSummaryReport(sb: any, uid: string, from: string, to: stri
 
   if (error) throw new Error(error.message);
   const rows: any[] = data ?? [];
+  const soldAs = (r: any) => {
+    const n = Number(r.sold_as_bedrooms) || Number((r.properties as any)?.bedrooms) || 0;
+    return n ? `${n} Bedroom${r.sold_as_bedrooms ? '' : ' (full)'}` : '—';
+  };
   const activeRows = rows.filter(r => !['cancelled', 'no_show', 'blocked'].includes(r.status));
   const totalAmt   = activeRows.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
   const totalCommission = activeRows.reduce((s, r) => s + (Number(r.commission_amount) || 0), 0);
@@ -238,11 +243,12 @@ async function bookingSummaryReport(sb: any, uid: string, from: string, to: stri
       { label: 'Confirmed',      value: String(rows.filter(r => r.status === 'confirmed').length) },
       { label: 'Cancelled',      value: String(rows.filter(r => r.status === 'cancelled').length) },
     ],
-    columns: ['Guest', 'Phone', 'Property', 'Check-In', 'Check-Out', 'Nights', 'Commission (KSh)', 'Total (KSh)', 'Paid (KSh)', 'Balance', 'Source', 'Status', 'Payment'],
+    columns: ['Guest', 'Phone', 'Property', 'Sold As', 'Check-In', 'Check-Out', 'Nights', 'Commission (KSh)', 'Total (KSh)', 'Paid (KSh)', 'Balance', 'Source', 'Status', 'Payment'],
     rows: rows.map(r => [
       (r.guests     as any)?.name  ?? '—',
       (r.guests     as any)?.phone ?? '—',
       (r.properties as any)?.name  ?? '—',
+      soldAs(r),
       r.check_in, r.check_out,
       r.nights                    || 0,
       Number(r.commission_amount) || 0,

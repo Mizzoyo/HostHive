@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { isUniversalAmenity, normalizeUniversalAmenities } from '@/lib/amenities';
+import { normalizeSellOptions } from '@/lib/sellOptions';
 import { NextRequest, NextResponse } from 'next/server';
 
 function missingEnv() {
@@ -18,6 +19,17 @@ const DEFAULT_UNIVERSAL_RULES = {
   removeShoes: false,
   sortRubbish: false,
 };
+
+type WizardSellOptionInput = { bedrooms?: number; nightly?: string; maxGuests?: string };
+
+function toSellOptions(d: { basics?: { bedrooms?: number }; pricing?: { sellOptions?: unknown } }) {
+  const bedrooms = Number(d.basics?.bedrooms ?? 1);
+  const raw: WizardSellOptionInput[] = Array.isArray(d.pricing?.sellOptions) ? d.pricing.sellOptions : [];
+  return normalizeSellOptions(
+    raw.map(o => ({ bedrooms: o.bedrooms, nightly_rate: parseFloat(o.nightly ?? ''), max_guests: parseInt(o.maxGuests ?? '') })),
+    bedrooms,
+  );
+}
 
 async function fetchUniversalProfile(supabase: any, userId: string) {
   const baseSelect = 'default_house_rules, default_check_in_time, default_check_out_time, default_check_in_method, default_check_in_instructions, default_caretaker_name, default_caretaker_phone, default_cancellation_policy, default_additional_rules, default_property_location, default_property_city, default_property_county';
@@ -133,6 +145,7 @@ export async function POST(request: NextRequest) {
       bathrooms: d.basics?.bathrooms ?? 1,
       max_guests: d.basics?.maxGuests ?? 2,
       nightly_rate: parseFloat(d.pricing?.nightly) || 0,
+      sell_options: toSellOptions(d),
       weekend_rate: parseFloat(d.pricing?.weekend) || 0,
       monthly_rate: parseFloat(d.pricing?.monthly) || 0,
       cleaning_fee: parseFloat(d.pricing?.cleaning) || 0,
@@ -243,6 +256,7 @@ export async function PUT(request: NextRequest) {
         bathrooms: d.basics?.bathrooms ?? 1,
         max_guests: d.basics?.maxGuests ?? 2,
         nightly_rate: parseFloat(d.pricing?.nightly) || 0,
+        sell_options: toSellOptions(d),
         weekend_rate: parseFloat(d.pricing?.weekend) || 0,
         monthly_rate: parseFloat(d.pricing?.monthly) || 0,
         cleaning_fee: parseFloat(d.pricing?.cleaning) || 0,

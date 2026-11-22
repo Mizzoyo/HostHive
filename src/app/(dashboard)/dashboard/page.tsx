@@ -49,7 +49,8 @@ export default function DashboardPage() {
     setLoading(true);
     fetch(`/api/dashboard/stats?from=${from}&to=${to}`)
       .then(r => r.json())
-      .then(data => { if (!data.error) setStats(data); })
+      .then(data => { if (data.error) toast.error(`Dashboard stats: ${data.error}`); else setStats(data); })
+      .catch(() => toast.error('Failed to load dashboard stats'))
       .finally(() => setLoading(false));
   }, [getDateRange]);
 
@@ -242,7 +243,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-gray-900">Occupancy</h3>
-              <span className="text-xs text-gray-400">{periodLabel}</span>
+              <span className="text-xs text-gray-400" title={dateRangeLabel}>{periodLabel} · {dateRangeLabel}</span>
             </div>
             
             {/* Stats Cards - Responsive Grid */}
@@ -297,9 +298,9 @@ export default function DashboardPage() {
                   </button>
                 )}
               </div>
-              {(stats?.properties ?? []).length === 0 ? (
+              {(stats?.unitPerformance ?? []).length === 0 ? (
                 <p className="text-xs text-gray-400">No properties yet.</p>
-              ) : (stats.properties as any[]).slice(0, 3).map((p: any) => (
+              ) : (stats.unitPerformance as any[]).slice(0, 3).map((p: any) => (
                 <div key={p.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 mb-1">
                   <span className="text-sm text-gray-700 font-medium truncate max-w-[130px]">{p.name}</span>
                   <div className="flex items-center gap-2">
@@ -347,7 +348,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-gray-900">Revenue</h3>
-              <span className="text-xs text-gray-400">{periodLabel}</span>
+              <span className="text-xs text-gray-400" title={dateRangeLabel}>{periodLabel} · {dateRangeLabel}</span>
             </div>
             <div className="space-y-4">
               {/* Total Revenue */}
@@ -679,7 +680,7 @@ export default function DashboardPage() {
               {[
                 { label: 'M-Pesa', val: stats?.revenue.mpesa ?? 0, color: 'bg-green-500' },
                 { label: 'Cash',   val: stats?.revenue.cash  ?? 0, color: 'bg-blue-500'  },
-                { label: 'Other',  val: Math.max(0, (stats?.revenue.total ?? 0) - (stats?.revenue.mpesa ?? 0) - (stats?.revenue.cash ?? 0)), color: 'bg-gray-400' },
+                { label: 'Other',  val: Math.max(0, (stats?.revenue.collected ?? 0) - (stats?.revenue.mpesa ?? 0) - (stats?.revenue.cash ?? 0)), color: 'bg-gray-400' },
               ].map(item => (
                 <div key={item.label}>
                   <div className="flex justify-between mb-1">
@@ -688,10 +689,10 @@ export default function DashboardPage() {
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div className={`${item.color} h-full rounded-full transition-all duration-500`}
-                      style={{ width: (stats?.revenue.total ?? 0) > 0 ? `${Math.round((item.val / stats.revenue.total) * 100)}%` : '0%' }} />
+                      style={{ width: (stats?.revenue.collected ?? 0) > 0 ? `${Math.round((item.val / stats.revenue.collected) * 100)}%` : '0%' }} />
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {(stats?.revenue.total ?? 0) > 0 ? `${Math.round((item.val / stats.revenue.total) * 100)}%` : '0%'} of total
+                    {(stats?.revenue.collected ?? 0) > 0 ? `${Math.round((item.val / stats.revenue.collected) * 100)}%` : '0%'} of collected
                   </p>
                 </div>
               ))}

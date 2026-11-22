@@ -1,3 +1,5 @@
+import type { SellOption } from '@/lib/sellOptions';
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -39,6 +41,7 @@ export interface Property {
   bathrooms: number;
   max_guests: number;
   nightly_rate: number;
+  sell_options: SellOption[];
   weekend_rate: number;
   monthly_rate: number;
   min_stay_nights: number;
@@ -62,6 +65,7 @@ export interface Booking {
   check_in: string;
   check_out: string;
   nights: number;
+  sold_as_bedrooms: number | null;
   num_adults: number;
   num_children: number;
   nightly_rate: number;

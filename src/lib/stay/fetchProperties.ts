@@ -39,6 +39,7 @@ export type StayProperty = {
   cancellation_policy: string;
   house_rules: Record<string, boolean> | null;
   slug: string | null;
+  sell_options?: unknown;
   photos: string[];
   amenities: string[];
 };
@@ -159,17 +160,16 @@ export async function fetchAvailableProperties(
   const hostId = process.env.STAY_HOST_USER_ID;
   const universalSettings = await fetchUniversalStaySettings();
 
-  let query = publicSupabase
-    .from('properties')
-    .select(
-      'id, name, type, description, location, address, city, county, bedrooms, bathrooms, max_guests, nightly_rate, weekend_rate, breakfast_rate, cover_photo, status, latitude, longitude, check_in_time, check_out_time, cancellation_policy, house_rules, slug'
-    )
-    .eq('status', 'active')
-    .order('name');
+  const baseCols = 'id, name, type, description, location, address, city, county, bedrooms, bathrooms, max_guests, nightly_rate, weekend_rate, breakfast_rate, cover_photo, status, latitude, longitude, check_in_time, check_out_time, cancellation_policy, house_rules, slug';
+  const runQuery = (cols: string) => {
+    let q = publicSupabase.from('properties').select(cols).eq('status', 'active').order('name');
+    if (hostId) q = (q as any).eq('user_id', hostId);
+    return q;
+  };
 
-  if (hostId) query = (query as any).eq('user_id', hostId);
-
-  const { data: properties, error } = await query;
+  // Retry without sell_options if migration 36 hasn't been run yet
+  let { data: properties, error } = await runQuery(`${baseCols}, sell_options`);
+  if (error) ({ data: properties, error } = await runQuery(baseCols));
   if (error || !properties) return [];
 
   const today = new Date().toISOString().split('T')[0];

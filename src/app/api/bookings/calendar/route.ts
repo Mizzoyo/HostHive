@@ -23,13 +23,14 @@ export async function GET(request: NextRequest) {
     const [{ data: properties }, { data: rawBookings }] = await Promise.all([
       supabase
         .from('properties')
-        .select('id, name, unit_number, nightly_rate, cleaning_fee, created_at')
+        // '*' picks up sell_options when migration 36 has run
+        .select('*')
         .eq('user_id', userId)
         .neq('status', 'draft')
         .order('created_at'),
       supabase
         .from('bookings')
-        .select('id, guest_id, property_id, check_in, check_out, nights, nightly_rate, cleaning_fee, extra_fees, discount_amount, security_deposit, commission_amount, total_amount, amount_paid, balance_due, payment_status, booking_source, status, notes, guests(name, phone, email)')
+        .select('*, guests(name, phone, email)')
         .eq('user_id', userId)
         .neq('status', 'cancelled')
         .lte('check_in', to)
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
         check_in: b.check_in,
         check_out: b.check_out,
         nights: b.nights,
+        sold_as_bedrooms: b.sold_as_bedrooms ?? null,
         nightly_rate: b.nightly_rate,
         cleaning_fee: b.cleaning_fee,
         extra_fees: b.extra_fees,
@@ -67,7 +69,11 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ bookings, properties: sortProperties(properties ?? []) });
+    const props = (properties ?? []).map(p => ({
+      id: p.id, name: p.name, unit_number: p.unit_number, nightly_rate: p.nightly_rate, cleaning_fee: p.cleaning_fee,
+      created_at: p.created_at, bedrooms: p.bedrooms, max_guests: p.max_guests, sell_options: p.sell_options ?? [],
+    }));
+    return NextResponse.json({ bookings, properties: sortProperties(props) });
   } catch (err) {
     console.error('[bookings/calendar]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -10,6 +10,7 @@ import CardImageCarousel from '@/components/stay/CardImageCarousel';
 import { createClient } from '@/lib/supabase/client';
 import type { StayProperty, UniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
+import { getSellOptions } from '@/lib/sellOptions';
 
 const ROOM_TYPES = ['All', 'Studio', 'Bedsitter', 'One Bedroom', 'Two Bedroom'];
 
@@ -383,6 +384,16 @@ export default function RoomsListClient({
                         <div>
                           <span className="font-black text-gray-900 text-base">KSh {Number(p.nightly_rate || 0).toLocaleString()}</span>
                           <span className="text-xs text-gray-400"> / night</span>
+                          {(() => {
+                            const smaller = getSellOptions(p).filter(o => !o.isFull);
+                            if (!smaller.length) return null;
+                            const cheapest = smaller.reduce((m, o) => (o.nightly_rate < m.nightly_rate ? o : m));
+                            return (
+                              <p className="text-[11px] font-semibold mt-0.5" style={{ color: '#16a34a' }}>
+                                Also as {smaller.map(o => `${o.bedrooms} BR`).join(' / ')} from KSh {cheapest.nightly_rate.toLocaleString()}
+                              </p>
+                            );
+                          })()}
                         </div>
                         {isMultiMode && (() => {
                           const inCart = cart.some(c => c.property.id === p.id);

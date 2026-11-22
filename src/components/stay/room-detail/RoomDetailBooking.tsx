@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart } from 'lucide-react';
+import type { ResolvedSellOption } from '@/lib/sellOptions';
 
 const CAL_DAY = ['S','M','T','W','T','F','S'];
 const CAL_MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -264,13 +265,44 @@ export interface RoomDetailBookingProperty {
   check_out_time?: string;
 }
 
+function SellAsPicker({ options, value, onChange, className = '' }: {
+  options: ResolvedSellOption[];
+  value: number;
+  onChange: (bedrooms: number) => void;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Book as</p>
+      <div className="space-y-2">
+        {options.map(o => {
+          const active = o.bedrooms === value;
+          return (
+            <button key={o.bedrooms} type="button" onClick={() => onChange(o.bedrooms)}
+              className={`w-full flex items-center justify-between gap-3 rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${active ? 'bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}
+              style={active ? { borderColor: '#16a34a' } : {}}>
+              <div>
+                <p className="text-sm font-bold text-gray-900">{o.label}{o.isFull ? ' (entire house)' : ''}</p>
+                <p className="text-xs text-gray-500">Up to {o.max_guests} guest{o.max_guests !== 1 ? 's' : ''}</p>
+              </div>
+              <p className="text-sm font-black text-gray-900 whitespace-nowrap">KSh {o.nightly_rate.toLocaleString()}<span className="text-xs font-medium text-gray-500"> / night</span></p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function RoomDetailBooking({
   property,
+  options = [],
   initialCheckIn,
   initialCheckOut,
   initialGuests,
 }: {
   property: RoomDetailBookingProperty;
+  options?: ResolvedSellOption[];
   initialCheckIn: string;
   initialCheckOut: string;
   initialGuests: number;
@@ -290,12 +322,25 @@ export default function RoomDetailBooking({
 
   const nights = checkIn && checkOut && checkOut > checkIn
     ? Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000) : 0;
-  const rate  = Number(property.nightly_rate ?? 0);
+  const [sellAs, setSellAs] = useState<number>(options[0]?.bedrooms ?? 0);
+  const selected  = options.find(o => o.bedrooms === sellAs);
+  const rate      = Number(selected?.nightly_rate ?? property.nightly_rate ?? 0);
+  const maxGuests = Number(selected?.max_guests ?? property.max_guests ?? 10);
   const total = rate * nights * rooms;
 
-  const handleBook = () => {
-    router.push(`/stay/checkout?propertyId=${property.slug || property.id}&checkIn=${checkIn}&checkOut=${checkOut}&guests=${adults + children}&rooms=${rooms}`);
+  const chooseSellAs = (bedrooms: number) => {
+    setSellAs(bedrooms);
+    const cap = options.find(o => o.bedrooms === bedrooms)?.max_guests ?? maxGuests;
+    const a = Math.min(adults, cap);
+    setAdults(a);
+    setChildren(c => Math.min(c, Math.max(0, cap - a)));
   };
+
+  const handleBook = () => {
+    const sellAsParam = selected && !selected.isFull ? `&sellAs=${selected.bedrooms}` : '';
+    router.push(`/stay/checkout?propertyId=${property.slug || property.id}&checkIn=${checkIn}&checkOut=${checkOut}&guests=${adults + children}&rooms=${rooms}${sellAsParam}`);
+  };
+  const showSellAs = options.length > 1;
 
   const guests = adults + children;
 
@@ -313,6 +358,7 @@ export default function RoomDetailBooking({
             ) : (
               <h3 className="text-xl font-bold text-gray-900 mb-5">Add dates for prices</h3>
             )}
+            {showSellAs && <SellAsPicker options={options} value={sellAs} onChange={chooseSellAs} className="mb-4" />}
             <div className="rounded-xl border-2 border-gray-300 overflow-visible mb-4">
               <div className="relative">
                 <div className="grid grid-cols-2">
@@ -362,8 +408,8 @@ export default function RoomDetailBooking({
                 {showGuestPanel && (
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 p-5">
                     {([
-                      { label: 'Adults',   sub: 'Age 13+',     val: adults,   set: setAdults,   min: 1, max: property.max_guests ?? 10 },
-                      { label: 'Children', sub: 'Ages 2–12',   val: children, set: setChildren, min: 0, max: property.max_guests ?? 10 },
+                      { label: 'Adults',   sub: 'Age 13+',     val: adults,   set: setAdults,   min: 1, max: maxGuests },
+                      { label: 'Children', sub: 'Ages 2–12',   val: children, set: setChildren, min: 0, max: maxGuests },
                       { label: 'Infants',  sub: 'Under 2',     val: infants,  set: setInfants,  min: 0, max: 5 },
                       { label: 'Pets',     sub: 'Bringing a service animal?', val: pets, set: setPets, min: 0, max: 5 },
                     ] as const).map(row => (
@@ -379,14 +425,14 @@ export default function RoomDetailBooking({
                             style={{ borderColor: '#16a34a', color: '#16a34a' }}>−</button>
                           <span className="w-5 text-center text-sm font-semibold text-gray-900">{row.val}</span>
                           <button onClick={() => (row.set as React.Dispatch<React.SetStateAction<number>>)(v => Math.min(row.max, v + 1))}
-                            disabled={row.val >= row.max || (row.label !== 'Infants' && row.label !== 'Pets' && adults + children >= (property.max_guests ?? 10))}
+                            disabled={row.val >= row.max || (row.label !== 'Infants' && row.label !== 'Pets' && adults + children >= maxGuests)}
                             className="w-8 h-8 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             style={{ borderColor: '#16a34a', color: '#16a34a' }}>+</button>
                         </div>
                       </div>
                     ))}
                     <p className="text-xs mt-3 mb-3" style={{ color: '#16a34a' }}>
-                      This place has a maximum of {property.max_guests ?? 10} guests, not including infants.
+                      {selected && showSellAs ? `The ${selected.label} option` : 'This place'} has a maximum of {maxGuests} guests, not including infants.
                     </p>
                     <div className="flex justify-end">
                       <button onClick={() => setShowGuestPanel(false)} className="text-sm font-bold text-gray-900 underline hover:text-gray-600">Close</button>
@@ -416,6 +462,12 @@ export default function RoomDetailBooking({
           </div>
         </div>
       </div>
+
+      {showSellAs && (
+        <div className="lg:hidden bg-white rounded-2xl border border-gray-200 p-4">
+          <SellAsPicker options={options} value={sellAs} onChange={chooseSellAs} />
+        </div>
+      )}
 
       {/* Mobile Calendar (inside content column) */}
       <MobileCalendar

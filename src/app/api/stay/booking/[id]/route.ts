@@ -93,14 +93,17 @@ export async function PATCH(
 
           const bNights = bReq.nights || Math.round((new Date(bReq.check_out).getTime() - new Date(bReq.check_in).getTime()) / 86400000);
           const totalAmt = Number(room.subtotal) || 0;
-          const { error: bkErr } = await publicSupabase.from('bookings').insert({
+          const bookingRow: Record<string, unknown> = {
             user_id: hostId, property_id: room.property_id, guest_id: guestId,
             check_in: bReq.check_in, check_out: bReq.check_out, nights: bNights,
             nightly_rate: Number(room.nightly_rate) || 0, cleaning_fee: 0,
             security_deposit: 0, commission_amount: null, total_amount: totalAmt, amount_paid: 0,
             balance_due: totalAmt, payment_status: 'unpaid', status: 'confirmed',
             booking_source: 'Online', notes: bReq.special_requests || '',
-          });
+          };
+          const soldAs = Number(room.sold_as_bedrooms) || null;
+          if (soldAs) bookingRow.sold_as_bedrooms = soldAs;
+          const { error: bkErr } = await publicSupabase.from('bookings').insert(bookingRow);
           if (bkErr) {
             autoError = `booking insert failed: ${bkErr.message}`;
             console.error('[auto-booking]', autoError);

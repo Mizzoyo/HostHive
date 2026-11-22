@@ -5,6 +5,7 @@ import { AirbnbPropertyWizard, WizardFormData } from '@/components/properties/Ai
 import { createClient } from '@/lib/supabase/client';
 import { mergeAmenityLabels } from '@/lib/amenities';
 import { sortProperties } from '@/lib/propertySort';
+import { normalizeSellOptions } from '@/lib/sellOptions';
 
 type PropStatus = 'active' | 'inactive' | 'maintenance' | 'draft' | 'blocked';
 
@@ -136,7 +137,7 @@ function propertyToWizardData(p: Property): Partial<WizardFormData> {
     pricing: {
       nightly: p.pricePerNight.toString(),
       weekend: '', monthly: '', cleaning: '', deposit: '', extraGuest: '',
-      baseGuests: 2, minStay: '1 night', maxStay: 'No maximum', seasonal: [],
+      baseGuests: 2, minStay: '1 night', maxStay: 'No maximum', seasonal: [], sellOptions: [],
     },
   };
 }
@@ -235,7 +236,8 @@ export default function PropertiesPage() {
       basics: { bedrooms: p.bedrooms ?? 1, bathrooms: p.bathrooms ?? 1, maxGuests: p.max_guests ?? 2, size: '', sizeUnit: 'sq m', beds: [{ type: 'Double Bed', count: p.bedrooms ?? 1 }] },
       amenities,
       photos,
-      pricing: { nightly: p.nightly_rate ? String(parseFloat(p.nightly_rate)) : '', weekend: p.weekend_rate ? String(parseFloat(p.weekend_rate)) : '', monthly: p.monthly_rate ? String(parseFloat(p.monthly_rate)) : '', cleaning: p.cleaning_fee ? String(parseFloat(p.cleaning_fee)) : '', deposit: p.security_deposit ? String(parseFloat(p.security_deposit)) : '', extraGuest: '', baseGuests: 2, minStay: p.min_stay_nights?.toString() || '1', maxStay: p.max_stay_nights?.toString() || '', seasonal: [] },
+      pricing: { nightly: p.nightly_rate ? String(parseFloat(p.nightly_rate)) : '', weekend: p.weekend_rate ? String(parseFloat(p.weekend_rate)) : '', monthly: p.monthly_rate ? String(parseFloat(p.monthly_rate)) : '', cleaning: p.cleaning_fee ? String(parseFloat(p.cleaning_fee)) : '', deposit: p.security_deposit ? String(parseFloat(p.security_deposit)) : '', extraGuest: '', baseGuests: 2, minStay: p.min_stay_nights?.toString() || '1', maxStay: p.max_stay_nights?.toString() || '', seasonal: [],
+        sellOptions: normalizeSellOptions(p.sell_options, p.bedrooms ?? 1).map(o => ({ bedrooms: o.bedrooms, nightly: String(o.nightly_rate), maxGuests: String(o.max_guests) })) },
     };
   }, []);
 

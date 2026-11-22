@@ -262,7 +262,7 @@ export default function DashboardPage() {
                 <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Occupied</p>
                 <p className="text-3xl font-bold text-green-600">{loading ? '…' : stats?.occupancy.occupied ?? 0}</p>
                 <div className="w-16 bg-gray-300 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-green-500 h-full rounded-full transition-all duration-500" style={{ width: (stats?.properties?.length ?? 0) > 0 ? `${Math.round(((stats?.occupancy.occupied ?? 0) / stats.properties.length) * 100)}%` : '0%' }}></div>
+                  <div className="bg-green-500 h-full rounded-full transition-all duration-500" style={{ width: (stats?.properties?.length ?? 0) > 0 ? `${Math.min(100, Math.round(((stats?.occupancy.occupied ?? 0) / stats.properties.length) * 100))}%` : '0%' }}></div>
                 </div>
               </div>
 
@@ -271,7 +271,7 @@ export default function DashboardPage() {
                 <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Available</p>
                 <p className="text-3xl font-bold text-blue-600">{loading ? '…' : stats?.occupancy.available ?? 0}</p>
                 <div className="w-16 bg-gray-300 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: (stats?.properties?.length ?? 0) > 0 ? `${Math.round(((stats?.occupancy.available ?? 0) / stats.properties.length) * 100)}%` : '0%' }}></div>
+                  <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: (stats?.properties?.length ?? 0) > 0 ? `${Math.min(100, Math.round(((stats?.occupancy.available ?? 0) / stats.properties.length) * 100))}%` : '0%' }}></div>
                 </div>
               </div>
 

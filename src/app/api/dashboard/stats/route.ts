@@ -143,8 +143,9 @@ export async function GET(request: NextRequest) {
       .gt('check_out', from);
     const blockedPeriodIds = new Set((blockedPeriodRows ?? []).map((b: { property_id: string }) => b.property_id));
 
-    const occupiedNow = (properties ?? []).filter(p => occupiedPeriodIds.has(p.id)).length;
+    const occupiedUnits = (properties ?? []).filter(p => occupiedPeriodIds.has(p.id)).length;
     const blockedNow = (properties ?? []).filter(p => !occupiedPeriodIds.has(p.id) && blockedPeriodIds.has(p.id)).length;
+    const availableNow = Math.max(0, totalProperties - occupiedUnits - blockedNow);
 
     // ADR / RevPAR
     const adr = totalNightsBooked > 0 ? Math.round(stayRevenue / totalNightsBooked) : 0;
@@ -239,7 +240,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     return NextResponse.json({
-      occupancy: { rate: occupancyRate, occupied: occupiedNow, available: totalProperties - occupiedNow - blockedNow, blocked: blockedNow },
+      occupancy: { rate: occupancyRate, occupied: confirmed.length, available: availableNow, blocked: blockedNow },
       properties: properties ?? [],
       unitPerformance,
       maxUnitRevenue,

@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { StayProperty, UniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
 import { getSellOptions } from '@/lib/sellOptions';
+import { compareProperties } from '@/lib/propertySort';
 
 const ROOM_TYPES = ['All', 'Studio', 'Bedsitter', 'One Bedroom', 'Two Bedroom'];
 
@@ -153,7 +154,7 @@ export default function RoomsListClient({
     .sort((a, b) => {
       if (sortBy === 'price_asc') return (a.nightly_rate || 0) - (b.nightly_rate || 0);
       if (sortBy === 'price_desc') return (b.nightly_rate || 0) - (a.nightly_rate || 0);
-      return (a.name || '').localeCompare(b.name || '');
+      return compareProperties(a, b);
     });
 
   const nights = checkIn && checkOut && checkOut > checkIn

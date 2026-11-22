@@ -252,6 +252,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
                   { href: '/stay/rooms',        label: 'Browse Rooms' },
                   { href: 'https://restaurant.kogelosuites.com', label: 'Restaurant & Dining' },
                   { href: '/stay/rooms',         label: 'Make a Booking' },
+                  { href: '/stay/house-rules',   label: 'House Rules & Location' },
                   { href: '/stay/reviews/new',   label: 'Write a Review' },
                   ...(loggedIn ? [
                     { href: '/stay/my-bookings', label: 'My Trips' },
@@ -360,6 +361,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
                 { href: '/stay/rooms',        label: 'Browse Rooms' },
                 { href: 'https://restaurant.kogelosuites.com', label: 'Restaurant & Dining' },
                 { href: '/stay/book',         label: 'Make a Booking' },
+                { href: '/stay/house-rules',  label: 'House Rules & Location' },
                 { href: '/stay/reviews/new',  label: 'Write a Review' },
                 ...(loggedIn ? [
                   { href: '/stay/my-bookings', label: 'Trips' },

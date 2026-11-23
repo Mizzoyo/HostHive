@@ -953,7 +953,7 @@ export default function DashboardPage() {
             {/* Location */}
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Default Location</p>
-              <p className="text-sm text-gray-700">{stats?.universalSettings?.defaultPropertyCity || 'Nairobi'}, {stats?.universalSettings?.defaultPropertyCounty || 'Nairobi'}</p>
+              <p className="text-sm text-gray-700">{stats?.universalSettings?.defaultPropertyCity || 'Kisumu'}, {stats?.universalSettings?.defaultPropertyCounty || 'Kisumu County'}</p>
               {stats?.universalSettings?.businessArea && <p className="text-xs text-gray-500 mt-1">Service Area: {stats.universalSettings.businessArea}</p>}
             </div>
           </div>

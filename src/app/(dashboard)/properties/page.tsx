@@ -207,7 +207,7 @@ export default function PropertiesPage() {
       propertyType: p.type || 'apartment',
       title: p.title || p.name || '',
       description: p.description || '',
-      location: { building: p.building_name || '', unit: p.unit_number || '', floor: p.floor_level || '', neighbourhood: p.address || p.location || '', city: p.city || 'Nairobi', county: p.county || 'Nairobi', address: p.address || p.location || '', lat: p.latitude ?? null, lng: p.longitude ?? null },
+      location: { building: p.building_name || '', unit: p.unit_number || '', floor: p.floor_level || '', neighbourhood: p.address || p.location || '', city: p.city || 'Kisumu', county: p.county || 'Kisumu County', address: p.address || p.location || '', lat: p.latitude ?? null, lng: p.longitude ?? null },
       basics: { bedrooms: p.bedrooms ?? 1, bathrooms: p.bathrooms ?? 1, maxGuests: p.max_guests ?? 2, size: '', sizeUnit: 'sq m', beds: [{ type: 'Double Bed', count: p.bedrooms ?? 1 }] },
       amenities,
       photos,
@@ -295,7 +295,7 @@ export default function PropertiesPage() {
       const payload = {
         title: row.name || row.property_name || 'Untitled',
         propertyType: row.type || row.property_type || 'apartment',
-        location: { neighbourhood: row.location || row.neighbourhood || 'Nairobi', address: row.address || '', city: row.city || 'Nairobi', county: row.county || 'Nairobi', building: '', unit: '', floor: '', lat: null, lng: null },
+        location: { neighbourhood: row.location || row.neighbourhood || 'Milimani', address: row.address || '', city: row.city || 'Kisumu', county: row.county || 'Kisumu County', building: '', unit: '', floor: '', lat: null, lng: null },
         basics: { bedrooms: parseInt(row.bedrooms) || 1, bathrooms: parseInt(row.bathrooms) || 1, maxGuests: parseInt(row.max_guests || row.maxguests) || 2, size: '', sizeUnit: 'sq m', beds: [] },
         pricing: { nightly: row.nightly_rate || row.price || row.price_per_night || '0', weekend: '', monthly: '', cleaning: row.cleaning_fee || '0', deposit: row.deposit || '0', extraGuest: '', baseGuests: 2, minStay: row.min_stay || '1 night', maxStay: '', seasonal: [] },
         description: row.description || '',
@@ -929,7 +929,7 @@ export default function PropertiesPage() {
                 <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <p className="text-sm text-red-600 font-medium">{csvError}</p>
                 <p className="text-xs text-gray-500">Expected columns: <code className="bg-gray-100 px-1 rounded">name, type, location, county, bedrooms, bathrooms, nightly_rate, status</code></p>
-                <a href="data:text/csv;charset=utf-8,name,type,location,county,bedrooms,bathrooms,max_guests,nightly_rate,status%0AExample Studio,studio,Westlands,Nairobi,0,1,2,4500,active" download="properties_template.csv"
+                <a href="data:text/csv;charset=utf-8,name,type,location,county,bedrooms,bathrooms,max_guests,nightly_rate,status%0AExample Studio,studio,Milimani,Kisumu County,0,1,2,4500,active" download="properties_template.csv"
                   className="mt-2 text-sm text-gray-900 underline">Download template CSV</a>
               </div>
             ) : (
@@ -961,7 +961,7 @@ export default function PropertiesPage() {
                   </table>
                 </div>
                 <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between gap-3">
-                  <a href="data:text/csv;charset=utf-8,name,type,location,county,bedrooms,bathrooms,max_guests,nightly_rate,status%0AExample Studio,studio,Westlands,Nairobi,0,1,2,4500,active" download="properties_template.csv"
+                  <a href="data:text/csv;charset=utf-8,name,type,location,county,bedrooms,bathrooms,max_guests,nightly_rate,status%0AExample Studio,studio,Milimani,Kisumu County,0,1,2,4500,active" download="properties_template.csv"
                     className="text-xs text-gray-400 hover:text-gray-600 underline">Download template</a>
                   <div className="flex items-center gap-3">
                     <button onClick={() => { setShowCsvModal(false); setCsvRows([]); }} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>

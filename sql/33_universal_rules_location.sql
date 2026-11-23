@@ -16,8 +16,8 @@ ALTER TABLE profiles
 -- Add universal location columns
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS default_property_location TEXT,
-  ADD COLUMN IF NOT EXISTS default_property_city TEXT DEFAULT 'Nairobi',
-  ADD COLUMN IF NOT EXISTS default_property_county TEXT DEFAULT 'Nairobi',
+  ADD COLUMN IF NOT EXISTS default_property_city TEXT DEFAULT 'Kisumu',
+  ADD COLUMN IF NOT EXISTS default_property_county TEXT DEFAULT 'Kisumu County',
   ADD COLUMN IF NOT EXISTS business_area TEXT,
   ADD COLUMN IF NOT EXISTS business_address TEXT;
 

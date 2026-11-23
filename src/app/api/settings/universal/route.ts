@@ -94,9 +94,9 @@ export async function PATCH(request: NextRequest) {
     const caretakerPhone = body.caretakerPhone || '';
     const cancellationPolicy = body.cancellationPolicy || 'moderate';
     const additionalRules = body.additionalRules || '';
-    const defaultPropertyLocation = body.defaultPropertyLocation || '';
-    const defaultPropertyCity = body.defaultPropertyCity || 'Nairobi';
-    const defaultPropertyCounty = body.defaultPropertyCounty || 'Nairobi';
+    const defaultPropertyLocation = body.defaultPropertyLocation || 'Milimani';
+    const defaultPropertyCity = body.defaultPropertyCity || 'Kisumu';
+    const defaultPropertyCounty = body.defaultPropertyCounty || 'Kisumu County';
     const businessArea = body.businessArea || '';
     const businessAddress = body.businessAddress || '';
     const amenities = body.amenities === undefined ? undefined : normalizeUniversalAmenities(body.amenities);

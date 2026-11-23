@@ -123,9 +123,9 @@ export default function SettingsPage() {
   const [caretakerPhone, setCaretakerPhone] = useState('');
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
   const [additionalRules, setAdditionalRules] = useState('');
-  const [defaultPropertyLocation, setDefaultPropertyLocation] = useState('');
-  const [defaultPropertyCity, setDefaultPropertyCity] = useState('Nairobi');
-  const [defaultPropertyCounty, setDefaultPropertyCounty] = useState('Nairobi');
+  const [defaultPropertyLocation, setDefaultPropertyLocation] = useState('Milimani');
+  const [defaultPropertyCity, setDefaultPropertyCity] = useState('Kisumu');
+  const [defaultPropertyCounty, setDefaultPropertyCounty] = useState('Kisumu County');
   const [businessArea, setBusinessArea] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
   const [customRuleInput, setCustomRuleInput] = useState('');
@@ -253,9 +253,9 @@ export default function SettingsPage() {
         setCaretakerPhone(profile.default_caretaker_phone ?? '');
         setCancellationPolicy(profile.default_cancellation_policy ?? 'moderate');
         setAdditionalRules(profile.default_additional_rules ?? '');
-        setDefaultPropertyLocation(profile.default_property_location ?? '');
-        setDefaultPropertyCity(profile.default_property_city ?? 'Nairobi');
-        setDefaultPropertyCounty(profile.default_property_county ?? 'Nairobi');
+        setDefaultPropertyLocation(profile.default_property_location ?? 'Milimani');
+        setDefaultPropertyCity(profile.default_property_city ?? 'Kisumu');
+        setDefaultPropertyCounty(profile.default_property_county ?? 'Kisumu County');
         setBusinessArea(profile.business_area ?? '');
         setBusinessAddress(profile.business_address ?? '');
       }
@@ -1252,7 +1252,7 @@ export default function SettingsPage() {
                     type="text"
                     value={defaultPropertyLocation}
                     onChange={e => setDefaultPropertyLocation(e.target.value)}
-                    placeholder="e.g. Kilimani, Nairobi"
+                    placeholder="e.g. Milimani, Kisumu"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                   <p className="text-xs text-gray-400 mt-1">Used as default address when creating new properties</p>
@@ -1264,7 +1264,7 @@ export default function SettingsPage() {
                       type="text"
                       value={defaultPropertyCity}
                       onChange={e => setDefaultPropertyCity(e.target.value)}
-                      placeholder="e.g. Nairobi"
+                      placeholder="e.g. Kisumu"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                   </div>
@@ -1274,7 +1274,7 @@ export default function SettingsPage() {
                       type="text"
                       value={defaultPropertyCounty}
                       onChange={e => setDefaultPropertyCounty(e.target.value)}
-                      placeholder="e.g. Nairobi"
+                      placeholder="e.g. Kisumu County"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                   </div>
@@ -1285,7 +1285,7 @@ export default function SettingsPage() {
                     type="text"
                     value={businessArea}
                     onChange={e => setBusinessArea(e.target.value)}
-                    placeholder="e.g. Greater Nairobi Area"
+                    placeholder="e.g. Greater Kisumu Area"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                   <p className="text-xs text-gray-400 mt-1">General service area for your business</p>
@@ -1296,7 +1296,7 @@ export default function SettingsPage() {
                     type="text"
                     value={businessAddress}
                     onChange={e => setBusinessAddress(e.target.value)}
-                    placeholder="e.g. 123 Business Street, Nairobi"
+                    placeholder="e.g. 123 Business Street, Kisumu"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                   <p className="text-xs text-gray-400 mt-1">Official business address for invoices and correspondence</p>

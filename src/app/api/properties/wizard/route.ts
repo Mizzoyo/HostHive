@@ -123,9 +123,9 @@ export async function POST(request: NextRequest) {
     const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
     const roomAmenities = (Array.isArray(d.amenities) ? d.amenities : [])
       .filter((a: any) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
-    const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Nairobi';
-    const syncedCity = profile?.default_property_city || d.location?.city || 'Nairobi';
-    const syncedCounty = profile?.default_property_county || d.location?.county || 'Nairobi';
+    const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Milimani';
+    const syncedCity = profile?.default_property_city || d.location?.city || 'Kisumu';
+    const syncedCounty = profile?.default_property_county || d.location?.county || 'Kisumu County';
 
     const insertRow: Record<string, unknown> = {
       user_id: userId,
@@ -234,9 +234,9 @@ export async function PUT(request: NextRequest) {
     const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
     const roomAmenities = (Array.isArray(d.amenities) ? d.amenities : [])
       .filter((a: any) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
-    const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Nairobi';
-    const syncedCity = profile?.default_property_city || d.location?.city || 'Nairobi';
-    const syncedCounty = profile?.default_property_county || d.location?.county || 'Nairobi';
+    const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Milimani';
+    const syncedCity = profile?.default_property_city || d.location?.city || 'Kisumu';
+    const syncedCounty = profile?.default_property_county || d.location?.county || 'Kisumu County';
 
     const { data: property, error } = await supabase
       .from('properties')

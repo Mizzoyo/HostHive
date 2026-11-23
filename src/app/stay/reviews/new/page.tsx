@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 const CATS = [
   { key: 'cleanliness',    label: 'Cleanliness',    desc: 'Was the space clean and well maintained?' },
@@ -233,11 +234,7 @@ function WriteReviewContent() {
 
 export default function WriteReviewPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 rounded-full border-t-transparent" style={{ borderColor: '#16a34a', borderTopColor: 'transparent' }} />
-      </div>
-    }>
+    <Suspense fallback={<StayPageSkeleton />}>
       <WriteReviewContent />
     </Suspense>
   );

@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { BedDouble, Droplets, Users, Home as HomeIcon, CheckCircle2, MapPin, Plus, Minus } from 'lucide-react';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 type SelectedRoom = { property: any; qty: number };
 
@@ -397,7 +398,7 @@ function GroupBookingContent() {
 
 export default function GroupBookPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-10 h-10 border-2 rounded-full" style={{ borderColor: '#16a34a', borderTopColor: 'transparent' }} /></div>}>
+    <Suspense fallback={<StayPageSkeleton />}>
       <GroupBookingContent />
     </Suspense>
   );

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -288,11 +289,7 @@ function StayAuthContent() {
 
 export default function StayAuthPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="animate-spin w-10 h-10 border-2 rounded-full" style={{ borderColor: '#16a34a', borderTopColor: 'transparent' }} />
-      </div>
-    }>
+    <Suspense fallback={<StayPageSkeleton />}>
       <StayAuthContent />
     </Suspense>
   );

@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { CheckCircle2, Clock, XCircle, BedDouble, Calendar, Phone, Search, ChevronRight } from 'lucide-react';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 type BookingRequest = {
   id: string; created_at: string; guest_name: string; guest_phone: string;
@@ -180,7 +181,7 @@ function MyBookingsContent() {
 
 export default function MyBookingsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#f8fafc]"><div className="animate-spin w-10 h-10 border-2 rounded-full" style={{ borderColor: '#16a34a', borderTopColor: 'transparent' }} /></div>}>
+    <Suspense fallback={<StayPageSkeleton />}>
       <MyBookingsContent />
     </Suspense>
   );

@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { fetchAvailableProperties, fetchUniversalStaySettings } from '@/lib/stay/fetchProperties';
 import RoomsListClient from '@/components/stay/rooms/RoomsListClient';
+import { RoomsResultsSkeleton } from '@/components/stay/shared/StaySkeleton';
 import '../stay.css';
 
 type SearchParams = Promise<{ checkIn?: string; checkOut?: string; guests?: string; adults?: string; children?: string; rooms?: string }>;
@@ -21,7 +22,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
   ]);
 
   return (
-    <Suspense fallback={<div className="stay-shell rooms-page" style={{ display: 'grid', placeItems: 'center' }}><div className="rooms-spinner" /></div>}>
+    <Suspense fallback={<RoomsResultsSkeleton />}>
       <RoomsListClient
         initialProperties={properties}
         initialCheckIn={checkIn}

@@ -908,52 +908,68 @@ html {
   text-transform: uppercase;
 }
 
-.results-search {
+.rooms-searchbar {
   background: #e9e2d2;
   border-block: 1px solid #ded5c3;
   padding: 21px 34px;
 }
 
-.results-fields {
-  max-width: 1172px;
-  margin: auto;
-  display: grid;
-  grid-template-columns: 1.15fr 1.15fr 0.7fr 0.7fr 0.7fr auto;
-  align-items: end;
-  gap: 12px;
-}
+.rooms-searchbar-inner { max-width: 1172px; margin: auto; }
 
-.results-fields > * {
-  min-width: 0;
-}
-
-.search-update {
-  min-height: 47px;
-  white-space: nowrap;
-}
-
-.search-context {
-  max-width: 1172px;
-  margin: 12px auto 0;
-  padding-left: 9px;
+.rooms-search-summary {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 9px;
-  color: #5f655e;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 13px;
+  text-align: left;
+  color: #77796f;
+  cursor: pointer;
+  font-family: inherit;
+}
+.rooms-search-summary:hover { border-color: #bd9b68; }
+.rooms-search-summary > svg { flex-shrink: 0; color: #205a3d; }
+.rooms-search-summary .summary-text { flex: 1; min-width: 0; }
+.rooms-search-summary strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #205a3d;
+  letter-spacing: .03em;
+  margin-bottom: 3px;
+}
+.rooms-search-summary span:last-child {
+  display: block;
+  font-size: 14px;
+  color: #25281f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.search-context svg {
-  color: #bd6347;
+.rooms-search-card { display: flex; flex-direction: column; }
+.search-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 10px;
 }
-
-.context-divider {
-  width: 1px;
-  height: 14px;
-  background: #cfc6b3;
+.search-card-head strong { font-size: 14px; color: #25281f; font-weight: 700; }
+.search-card-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 8px;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: #77796f;
 }
+.search-card-row > svg:first-child { color: #205a3d; flex-shrink: 0; }
+.search-card-row > span { flex: 1; min-width: 0; font-size: 14px; color: #25281f; }
+.search-card-row small { display: block; font-size: 11px; color: #77796f; }
+.search-card-foot { padding: 10px 4px 4px; }
 
 .results-content {
   max-width: 1240px;
@@ -1882,10 +1898,6 @@ html {
     justify-self: start;
   }
 
-  .results-fields {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .results-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1921,21 +1933,8 @@ html {
     width: 100%;
   }
 
-  .results-search {
-    padding: 18px 19px;
-  }
-
-  .results-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .search-update {
-    grid-column: 1 / -1;
-  }
-
-  .search-context {
-    padding-left: 2px;
-    font-size: 11px;
+  .rooms-searchbar {
+    padding: 16px 19px;
   }
 
   .results-content {
@@ -1976,16 +1975,19 @@ html {
 
   .cart-fab {
     display: inline-flex;
+    bottom: calc(3.5rem + 14px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 621px) and (max-width: 767px) {
+  .cart-bar {
+    bottom: calc(3.5rem + 14px + env(safe-area-inset-bottom));
   }
 }
 
 @media (max-width: 380px) {
   .results-intro h1 {
     font-size: 38px;
-  }
-
-  .results-fields {
-    gap: 10px;
   }
 
   .tool-button {

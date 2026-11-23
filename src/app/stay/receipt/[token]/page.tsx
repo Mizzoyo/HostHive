@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 interface TaxLine {
   label: string;
@@ -82,16 +83,7 @@ export default function ReceiptPage() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Loading receipt…</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <StayPageSkeleton />;
 
   if (error || !receipt) {
     return (

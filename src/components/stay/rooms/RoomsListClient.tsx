@@ -4,16 +4,17 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowRight, ArrowUpDown, ArrowUpRight, BedDouble, Check, Droplets, Heart, Map, MapPin,
+  ArrowRight, ArrowUpDown, ArrowUpRight, BedDouble, CalendarDays, Check, ChevronDown, Droplets, Heart, Map, MapPin,
   Plus, Search, ShoppingCart, SlidersHorizontal, Users, X,
 } from 'lucide-react';
+import SearchWidget, { DatePickerModal, GuestsModal } from '@/components/stay/SearchWidget';
 import { createClient } from '@/lib/supabase/client';
 import type { StayProperty, UniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
 import { getSellOptions } from '@/lib/sellOptions';
 import { compareProperties } from '@/lib/propertySort';
 import { normalizeType } from '@/lib/stay/roomType';
-import { Counter, StayFooter, StayGallery, StayTopbar, buildRoomsPath } from '@/components/stay/shared/StayChrome';
+import { StayFooter, StayGallery, StayTopbar, buildRoomsPath, type StaySelection } from '@/components/stay/shared/StayChrome';
 
 const ROOM_TYPES = ['All', 'Studio', 'Bedsitter', 'One Bedroom', 'Two Bedroom'];
 const SORT_OPTIONS: [SortKey, string][] = [['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['name', 'Name A–Z']];
@@ -71,11 +72,14 @@ export default function RoomsListClient({
   const [showSortSheet,   setShowSortSheet]   = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showMapView,     setShowMapView]     = useState(false);
+  const [showDate,        setShowDate]        = useState(false);
+  const [showGuests,      setShowGuests]      = useState(false);
+  const [searchExpanded,  setSearchExpanded]  = useState(false);
   const [priceMin,    setPriceMin]    = useState<number | ''>('');
   const [priceMax,    setPriceMax]    = useState<number | ''>('');
 
   useEffect(() => {
-    const anyOpen = showSortSheet || showFilterSheet || showMapView;
+    const anyOpen = showSortSheet || showFilterSheet || showMapView || showDate || showGuests;
     if (!anyOpen) return;
     const y = window.scrollY;
     document.body.style.overflow = 'hidden';
@@ -89,7 +93,7 @@ export default function RoomsListClient({
       document.body.style.width = '';
       window.scrollTo(0, y);
     };
-  }, [showSortSheet, showFilterSheet, showMapView]);
+  }, [showSortSheet, showFilterSheet, showMapView, showDate, showGuests]);
 
   useEffect(() => {
     fetch('/api/stay/wishlist')
@@ -97,15 +101,16 @@ export default function RoomsListClient({
       .then(d => setWishlistIds(new Set(d.property_ids ?? [])));
   }, []);
 
-  const runSearch = () => {
-    const sel = { checkIn, checkOut, adults, children, rooms };
-    setApplied({ checkIn, checkOut, guests: adults + children });
+  const applySearch = (sel: StaySelection) => {
+    setCheckIn(sel.checkIn); setCheckOut(sel.checkOut);
+    setAdults(sel.adults); setChildren(sel.children); setRooms(sel.rooms);
+    setApplied({ checkIn: sel.checkIn, checkOut: sel.checkOut, guests: sel.adults + sel.children });
     router.replace(buildRoomsPath(sel), { scroll: false });
-    if (checkIn === applied.checkIn && checkOut === applied.checkOut) return;
+    if (sel.checkIn === applied.checkIn && sel.checkOut === applied.checkOut) return;
     setLoading(true);
     const qs = new URLSearchParams();
-    if (checkIn)  qs.set('checkIn',  checkIn);
-    if (checkOut) qs.set('checkOut', checkOut);
+    if (sel.checkIn)  qs.set('checkIn',  sel.checkIn);
+    if (sel.checkOut) qs.set('checkOut', sel.checkOut);
     fetch(`/api/stay/properties?${qs.toString()}`)
       .then(r => r.json())
       .then(d => setProperties(d.properties ?? []))
@@ -200,28 +205,48 @@ export default function RoomsListClient({
         </div>
       </section>
 
-      <section className="results-search" aria-label="Search dates and guests">
-        <div className="results-fields">
-          <div className="field-group">
-            <label htmlFor="results-check-in">Check-in</label>
-            <input id="results-check-in" className="field-control" type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} data-testid="input-results-check-in" />
-          </div>
-          <div className="field-group">
-            <label htmlFor="results-check-out">Check-out</label>
-            <input id="results-check-out" className="field-control" type="date" min={checkIn} value={checkOut} onChange={e => setCheckOut(e.target.value)} data-testid="input-results-check-out" />
-          </div>
-          <Counter label="Adults" value={adults} min={1} onChange={setAdults} />
-          <Counter label="Children" value={children} min={0} onChange={setChildren} />
-          <Counter label="Rooms" value={rooms} min={1} onChange={setRooms} />
-          <button className="button-primary search-update" type="button" onClick={runSearch} data-testid="button-update-search">
-            Update search <ArrowRight size={15} />
-          </button>
+      <section className="rooms-searchbar" aria-label="Search dates and guests">
+        <div className="rooms-searchbar-inner hidden lg:block">
+          <SearchWidget initialCheckIn={applied.checkIn} initialCheckOut={applied.checkOut} initialAdults={adults}
+            initialChildren={children} initialRooms={rooms} onSearch={applySearch} />
         </div>
-        <div className="search-context">
-          <Users size={15} />
-          <span>{applied.guests} guest{applied.guests === 1 ? '' : 's'} · {rooms} room{rooms === 1 ? '' : 's'}</span>
-          <span className="context-divider" />
-          <span>{formatDate(applied.checkIn)} — {formatDate(applied.checkOut)}{nights > 0 ? ` · ${nights} night${nights === 1 ? '' : 's'}` : ''}</span>
+
+        <div className="lg:hidden">
+          {!searchExpanded ? (
+            <button type="button" className="rooms-search-card rooms-search-summary" onClick={() => setSearchExpanded(true)}>
+              <Search size={18} />
+              <span className="summary-text">
+                <strong>{brandName}</strong>
+                <span>
+                  {checkIn && checkOut ? `${formatDate(checkIn)} – ${formatDate(checkOut)}${nightsBetween(checkIn, checkOut) > 0 ? ` (${nightsBetween(checkIn, checkOut)} night${nightsBetween(checkIn, checkOut) !== 1 ? 's' : ''})` : ''} · ` : 'Any dates · '}
+                  {adults} adult{adults !== 1 ? 's' : ''}{children > 0 ? `, ${children} child${children !== 1 ? 'ren' : ''}` : ''}
+                </span>
+              </span>
+              <ChevronDown size={16} />
+            </button>
+          ) : (
+            <div className="rooms-search-card">
+              <div className="search-card-head">
+                <strong>Modify search</strong>
+                <button type="button" className="modal-close" onClick={() => setSearchExpanded(false)} aria-label="Close search"><X size={15} /></button>
+              </div>
+              <button type="button" className="search-card-row" onClick={() => setShowDate(true)}>
+                <CalendarDays size={16} />
+                <span><small>Dates</small>{checkIn && checkOut ? `${formatDate(checkIn)} – ${formatDate(checkOut)}` : 'Select dates'}</span>
+                <ChevronDown size={15} />
+              </button>
+              <button type="button" className="search-card-row" onClick={() => setShowGuests(true)}>
+                <Users size={16} />
+                <span><small>Guests</small>{adults} adult{adults !== 1 ? 's' : ''} · {children} child{children !== 1 ? 'ren' : ''} · {rooms} room{rooms !== 1 ? 's' : ''}</span>
+                <ChevronDown size={15} />
+              </button>
+              <div className="search-card-foot">
+                <button type="button" className="button-primary" onClick={() => { applySearch({ checkIn, checkOut, adults, children, rooms }); setSearchExpanded(false); }}>
+                  <Search size={15} /> Done
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -399,6 +424,17 @@ export default function RoomsListClient({
             </div>
           </div>
         </>
+      )}
+
+      {showDate && (
+        <DatePickerModal checkIn={checkIn} checkOut={checkOut}
+          onConfirm={(ci, co) => { setCheckIn(ci); setCheckOut(co); setShowDate(false); }}
+          onClose={() => setShowDate(false)} />
+      )}
+      {showGuests && (
+        <GuestsModal adults={adults} childCount={children} rooms={rooms}
+          onConfirm={(a, c, r) => { setAdults(a); setChildren(c); setRooms(r); setShowGuests(false); }}
+          onClose={() => setShowGuests(false)} />
       )}
 
       {showSortSheet && (

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { User, Mail, Phone, CalendarDays, LogIn, ShieldCheck, LogOut, Pencil, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 export default function GuestProfilePage() {
   const router = useRouter();
@@ -94,13 +95,7 @@ export default function GuestProfilePage() {
     loadProfile();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f8fafc] pt-5 sm:pt-24 flex items-center justify-center">
-        <div className="animate-spin w-10 h-10 border-2 rounded-full" style={{ borderColor: '#16a34a', borderTopColor: 'transparent' }} />
-      </div>
-    );
-  }
+  if (loading) return <StayPageSkeleton />;
 
   if (!loggedIn) {
     return (

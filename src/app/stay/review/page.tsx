@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Star, CheckCircle2, AlertCircle } from 'lucide-react';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 type ReviewInfo = { guest_name: string; property_name: string; stay_dates: string; submitted: boolean };
 
@@ -49,11 +50,7 @@ function ReviewContent() {
 
   const LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
-      <div className="animate-spin w-10 h-10 border-2 rounded-full" style={{ borderColor: '#16a34a', borderTopColor: 'transparent' }} />
-    </div>
-  );
+  if (loading) return <StayPageSkeleton />;
 
   if (notFound) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc] px-4 pt-16 text-center">
@@ -133,7 +130,7 @@ function ReviewContent() {
 
 export default function ReviewPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#f8fafc]"><div className="animate-spin w-10 h-10 border-2 rounded-full" style={{ borderColor: '#16a34a', borderTopColor: 'transparent' }} /></div>}>
+    <Suspense fallback={<StayPageSkeleton />}>
       <ReviewContent />
     </Suspense>
   );

@@ -99,7 +99,7 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
         <div className="flex gap-6">
           {(['calendar', 'flexible'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`text-sm font-semibold pb-1 border-b-2 transition-colors capitalize ${t === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}>
+              className={`text-sm font-semibold pb-1 border-b-2 transition-colors capitalize ${t === tab ? 'border-[#205a3d] text-[#205a3d]' : 'border-transparent text-gray-500'}`}>
               {t === 'flexible' ? "I'm flexible" : 'Calendar'}
             </button>
           ))}
@@ -136,9 +136,9 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
                       return (
                         <button key={day} disabled={isPast} onClick={() => handleDayClick(dateStr)}
                           className={`h-10 w-full text-sm font-medium transition-colors
-                            ${isPast ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-blue-50'}
-                            ${(isStart || isEnd) ? 'bg-blue-600 text-white rounded-full font-bold' : ''}
-                            ${inRange ? 'bg-blue-100 text-blue-800' : ''}
+                            ${isPast ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-[#f1ece1]'}
+                            ${(isStart || isEnd) ? 'bg-[#205a3d] text-white rounded-full font-bold' : ''}
+                            ${inRange ? 'bg-[#e3ece4] text-[#205a3d]' : ''}
                             ${!isStart && !isEnd && !inRange && !isPast ? 'text-gray-900' : ''}
                           `}>
                           {day}
@@ -160,8 +160,8 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
               { key: 'other',   label: 'Other'     },
             ].map(opt => (
               <label key={opt.key} className="flex items-center gap-3 py-3 cursor-pointer select-none" onClick={() => setFlexDuration(opt.key)}>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${flexDuration === opt.key ? 'border-blue-600' : 'border-gray-400'}`}>
-                  {flexDuration === opt.key && <div className="w-2.5 h-2.5 rounded-full bg-blue-600"/>}
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${flexDuration === opt.key ? 'border-[#205a3d]' : 'border-gray-400'}`}>
+                  {flexDuration === opt.key && <div className="w-2.5 h-2.5 rounded-full bg-[#205a3d]"/>}
                 </div>
                 <span className="text-gray-900 text-base">{opt.label}</span>
               </label>
@@ -177,7 +177,7 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
                     onClick={() => setFlexMonths(prev =>
                       sel ? prev.filter(m => m !== mc.key) : prev.length < 3 ? [...prev, mc.key] : prev
                     )}
-                    className={`flex-shrink-0 w-24 rounded-xl border-2 p-3 text-center transition-colors ${sel ? 'border-blue-600 text-blue-600' : 'border-gray-200 text-gray-700'}`}>
+                    className={`flex-shrink-0 w-24 rounded-xl border-2 p-3 text-center transition-colors ${sel ? 'border-[#205a3d] text-[#205a3d]' : 'border-gray-200 text-gray-700'}`}>
                     <svg className="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                       <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                     </svg>
@@ -204,7 +204,7 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
           </p>
         )}
         <button onClick={handleDone} disabled={!canDone}
-          className={`w-full py-4 rounded-xl text-base font-bold text-white transition-colors ${canDone ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+          className={`w-full py-4 rounded-xl text-base font-bold text-white transition-colors ${canDone ? 'bg-[#205a3d] hover:bg-[#18482f]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
           Done
         </button>
       </div>
@@ -215,13 +215,13 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
 // ── GuestsModal ──────────────────────────────────────────────────────────────
 interface GuestsModalProps {
   adults: number;
-  children: number;
+  childCount: number;
   rooms: number;
   onConfirm: (adults: number, children: number, rooms: number, pets: boolean) => void;
   onClose: () => void;
 }
 
-export function GuestsModal({ adults: ia, children: ic, rooms: ir, onConfirm, onClose }: GuestsModalProps) {
+export function GuestsModal({ adults: ia, childCount: ic, rooms: ir, onConfirm, onClose }: GuestsModalProps) {
   const [adults,   setAdults]   = useState(ia);
   const [children, setChildren] = useState(ic);
   const [rooms,    setRooms]    = useState(ir);
@@ -249,12 +249,12 @@ export function GuestsModal({ adults: ia, children: ic, rooms: ir, onConfirm, on
             <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
               <button onClick={() => row.set((v: number) => Math.max(row.min, v - 1))}
                 disabled={row.val === row.min}
-                className="w-12 h-12 flex items-center justify-center text-blue-600 text-xl font-bold hover:bg-gray-50 disabled:text-gray-300 border-r border-gray-200">
+                className="w-12 h-12 flex items-center justify-center text-[#205a3d] text-xl font-bold hover:bg-gray-50 disabled:text-gray-300 border-r border-gray-200">
                 −
               </button>
               <span className="w-12 text-center text-base font-bold text-gray-900">{row.val}</span>
               <button onClick={() => row.set((v: number) => Math.min(20, v + 1))}
-                className="w-12 h-12 flex items-center justify-center text-blue-600 text-xl font-bold hover:bg-gray-50 border-l border-gray-200">
+                className="w-12 h-12 flex items-center justify-center text-[#205a3d] text-xl font-bold hover:bg-gray-50 border-l border-gray-200">
                 +
               </button>
             </div>
@@ -264,7 +264,7 @@ export function GuestsModal({ adults: ia, children: ic, rooms: ir, onConfirm, on
         <div className="flex items-center justify-between py-5">
           <p className="text-base font-semibold text-gray-900">Travelling with pets?</p>
           <button onClick={() => setPets(v => !v)}
-            className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${pets ? 'bg-blue-600' : 'bg-gray-300'}`}>
+            className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${pets ? 'bg-[#205a3d]' : 'bg-gray-300'}`}>
             <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform duration-200 ${pets ? 'translate-x-5' : 'translate-x-0'}`}/>
           </button>
         </div>
@@ -273,7 +273,7 @@ export function GuestsModal({ adults: ia, children: ic, rooms: ir, onConfirm, on
       <div className="px-5 py-4 border-t border-gray-200" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
         <button onClick={() => onConfirm(adults, children, rooms, pets)}
           className="w-full py-4 rounded-xl text-base font-bold text-white"
-          style={{ background: '#16a34a' }}>
+          style={{ background: '#205a3d' }}>
           Done
         </button>
       </div>
@@ -346,9 +346,9 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
               <button key={day} disabled={isPast} onClick={() => handleDayClick(dateStr)}
                 className={[
                   'h-9 w-full text-xs font-medium transition-colors',
-                  isPast ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-blue-50 cursor-pointer',
-                  (isStart || isEnd) ? 'bg-blue-600 !text-white font-bold rounded-full' : '',
-                  inRange ? 'bg-blue-100 text-blue-800' : '',
+                  isPast ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-[#f1ece1] cursor-pointer',
+                  (isStart || isEnd) ? 'bg-[#205a3d] !text-white font-bold rounded-full' : '',
+                  inRange ? 'bg-[#e3ece4] text-[#205a3d]' : '',
                   !isStart && !isEnd && !inRange && !isPast ? 'text-gray-900' : '',
                 ].join(' ')}>
                 {day}
@@ -367,7 +367,7 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
       <div className="flex gap-6 border-b border-gray-200 mb-5">
         {(['calendar', 'flexible'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors ${t === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors ${t === tab ? 'border-[#205a3d] text-[#205a3d]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
             {t === 'flexible' ? "I'm flexible" : 'Calendar'}
           </button>
         ))}
@@ -408,8 +408,8 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
           <p className="font-semibold text-gray-900 text-sm mb-3">How long do you want to stay?</p>
           {[{ key:'weekend', label:'A weekend' },{ key:'week', label:'A week' },{ key:'month', label:'A month' },{ key:'other', label:'Other' }].map(opt => (
             <label key={opt.key} className="flex items-center gap-3 py-2.5 cursor-pointer" onClick={() => setFlexDuration(opt.key)}>
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${flexDuration === opt.key ? 'border-blue-600' : 'border-gray-400'}`}>
-                {flexDuration === opt.key && <div className="w-2.5 h-2.5 rounded-full bg-blue-600"/>}
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${flexDuration === opt.key ? 'border-[#205a3d]' : 'border-gray-400'}`}>
+                {flexDuration === opt.key && <div className="w-2.5 h-2.5 rounded-full bg-[#205a3d]"/>}
               </div>
               <span className="text-gray-900 text-sm">{opt.label}</span>
             </label>
@@ -420,7 +420,7 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
               const sel = flexMonths.includes(mc.key);
               return (
                 <button key={mc.key} onClick={() => setFlexMonths(prev => sel ? prev.filter(m => m !== mc.key) : prev.length < 3 ? [...prev, mc.key] : prev)}
-                  className={`flex-shrink-0 w-20 rounded-xl border-2 p-2 text-center text-xs transition-colors ${sel ? 'border-blue-600 text-blue-600' : 'border-gray-200 text-gray-600'}`}>
+                  className={`flex-shrink-0 w-20 rounded-xl border-2 p-2 text-center text-xs transition-colors ${sel ? 'border-[#205a3d] text-[#205a3d]' : 'border-gray-200 text-gray-600'}`}>
                   <p className="font-bold">{mc.label}</p><p className="text-gray-400">{mc.year}</p>
                 </button>
               );
@@ -432,7 +432,7 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
               const s = new Date(yr, mo, 15);
               const daysMap: Record<string,number> = { weekend:2, week:7, month:30, other:14 };
               onConfirm(isoDate(s), isoDate(addDays(s, daysMap[flexDuration] ?? 7)));
-            }} className="w-full mt-4 py-3 rounded-xl bg-blue-600 text-white font-bold text-sm">Done</button>
+            }} className="w-full mt-4 py-3 rounded-xl bg-[#205a3d] text-white font-bold text-sm">Done</button>
           )}
         </div>
       )}
@@ -441,7 +441,7 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
 }
 
 // ── DesktopGuestsDropdown ─────────────────────────────────────────────────────
-function DesktopGuestsDropdown({ adults: ia, children: ic, rooms: ir, onConfirm, onClose }: GuestsModalProps) {
+function DesktopGuestsDropdown({ adults: ia, childCount: ic, rooms: ir, onConfirm, onClose }: GuestsModalProps) {
   const [adults,   setAdults]   = useState(ia);
   const [children, setChildren] = useState(ic);
   const [rooms,    setRooms]    = useState(ir);
@@ -469,29 +469,29 @@ function DesktopGuestsDropdown({ adults: ia, children: ic, rooms: ir, onConfirm,
           <span className="text-sm font-semibold text-gray-900">{row.label}</span>
           <div className="flex items-center gap-3">
             <button onClick={() => row.set((v: number) => Math.max(row.min, v - 1))} disabled={row.val === row.min}
-              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-blue-600 font-bold text-lg hover:border-blue-600 disabled:text-gray-300 disabled:border-gray-200">−</button>
+              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-[#205a3d] font-bold text-lg hover:border-[#205a3d] disabled:text-gray-300 disabled:border-gray-200">−</button>
             <span className="w-5 text-center text-sm font-bold text-gray-900">{row.val}</span>
             <button onClick={() => row.set((v: number) => Math.min(20, v + 1))}
-              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-blue-600 font-bold text-lg hover:border-blue-600">+</button>
+              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-[#205a3d] font-bold text-lg hover:border-[#205a3d]">+</button>
           </div>
         </div>
       ))}
       <div className="flex items-center justify-between py-3.5 border-b border-gray-100">
         <p className="text-sm font-semibold text-gray-900">Traveling for work?</p>
         <button onClick={() => setWork(v => !v)}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${work ? 'bg-blue-600' : 'bg-gray-300'}`}>
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${work ? 'bg-[#205a3d]' : 'bg-gray-300'}`}>
           <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${work ? 'translate-x-5' : 'translate-x-0'}`}/>
         </button>
       </div>
       <div className="flex items-center justify-between py-3.5">
         <p className="text-sm font-semibold text-gray-900">Traveling with pets?</p>
         <button onClick={() => setPets(v => !v)}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${pets ? 'bg-blue-600' : 'bg-gray-300'}`}>
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${pets ? 'bg-[#205a3d]' : 'bg-gray-300'}`}>
           <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${pets ? 'translate-x-5' : 'translate-x-0'}`}/>
         </button>
       </div>
       <button onClick={() => onConfirm(adults, children, rooms, pets)}
-        className="w-full mt-3 py-3 rounded-xl border-2 border-blue-600 text-blue-600 font-bold text-sm hover:bg-blue-50 transition-colors">
+        className="w-full mt-3 py-3 rounded-xl border-2 border-[#205a3d] text-[#205a3d] font-bold text-sm hover:bg-[#f1ece1] transition-colors">
         Done
       </button>
     </div>
@@ -505,12 +505,14 @@ export default function SearchWidget({
   initialAdults   = 2,
   initialChildren = 0,
   initialRooms    = 1,
+  onSearch,
 }: {
   initialCheckIn?:  string;
   initialCheckOut?: string;
   initialAdults?:   number;
   initialChildren?: number;
   initialRooms?:    number;
+  onSearch?: (sel: { checkIn: string; checkOut: string; adults: number; children: number; rooms: number }) => void;
 } = {}) {
   const router   = useRouter();
   const today    = new Date().toISOString().split('T')[0];
@@ -550,39 +552,45 @@ export default function SearchWidget({
 
   const handleSearch = () => {
     if (!canSearch) return;
-    router.push(`/stay/rooms?checkIn=${checkIn}&checkOut=${checkOut}&guests=${adults + children}&rooms=${rooms}&pets=${pets}`);
+    if (onSearch) { onSearch({ checkIn, checkOut, adults, children, rooms }); return; }
+    router.push(`/stay/rooms?checkIn=${checkIn}&checkOut=${checkOut}&adults=${adults}&children=${children}&guests=${adults + children}&rooms=${rooms}&pets=${pets}`);
   };
+
+  const tile  = 'bg-[#fbf8f0] border border-[#d8d1c2] rounded-xl';
+  const label = 'text-[10px] uppercase tracking-wider font-bold text-[#77796f] mb-0.5';
+  const value = 'text-sm font-semibold text-[#283c30]';
+  const icon  = 'w-4 h-4 text-[#bd6347] flex-shrink-0';
 
   return (
     <>
       <div className="relative w-full">
-        <div className="flex flex-col lg:flex-row rounded-2xl overflow-visible w-full p-2 gap-2" style={{ border: '3px solid #d97706' }}>
+        <div className="flex flex-col lg:flex-row rounded-[18px] overflow-visible w-full p-2 gap-2 bg-[#e9e2d2] border border-[#ded5c3]">
 
           {/* ── Dates ── */}
           {/* Mobile: two separate buttons → full-screen modal */}
-          <div className="flex flex-1 bg-white rounded-xl lg:hidden">
+          <div className={`flex flex-1 lg:hidden ${tile}`}>
             <button onClick={() => { setShowMobileDate(true); setShowMobileGuests(false); }}
-              className="flex-1 px-4 py-3 border-r border-gray-200 text-left">
-              <p className="text-xs text-gray-400 mb-0.5">Check-in</p>
-              <p className="text-sm font-semibold text-gray-900">{fmt(checkIn) || 'Add date'}</p>
+              className="flex-1 px-4 py-3 border-r border-[#d8d1c2] text-left">
+              <p className={label}>Check-in</p>
+              <p className={value}>{fmt(checkIn) || 'Add date'}</p>
             </button>
             <button onClick={() => { setShowMobileDate(true); setShowMobileGuests(false); }}
               className="flex-1 px-4 py-3 text-left">
-              <p className="text-xs text-gray-400 mb-0.5">Check-out</p>
-              <p className="text-sm font-semibold text-gray-900">{fmt(checkOut) || 'Add date'}</p>
+              <p className={label}>Check-out</p>
+              <p className={value}>{fmt(checkOut) || 'Add date'}</p>
             </button>
           </div>
 
           {/* Desktop: single combined date button → inline dropdown */}
-          <div className="hidden lg:block relative flex-1 bg-white rounded-xl">
+          <div className={`hidden lg:block relative flex-1 ${tile}`}>
             <button onClick={() => { setShowDesktopDate(v => !v); setShowDesktopGuests(false); }}
-              className="w-full h-full px-5 py-3 text-left flex items-center gap-3">
-              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              className="w-full h-full px-5 py-2.5 text-left flex items-center gap-3">
+              <svg className={icon} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
               </svg>
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Dates</p>
-                <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">{dateLabel}</p>
+                <p className={label}>Dates</p>
+                <p className={`${value} whitespace-nowrap`}>{dateLabel}</p>
               </div>
             </button>
             {showDesktopDate && (
@@ -596,31 +604,31 @@ export default function SearchWidget({
 
           {/* ── Guests ── */}
           {/* Mobile: opens full-screen modal */}
-          <div className="flex items-center bg-white rounded-xl lg:hidden">
+          <div className={`flex items-center lg:hidden ${tile}`}>
             <button onClick={() => { setShowMobileGuests(true); setShowMobileDate(false); }} className="flex items-center justify-between gap-2 px-4 py-3 w-full text-left">
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">Guests</p>
-                <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">{guestLabel}</p>
+              <div className="min-w-0">
+                <p className={label}>Guests</p>
+                <p className={`${value} truncate`}>{guestLabel}</p>
               </div>
-              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+              <svg className="w-4 h-4 text-[#77796f] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
             </button>
           </div>
 
           {/* Desktop: opens inline dropdown */}
-          <div className="hidden lg:flex items-center bg-white rounded-xl relative flex-shrink-0">
-            <button onClick={() => { setShowDesktopGuests(v => !v); setShowDesktopDate(false); }} className="flex items-center gap-2 px-5 py-3 w-full text-left">
-              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <div className={`hidden lg:flex items-center relative flex-shrink-0 ${tile}`}>
+            <button onClick={() => { setShowDesktopGuests(v => !v); setShowDesktopDate(false); }} className="flex items-center gap-2 px-5 py-2.5 w-full text-left">
+              <svg className={icon} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
               <div className="flex-1">
-                <p className="text-xs text-gray-400 mb-0.5">Guests</p>
-                <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">{guestLabel}</p>
+                <p className={label}>Guests</p>
+                <p className={`${value} whitespace-nowrap`}>{guestLabel}</p>
               </div>
-              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+              <svg className="w-4 h-4 text-[#77796f] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
             </button>
             {showDesktopGuests && (
               <DesktopGuestsDropdown
-                adults={adults} children={children} rooms={rooms}
+                adults={adults} childCount={children} rooms={rooms}
                 onConfirm={(a, c, r) => { setAdults(a); setChildren(c); setRooms(r); setShowDesktopGuests(false); }}
                 onClose={() => setShowDesktopGuests(false)}
               />
@@ -629,10 +637,9 @@ export default function SearchWidget({
 
           {/* Search */}
           <button onClick={handleSearch} disabled={!canSearch}
-            className={`px-8 py-4 text-base font-bold text-white transition-all flex items-center justify-center flex-shrink-0 rounded-xl ${
-              canSearch ? 'hover:opacity-90 active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed'
+            className={`px-8 py-3.5 text-sm font-bold text-[#fff8eb] bg-[#205a3d] transition-all flex items-center justify-center flex-shrink-0 rounded-full ${
+              canSearch ? 'hover:bg-[#18482f] active:scale-95 cursor-pointer' : 'opacity-40 cursor-not-allowed'
             }`}
-            style={{ background: '#16a34a' }}
             title={!canSearch ? 'Please select check-in and check-out dates' : ''}>
             Search
           </button>
@@ -650,7 +657,7 @@ export default function SearchWidget({
       )}
       {showMobileGuests && typeof document !== 'undefined' && createPortal(
         <GuestsModal
-          adults={adults} children={children} rooms={rooms}
+          adults={adults} childCount={children} rooms={rooms}
           onConfirm={(a, c, r, p) => { setAdults(a); setChildren(c); setRooms(r); setPets(p); setShowMobileGuests(false); }}
           onClose={() => setShowMobileGuests(false)}
         />,

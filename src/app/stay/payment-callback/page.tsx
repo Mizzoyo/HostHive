@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 function CallbackContent() {
   const params           = useSearchParams();
@@ -85,7 +86,7 @@ function CallbackContent() {
 
 export default function PaymentCallbackPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#f8fafc]"><div className="animate-spin w-10 h-10 border-2 rounded-full" style={{ borderColor: '#16a34a', borderTopColor: 'transparent' }} /></div>}>
+    <Suspense fallback={<StayPageSkeleton />}>
       <CallbackContent />
     </Suspense>
   );

@@ -5,6 +5,7 @@ import { DM_Sans, Playfair_Display } from 'next/font/google';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 const dmSans = DM_Sans({
   variable: '--font-dm-sans',
@@ -84,6 +85,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   const isCheckoutPage = pathname.startsWith('/stay/checkout');
   const isCartPage     = pathname.startsWith('/stay/book/cart');
   const hasOwnChrome   = isStayHome || isRoomsPage;
+  const showBottomNav  = !isCheckoutPage && !isCartPage;
   const router    = useRouter();
   const [menuOpen,   setMenuOpen]   = useState(false);
   const [loading,    setLoading]    = useState(false);
@@ -318,24 +320,19 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
       )}
 
       {/* ── Page content ── */}
-      <main className={`w-full flex-1${isPropertyPage || hasOwnChrome ? '' : ' pt-14'}`} style={{ overflowX: 'clip' }}>
+      <main className={`w-full flex-1${isPropertyPage || hasOwnChrome ? '' : ' pt-14'}${showBottomNav ? ' pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0' : ''}`} style={{ overflowX: 'clip' }}>
         {children}
       </main>
 
-      {/* ── Wave loading overlay ── */}
+      {/* ── Navigation loading skeleton ── */}
       {loading && (
-        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center" style={{ background: 'rgba(15,23,42,0.85)' }}>
-          <div className="flex items-end gap-3 mb-4">
-            <span className="w-4 h-4 rounded-full bg-[#16a34a] dot-wave" />
-            <span className="w-4 h-4 rounded-full bg-[#16a34a] dot-wave dot-wave-2" />
-            <span className="w-4 h-4 rounded-full bg-[#16a34a] dot-wave dot-wave-3" />
-          </div>
-          <p className="text-white/60 text-sm font-medium tracking-wide">Loading…</p>
+        <div className="fixed inset-0 z-[200] overflow-y-auto bg-[#faf7ef]">
+          <StayPageSkeleton />
         </div>
       )}
 
       {/* ── Mobile sticky bottom nav ── */}
-      {!isPropertyPage && !isRoomsPage && !isCheckoutPage && !isCartPage && !isStayHome && <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 flex items-stretch" style={{ background: '#1e293b' }}>
+      {showBottomNav && <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-[#ded5c3] bg-[#fffdf8]" style={{ height: 'calc(3.5rem + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {NAV_LINKS.filter(l => {
           if (l.label === 'Rooms') return false;
           if (l.label === 'Trips' && !loggedIn) return false;
@@ -345,7 +342,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
           return (
             <button key={l.href} onClick={() => handleNavClick(l.href)}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
-                active ? 'text-[#16a34a]' : 'text-white/50 hover:text-white'
+                active ? 'text-[#205a3d]' : 'text-[#8a8574] hover:text-[#205a3d]'
               }`}>
               {l.icon}
               <span className="text-[10px] font-semibold">{l.label}</span>

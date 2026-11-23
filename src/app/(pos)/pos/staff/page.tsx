@@ -131,7 +131,11 @@ export default function PosStaffPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadStaff(); }, [loadStaff]);
+  useEffect(() => {
+    /* Defer so the synchronous setLoading inside loadStaff doesn't run
+       directly in the effect body. */
+    void Promise.resolve().then(loadStaff);
+  }, [loadStaff]);
 
   const handleAdd = async () => {
     if (!addForm.name.trim())       { toast.error('Name is required'); return; }

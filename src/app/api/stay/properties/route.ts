@@ -48,7 +48,7 @@ export async function GET(req: Request) {
                                                    // (checkout = rangeStart means departure that morning → free)
       if (hostId) bq = bq.eq('user_id', hostId);
       const { data: bRows } = await bq;
-      (bRows ?? []).forEach((b: any) => { if (b.property_id) blockedIds.add(b.property_id); });
+      (bRows ?? []).forEach((b) => { if (b.property_id) blockedIds.add(b.property_id); });
     } catch { /* RLS or connection issue — continue to booking_requests check */ }
 
     // 2) Also check booking_requests table — covers cases where the auto-booking
@@ -62,14 +62,14 @@ export async function GET(req: Request) {
         .gte('check_out', addDays(rangeStart, 1));
       if (hostId) rq = rq.eq('host_user_id', hostId);
       const { data: rRows } = await rq;
-      (rRows ?? []).forEach((r: any) => {
+      (rRows ?? []).forEach((r) => {
         const rooms = Array.isArray(r.room_details) ? r.room_details : [];
-        rooms.forEach((room: any) => { if (room.property_id) blockedIds.add(room.property_id); });
+        rooms.forEach((room) => { if (room.property_id) blockedIds.add(room.property_id); });
       });
     } catch { /* ignore */ }
 
     const withPhotos = await Promise.all(
-      sortProperties((properties ?? []).filter((p: any) => !blockedIds.has(p.id))).map(async (p: any) => {
+      sortProperties((properties ?? []).filter((p) => !blockedIds.has(p.id))).map(async (p) => {
         const { data: photos } = await publicSupabase
           .from('property_photos')
           .select('url, sort_order')
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
           .eq('property_id', p.id);
         return {
           ...p,
-          photos: photos?.map((ph: any) => ph.url) ?? (p.cover_photo ? [p.cover_photo] : []),
+          photos: photos?.map((ph) => ph.url) ?? (p.cover_photo ? [p.cover_photo] : []),
           amenities: mergeAmenityLabels(universalSettings.amenities, amenities?.map((a: { name: string }) => a.name) ?? []),
         };
       })

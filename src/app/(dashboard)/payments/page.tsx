@@ -102,10 +102,17 @@ export default function PaymentsPage() {
     endDate: '2025-12-31',
   });
 
-  const [paymentForm, setPaymentForm] = useState({
+  const [paymentForm, setPaymentForm] = useState<{
+    bookingId: string;
+    amount: string;
+    paymentMethod: Payment['paymentMethod'];
+    transactionId: string;
+    paidAt: string;
+    notes: string;
+  }>({
     bookingId: '',
     amount: '',
-    paymentMethod: 'mpesa' as const,
+    paymentMethod: 'mpesa',
     transactionId: '',
     paidAt: new Date().toISOString().split('T')[0],
     notes: '',
@@ -446,7 +453,7 @@ export default function PaymentsPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {invoices
+                  {[...invoices]
                     .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime())
                     .map((invoice) => (
                       <div
@@ -618,7 +625,7 @@ export default function PaymentsPage() {
               onChange={(e) =>
                 setPaymentForm({
                   ...paymentForm,
-                  paymentMethod: e.target.value as any,
+                  paymentMethod: e.target.value as Payment['paymentMethod'],
                 })
               }
               className="w-full px-4 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500"

@@ -7,7 +7,8 @@ import {
   CircleParking, Clock3, Coffee, Flower2, House, LockKeyhole,
   ShieldCheck, Sparkles, Utensils, Wifi,
 } from 'lucide-react';
-import { Counter, StayFooter, StayGallery, StayTopbar, buildRoomsPath } from '@/components/stay/shared/StayChrome';
+import { StayFooter, StayGallery, StayTopbar, buildRoomsPath, type StaySelection } from '@/components/stay/shared/StayChrome';
+import SearchWidget from '@/components/stay/SearchWidget';
 
 type Room = { name: string; type: string; poolside: boolean; url: string; photos: string[] };
 
@@ -69,7 +70,7 @@ export default function StayHomeClient() {
   const [children, setChildren] = useState(0);
   const [roomCount, setRoomCount] = useState(1);
   const [filter, setFilter] = useState<'all' | 'poolside'>('all');
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const router = useRouter();
 
   const selection = { checkIn, checkOut, adults, children, rooms: roomCount };
@@ -80,6 +81,11 @@ export default function StayHomeClient() {
   }, [router, roomsPath]);
 
   const goToRooms = () => startTransition(() => router.push(roomsPath));
+  const handleSearch = (sel: StaySelection) => {
+    setCheckIn(sel.checkIn); setCheckOut(sel.checkOut);
+    setAdults(sel.adults); setChildren(sel.children); setRoomCount(sel.rooms);
+    startTransition(() => router.push(buildRoomsPath(sel)));
+  };
   const shownRooms = filter === 'poolside' ? roomData.filter((room) => room.poolside) : roomData;
 
   const amenities = [
@@ -127,20 +133,14 @@ export default function StayHomeClient() {
 
       <section className="booking-band" id="booking" aria-label="Plan your stay">
         <div className="booking-panel">
-          <div className="field-group">
-            <label htmlFor="check-in">Check-in</label>
-            <input id="check-in" className="field-control" type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} data-testid="input-check-in" />
-          </div>
-          <div className="field-group">
-            <label htmlFor="check-out">Check-out</label>
-            <input id="check-out" className="field-control" type="date" min={checkIn} value={checkOut} onChange={(e) => setCheckOut(e.target.value)} data-testid="input-check-out" />
-          </div>
-          <Counter label="Adults" value={adults} min={1} onChange={setAdults} />
-          <Counter label="Children" value={children} min={0} onChange={setChildren} />
-          <Counter label="Rooms" value={roomCount} min={1} onChange={setRoomCount} />
-          <button className="button-primary book-action" type="button" onClick={goToRooms} disabled={isPending} aria-busy={isPending} data-testid="button-check-availability">
-            {isPending ? 'Checking availability…' : <>Check live availability <ArrowRight size={16} /></>}
-          </button>
+          <SearchWidget
+            initialCheckIn={checkIn}
+            initialCheckOut={checkOut}
+            initialAdults={adults}
+            initialChildren={children}
+            initialRooms={roomCount}
+            onSearch={handleSearch}
+          />
           <p className="booking-note">Your choices stay with you when you continue. Dates, space and rates are confirmed on our live booking site.</p>
         </div>
       </section>

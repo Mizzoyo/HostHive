@@ -113,7 +113,9 @@ export default function KitchenPage() {
 
   /* -- Initial load + auto-refresh ------------------------------------------- */
   useEffect(() => {
-    fetchOrders(false);
+    /* Defer so the synchronous setLoading inside fetchOrders doesn't run
+       directly in the effect body. */
+    void Promise.resolve().then(() => fetchOrders(false));
 
     intervalRef.current = setInterval(() => {
       fetchOrders(true);

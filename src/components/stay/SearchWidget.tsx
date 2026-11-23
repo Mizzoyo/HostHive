@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
@@ -52,15 +52,15 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
   const [flexDuration, setFlexDuration] = useState('');
   const [flexMonths, setFlexMonths] = useState<string[]>([]);
 
-  const today  = isoDate(new Date());
-  const months = useMemo(() => buildMonths(MONTHS_AHEAD), []);
-  const monthCards = useMemo(() => {
+  const [today] = useState(() => isoDate(new Date()));
+  const [months] = useState(() => buildMonths(MONTHS_AHEAD));
+  const [monthCards] = useState(() => {
     const now = new Date();
     return Array.from({ length: 12 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
       return { key: `${d.getFullYear()}-${d.getMonth()}`, label: SHORT_MONTHS[d.getMonth()], year: d.getFullYear() };
     });
-  }, []);
+  });
 
   function handleDayClick(dateStr: string) {
     if (dateStr < today) return;
@@ -200,7 +200,7 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
         )}
         {tab === 'flexible' && flexDuration && flexMonths.length > 0 && (
           <p className="text-sm text-gray-500 text-center mb-3">
-            {({ weekend:'A weekend', week:'A week', month:'A month', other:'Other' } as any)[flexDuration]} in {monthCards.find(m => m.key === flexMonths[0])?.label}
+            {({ weekend: 'A weekend', week: 'A week', month: 'A month', other: 'Other' } as Record<string, string>)[flexDuration]} in {monthCards.find(m => m.key === flexMonths[0])?.label}
           </p>
         )}
         <button onClick={handleDone} disabled={!canDone}
@@ -292,27 +292,31 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
   const [flexDuration, setFlexDuration] = useState('');
   const [flexMonths, setFlexMonths]   = useState<string[]>([]);
   const ref = useRef<HTMLDivElement>(null);
-  const today = isoDate(new Date());
-  const now   = new Date();
+  const [today] = useState(() => isoDate(new Date()));
+  const [now]   = useState(() => new Date());
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
 
-  const onCloseCb = useCallback(onClose, []);
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onCloseCb();
+      if (ref.current && !ref.current.contains(e.target as Node)) onCloseRef.current();
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onCloseCb]);
+  }, []);
 
   const leftD  = new Date(now.getFullYear(), now.getMonth() + offset,     1);
   const rightD = new Date(now.getFullYear(), now.getMonth() + offset + 1, 1);
   const leftM  = { year: leftD.getFullYear(),  month: leftD.getMonth()  };
   const rightM = { year: rightD.getFullYear(), month: rightD.getMonth() };
 
-  const monthCards = useMemo(() => Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    return { key: `${d.getFullYear()}-${d.getMonth()}`, label: SHORT_MONTHS[d.getMonth()], year: d.getFullYear() };
-  }), []);
+  const [monthCards] = useState(() => {
+    const base = new Date();
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
+      return { key: `${d.getFullYear()}-${d.getMonth()}`, label: SHORT_MONTHS[d.getMonth()], year: d.getFullYear() };
+    });
+  });
 
   function handleDayClick(dateStr: string) {
     if (dateStr < today) return;
@@ -448,15 +452,16 @@ function DesktopGuestsDropdown({ adults: ia, childCount: ic, rooms: ir, onConfir
   const [work,     setWork]     = useState(false);
   const [pets,     setPets]     = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
 
-  const onCloseCb = useCallback(onClose, []);
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onCloseCb();
+      if (ref.current && !ref.current.contains(e.target as Node)) onCloseRef.current();
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onCloseCb]);
+  }, []);
 
   return (
     <div ref={ref} className="absolute top-full right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[200] p-5 w-80">
@@ -515,8 +520,8 @@ export default function SearchWidget({
   onSearch?: (sel: { checkIn: string; checkOut: string; adults: number; children: number; rooms: number }) => void;
 } = {}) {
   const router   = useRouter();
-  const today    = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const [today]    = useState(() => new Date().toISOString().split('T')[0]);
+  const [tomorrow] = useState(() => new Date(Date.now() + 86400000).toISOString().split('T')[0]);
   const [checkIn,          setCheckIn]          = useState(initialCheckIn || today);
   const [checkOut,         setCheckOut]         = useState(initialCheckOut || tomorrow);
   const [adults,           setAdults]           = useState(initialAdults);

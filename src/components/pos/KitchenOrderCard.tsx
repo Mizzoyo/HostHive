@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, CheckCircle, ChefHat } from 'lucide-react';
 
 export interface KitchenOrder {
@@ -21,21 +21,28 @@ interface KitchenOrderCardProps {
   section?: 'kitchen' | 'bar';
 }
 
-function getAgeStyle(sentAt: string): string {
-  const mins = (Date.now() - new Date(sentAt).getTime()) / 60000;
+function getAgeStyle(sentAt: string, now: number): string {
+  const mins = (now - new Date(sentAt).getTime()) / 60000;
   if (mins < 10) return 'border-green-500 bg-green-500/10';
   if (mins < 20) return 'border-amber-500 bg-amber-500/10';
   return 'border-red-500 bg-red-500/10';
 }
 
-function getAgeLabel(sentAt: string): string {
-  const mins = Math.floor((Date.now() - new Date(sentAt).getTime()) / 60000);
+function getAgeLabel(sentAt: string, now: number): string {
+  const mins = Math.floor((now - new Date(sentAt).getTime()) / 60000);
   if (mins < 1) return 'Just now';
   return `${mins} min ago`;
 }
 
 export function KitchenOrderCard({ order, onMarkReady, onMarkDone, section }: KitchenOrderCardProps) {
   const [loading, setLoading] = useState(false);
+  // "Now" is captured in state (refreshed every 30s) so render stays pure —
+  // Date.now() may not be called during render.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
   const foodItems = section === 'bar'
     ? order.items.filter(i => i.tab === 'bar')
     : section === 'kitchen'
@@ -48,7 +55,7 @@ export function KitchenOrderCard({ order, onMarkReady, onMarkDone, section }: Ki
   };
 
   return (
-    <div className={`border-2 rounded-xl p-4 flex flex-col gap-3 transition-all ${getAgeStyle(order.kitchen_sent_at)}`}>
+    <div className={`border-2 rounded-xl p-4 flex flex-col gap-3 transition-all ${getAgeStyle(order.kitchen_sent_at, now)}`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="font-bold text-white text-lg">{order.order_number}</p>
@@ -58,7 +65,7 @@ export function KitchenOrderCard({ order, onMarkReady, onMarkDone, section }: Ki
         </div>
         <div className="flex items-center gap-1 text-xs text-slate-400">
           <Clock className="w-3.5 h-3.5"/>
-          {getAgeLabel(order.kitchen_sent_at)}
+          {getAgeLabel(order.kitchen_sent_at, now)}
         </div>
       </div>
 

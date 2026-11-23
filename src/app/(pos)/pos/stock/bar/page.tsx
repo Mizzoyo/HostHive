@@ -66,7 +66,8 @@ export default function BarStockPage() {
       router.replace('/pos/terminal');
       return;
     }
-    setStaffName(sName);
+    /* Defer the state update so it isn't set synchronously inside the effect. */
+    queueMicrotask(() => setStaffName(sName));
   }, [router]);
 
   // -- Data fetching --------------------------------------------------------
@@ -80,7 +81,11 @@ export default function BarStockPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => {
+    /* Defer so the synchronous setLoading inside loadItems doesn't run
+       directly in the effect body. */
+    void Promise.resolve().then(loadItems);
+  }, [loadItems]);
 
   // -- Derived --------------------------------------------------------------
 

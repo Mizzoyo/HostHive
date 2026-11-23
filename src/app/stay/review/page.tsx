@@ -13,8 +13,9 @@ function ReviewContent() {
   const token  = params.get('token') ?? '';
 
   const [info,       setInfo]       = useState<ReviewInfo | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [notFound,   setNotFound]   = useState(false);
+  // No token → nothing to fetch; start in the terminal states instead of setting them in an effect
+  const [loading,    setLoading]    = useState(() => Boolean(token));
+  const [notFound,   setNotFound]   = useState(() => !token);
   const [rating,     setRating]     = useState(0);
   const [hovered,    setHovered]    = useState(0);
   const [comment,    setComment]    = useState('');
@@ -23,7 +24,7 @@ function ReviewContent() {
   const [error,      setError]      = useState('');
 
   useEffect(() => {
-    if (!token) { setNotFound(true); setLoading(false); return; }
+    if (!token) return;
     fetch(`/api/stay/reviews/${token}`)
       .then(r => r.json())
       .then(d => {

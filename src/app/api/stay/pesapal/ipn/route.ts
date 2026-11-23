@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
         defaultTaxLines = Array.isArray(profile?.tax_lines) ? profile.tax_lines : [];
       }
       const roomsForReceipt = Array.isArray(bookingReq.room_details) ? bookingReq.room_details : [];
-      const subtotal = roomsForReceipt.reduce((s: number, r: any) => s + Number(r.subtotal || 0), 0)
+      const subtotal = roomsForReceipt.reduce((s: number, r: { subtotal?: number | string | null }) => s + Number(r.subtotal || 0), 0)
         || Number(bookingReq.total_amount);
       const resolvedTaxLines = defaultTaxLines.map((tl) => ({
         label:  tl.label,
@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
       orderMerchantReference: bookingReq.id,
       status: '200',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[pesapal/ipn]', err);
     return NextResponse.json({
       orderNotificationType: 'IPNCHANGE',

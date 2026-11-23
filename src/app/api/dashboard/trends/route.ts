@@ -125,8 +125,8 @@ export async function GET(request: Request) {
         .gt('check_out', rangeFrom),
     ]);
 
-    const bookings: any[] = bkRes.data ?? [];
-    const expenses: any[] = exRes.data ?? [];
+    const bookings: { check_in: string; total_amount: number | string | null; nights?: number | null }[] = bkRes.data ?? [];
+    const expenses: { date: string; gross: number | string | null }[] = exRes.data ?? [];
     const occupancyBookings: { check_in: string; check_out: string }[] = occRes.data ?? [];
     const numProps = prRes.data?.length ?? 0;
 
@@ -148,8 +148,8 @@ export async function GET(request: Request) {
     const avgMonthly   = withRevenue.length > 0 ? Math.round(withRevenue.reduce((s, m) => s + m.revenue, 0) / withRevenue.length) : 0;
 
     return NextResponse.json({ monthly, bestMonth, slowestMonth, avgMonthly });
-  } catch (err: any) {
-    console.error('[dashboard/trends]', err?.message ?? err);
+  } catch (err: unknown) {
+    console.error('[dashboard/trends]', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

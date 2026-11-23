@@ -21,7 +21,24 @@ const FILTER_TAGS = [
 ];
 const STAR_DIST = [7, 3, 1, 1, 0];
 
-function ReviewCard({ r, short = 150 }: { r: any; short?: number }) {
+interface ReviewApiRow {
+  guest_name?: string | null;
+  stay_dates?: string | null;
+  submitted_at?: string | null;
+  rating?: number | null;
+  comment?: string | null;
+}
+
+interface MappedReview {
+  name: string;
+  initials: string;
+  stay: string;
+  date: string;
+  rating: number;
+  text: string;
+}
+
+function ReviewCard({ r, short = 150 }: { r: MappedReview; short?: number }) {
   const [expanded, setExpanded] = useState(false);
   const rating = Number(r.rating ?? 5);
   return (
@@ -56,7 +73,7 @@ function ReviewCard({ r, short = 150 }: { r: any; short?: number }) {
 export default function RoomDetailReviews({ propertyId, propertyName }: { propertyId?: string; propertyName?: string }) {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [slide,        setSlide]        = useState(0);
-  const [rawReviews,   setRawReviews]   = useState<any[] | null>(null);
+  const [rawReviews,   setRawReviews]   = useState<ReviewApiRow[] | null>(null);
   const maxBar = Math.max(...STAR_DIST);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -64,11 +81,11 @@ export default function RoomDetailReviews({ propertyId, propertyName }: { proper
     if (!propertyId) return;
     fetch(`/api/stay/reviews?property_id=${propertyId}`)
       .then(r => r.json())
-      .then(d => setRawReviews(d.reviews ?? []))
+      .then((d: { reviews?: ReviewApiRow[] }) => setRawReviews(d.reviews ?? []))
       .catch(() => setRawReviews([]));
   }, [propertyId]);
 
-  const reviews = (rawReviews ?? []).map((r: any) => ({
+  const reviews: MappedReview[] = (rawReviews ?? []).map((r) => ({
     name: r.guest_name || 'Guest',
     initials: (r.guest_name || 'G').split(' ').map((w: string) => w[0] ?? '').join('').slice(0, 2).toUpperCase(),
     stay: r.stay_dates || '',
@@ -78,7 +95,7 @@ export default function RoomDetailReviews({ propertyId, propertyName }: { proper
   }));
 
   const overallRating = reviews.length > 0
-    ? Number((reviews.reduce((s: number, r: any) => s + r.rating, 0) / reviews.length).toFixed(1)) : 0;
+    ? Number((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)) : 0;
   const reviewCount = reviews.length;
   const clampedSlide = Math.min(slide, Math.max(0, reviews.length - 1));
 
@@ -155,7 +172,7 @@ export default function RoomDetailReviews({ propertyId, propertyName }: { proper
 
       <p className="md:hidden text-base font-bold text-gray-900 mb-3">Guest reviews mention</p>
       <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide md:flex-wrap md:overflow-visible">
-        {FILTER_TAGS.map((t: any) => (
+        {FILTER_TAGS.map((t) => (
           <button key={t.label}
             onClick={() => setActiveFilter((f: string | null) => f === t.label ? null : t.label)}
             className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full border text-sm font-semibold transition-colors ${

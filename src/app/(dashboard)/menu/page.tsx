@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Save, X, ChefHat, ImagePlus, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -57,7 +57,7 @@ export default function MenuPage() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
-  const [pendingUploadItem, setPendingUploadItem] = useState<MenuItem | null>(null);
+  const [pendingUploadItem, setPendingUploadItem] = useState<MenuItem | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [deleting, setDeleting] = useState<string | null>(null);
 
   // ── Featured Dishes state ──────────────────────────────────────────────────
@@ -71,13 +71,13 @@ export default function MenuPage() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const uploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const loadDishes = () => {
+  const loadDishes = useCallback(() => {
     setDishesLoading(true);
     fetch('/api/featured-dishes')
       .then(r => r.json())
       .then(d => setDishes(d.dishes ?? []))
       .finally(() => setDishesLoading(false));
-  };
+  }, []);
 
   const handleDishImageUpload = async (dish: FeaturedDish, file: File) => {
     if (file.size > 10 * 1024 * 1024) { alert('Image too large — max 10 MB'); return; }
@@ -160,14 +160,14 @@ export default function MenuPage() {
     }
   };
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     fetch('/api/stay/menu')
       .then(r => r.json())
       .then(d => setItems(d.items ?? []))
       .finally(() => setLoading(false));
-  };
-  useEffect(() => { load(); loadDishes(); }, []);
+  }, []);
+  useEffect(() => { load(); loadDishes(); }, [load, loadDishes]);
 
   const visibleItems = activeTab !== 'featured' ? items.filter(i => i.tab === (activeTab as Tab)) : [];
 
@@ -295,6 +295,7 @@ export default function MenuPage() {
                     {/* Image area */}
                     <div className="relative h-40 bg-gray-100">
                       {dish.image_url ? (
+                        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL, not in next.config remotePatterns */}
                         <img src={dish.image_url} alt={dish.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center gap-2">
@@ -378,6 +379,7 @@ export default function MenuPage() {
                 {/* Thumbnail */}
                 <label className="relative cursor-pointer flex-shrink-0" style={{ width: 80, height: 80 }}>
                   {item.image_url ? (
+                    {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL, not in next.config remotePatterns */}
                     <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex flex-col items-center justify-center gap-1">

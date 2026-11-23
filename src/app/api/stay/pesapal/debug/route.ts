@@ -37,8 +37,8 @@ export async function GET() {
     } catch {
       tokenResponse = text;
     }
-  } catch (err: any) {
-    fetchError = err.message ?? String(err);
+  } catch (err: unknown) {
+    fetchError = err instanceof Error ? err.message : String(err);
   }
 
   return NextResponse.json({

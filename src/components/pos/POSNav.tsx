@@ -70,8 +70,11 @@ export function POSNav() {
   useEffect(() => {
     const session = getPOSSession();
     if (session) {
-      setRole(session.role);
-      setStaffName(session.staffName);
+      // Deferred so the state updates don't run synchronously in the effect body
+      queueMicrotask(() => {
+        setRole(session.role);
+        setStaffName(session.staffName);
+      });
     }
   }, []);
 

@@ -29,7 +29,7 @@ async function getPesapalToken(): Promise<string> {
   });
   const text = await res.text();
   console.log('[pesapal/token] HTTP', res.status, text);
-  let data: any = {};
+  let data: { token?: string; message?: string; error?: string | { message?: string } } = {};
   try { data = JSON.parse(text); } catch { throw new Error(`Pesapal returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`); }
   const errMsg = data.message ?? (typeof data.error === 'string' ? data.error : data.error?.message ?? JSON.stringify(data.error));
   if (!data.token) throw new Error(errMsg ?? `Failed to get Pesapal token (HTTP ${res.status})`);
@@ -117,8 +117,8 @@ export async function POST(req: NextRequest) {
       redirect_url:      orderData.redirect_url,
       order_tracking_id: orderData.order_tracking_id,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[pesapal/order]', err);
-    return NextResponse.json({ error: err.message ?? 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Internal server error' }, { status: 500 });
   }
 }

@@ -157,6 +157,8 @@ export const fetchUniversalStaySettings = cache(async function fetchUniversalSta
   return settings;
 });
 
+type PropertyDbRow = Omit<StayProperty, 'photos' | 'amenities'>;
+
 export async function fetchAvailableProperties(
   checkIn?: string,
   checkOut?: string
@@ -167,7 +169,7 @@ export async function fetchAvailableProperties(
   const baseCols = 'id, name, type, description, location, address, city, county, bedrooms, bathrooms, max_guests, nightly_rate, weekend_rate, breakfast_rate, cover_photo, status, latitude, longitude, check_in_time, check_out_time, cancellation_policy, house_rules, slug';
   const runQuery = (cols: string) => {
     let q = publicSupabase.from('properties').select(cols).eq('status', 'active').order('name');
-    if (hostId) q = (q as any).eq('user_id', hostId);
+    if (hostId) q = q.eq('user_id', hostId);
     return q;
   };
 
@@ -189,9 +191,9 @@ export async function fetchAvailableProperties(
       .in('status', ['confirmed', 'tentative', 'checked_in', 'blocked'])
       .lte('check_in', lastNight)
       .gte('check_out', addDays(rangeStart, 1));
-    if (hostId) bq = (bq as any).eq('user_id', hostId);
+    if (hostId) bq = bq.eq('user_id', hostId);
     const { data: bRows } = await bq;
-    (bRows ?? []).forEach((b: any) => { if (b.property_id) blockedIds.add(b.property_id); });
+    ((bRows ?? []) as { property_id: string | null }[]).forEach((b) => { if (b.property_id) blockedIds.add(b.property_id); });
   } catch { }
 
   try {
@@ -201,15 +203,18 @@ export async function fetchAvailableProperties(
       .in('status', ['confirmed', 'pending'])
       .lte('check_in', lastNight)
       .gte('check_out', addDays(rangeStart, 1));
-    if (hostId) rq = (rq as any).eq('host_user_id', hostId);
+    if (hostId) rq = rq.eq('host_user_id', hostId);
     const { data: rRows } = await rq;
-    (rRows ?? []).forEach((r: any) => {
-      const rooms = Array.isArray(r.room_details) ? r.room_details : [];
-      rooms.forEach((room: any) => { if (room.property_id) blockedIds.add(room.property_id); });
+    ((rRows ?? []) as { room_details: unknown }[]).forEach((r) => {
+      const rooms: unknown[] = Array.isArray(r.room_details) ? r.room_details : [];
+      rooms.forEach((room) => {
+        const propertyId = (room as { property_id?: string | null } | null)?.property_id;
+        if (propertyId) blockedIds.add(propertyId);
+      });
     });
   } catch { }
 
-  const available = sortProperties((properties as any[]).filter((p) => !blockedIds.has(p.id)));
+  const available = sortProperties(((properties ?? []) as PropertyDbRow[]).filter((p) => !blockedIds.has(p.id)));
   const ids = available.map((p) => p.id);
 
   const photosById = new Map<string, string[]>();

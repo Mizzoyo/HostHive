@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart } from 'lucide-react';
 import type { ResolvedSellOption } from '@/lib/sellOptions';
 
 const CAL_DAY = ['S','M','T','W','T','F','S'];
@@ -41,8 +40,8 @@ interface InlinePickerProps {
 function InlinePicker({ checkIn, checkOut, activeField, city, onSelect, onClear, onClose }: InlinePickerProps) {
   const [offset, setOffset] = useState(0);
   const ref   = useRef<HTMLDivElement>(null);
-  const today = isoStr(new Date());
-  const now   = new Date();
+  const [today] = useState(() => isoStr(new Date()));
+  const [now]   = useState(() => new Date());
   const nights = checkIn && checkOut && checkOut > checkIn
     ? Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000) : 0;
   const headerTitle = nights > 0
@@ -149,8 +148,11 @@ function MobileCalendar({
   setCheckIn: (d: string) => void; setCheckOut: (d: string) => void;
   city?: string;
 }) {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const initD = checkIn && checkIn >= todayStr ? new Date(checkIn + 'T00:00:00') : new Date();
+  const [todayStr] = useState(() => new Date().toISOString().split('T')[0]);
+  const [initD] = useState(() => {
+    const t = new Date().toISOString().split('T')[0];
+    return checkIn && checkIn >= t ? new Date(checkIn + 'T00:00:00') : new Date();
+  });
   const [month,     setMonth]     = useState({ year: initD.getFullYear(), month: initD.getMonth() });
   const [selecting, setSelecting] = useState<'in'|'out'>(checkOut ? 'in' : 'out');
   const nights = checkIn && checkOut && checkOut > checkIn
@@ -173,7 +175,7 @@ function MobileCalendar({
 
   const firstDay  = new Date(month.year, month.month, 1).getDay();
   const daysCount = new Date(month.year, month.month + 1, 0).getDate();
-  const now = new Date();
+  const [now] = useState(() => new Date());
   const isPrevDisabled = month.year === now.getFullYear() && month.month === now.getMonth();
 
   function isInRange(ds: string) { return !!(checkIn && checkOut && ds > checkIn && ds < checkOut); }
@@ -308,15 +310,15 @@ export default function RoomDetailBooking({
   initialGuests: number;
 }) {
   const router = useRouter();
-  const today    = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const [today]    = useState(() => new Date().toISOString().split('T')[0]);
+  const [tomorrow] = useState(() => new Date(Date.now() + 86400000).toISOString().split('T')[0]);
   const [checkIn,        setCheckIn]        = useState(initialCheckIn  || today);
   const [checkOut,       setCheckOut]       = useState(initialCheckOut || tomorrow);
   const [adults,         setAdults]         = useState(initialGuests || 1);
   const [children,       setChildren]       = useState(0);
   const [infants,        setInfants]        = useState(0);
   const [pets,           setPets]           = useState(0);
-  const [rooms,          setRooms]          = useState(1);
+  const [rooms]           = useState(1);
   const [showPicker,     setShowPicker]     = useState<'in' | 'out' | null>(null);
   const [showGuestPanel, setShowGuestPanel] = useState(false);
 
@@ -458,7 +460,7 @@ export default function RoomDetailBooking({
               style={{ background: '#16a34a' }}>
               {nights > 0 ? 'Reserve' : 'Check availability'}
             </button>
-            <p className="text-xs text-center text-gray-400 mt-3">No payment now — we'll confirm within 2 hours.</p>
+            <p className="text-xs text-center text-gray-400 mt-3">No payment now — we&apos;ll confirm within 2 hours.</p>
           </div>
         </div>
       </div>

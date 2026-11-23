@@ -76,16 +76,26 @@ export default function ExpensesEnhancedPage() {
     endDate: '2025-12-31',
   });
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    date: string;
+    category: string;
+    description: string;
+    amount: string;
+    vendor: string;
+    property: string;
+    paymentMethod: Expense['paymentMethod'];
+    notes: string;
+    receipt: File | null;
+  }>({
     date: new Date().toISOString().split('T')[0],
     category: '',
     description: '',
     amount: '',
     vendor: '',
     property: 'Property A',
-    paymentMethod: 'mpesa' as const,
+    paymentMethod: 'mpesa',
     notes: '',
-    receipt: null as File | null,
+    receipt: null,
   });
 
   const handleAddExpense = async () => {
@@ -121,7 +131,7 @@ export default function ExpensesEnhancedPage() {
         receipt: null,
       });
       toast.success('Expense added successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to add expense');
     }
   };
@@ -527,7 +537,7 @@ export default function ExpensesEnhancedPage() {
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  paymentMethod: e.target.value as any,
+                  paymentMethod: e.target.value as Expense['paymentMethod'],
                 })
               }
               className="w-full px-4 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500"

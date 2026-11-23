@@ -103,6 +103,7 @@ export default function RoomsListClient({
   const applySearch = (sel: StaySelection) => {
     setCheckIn(sel.checkIn); setCheckOut(sel.checkOut);
     setAdults(sel.adults); setChildren(sel.children); setRooms(sel.rooms);
+    setIsMultiMode(sel.rooms >= 2);
     setApplied({ checkIn: sel.checkIn, checkOut: sel.checkOut, guests: sel.adults + sel.children });
     router.replace(buildRoomsPath(sel), { scroll: false });
     if (sel.checkIn === applied.checkIn && sel.checkOut === applied.checkOut) return;
@@ -157,8 +158,13 @@ export default function RoomsListClient({
     sessionStorage.setItem('roomCartMeta', JSON.stringify({ checkIn: applied.checkIn, checkOut: applied.checkOut, guests: applied.guests }));
     window.location.href = '/stay/book/cart';
   };
-  const updateCart = (next: (prev: CartItem[]) => CartItem[]) =>
-    setCart(prev => { const n = next(prev); sessionStorage.setItem('roomCart', JSON.stringify(n)); return n; });
+  // sessionStorage write lives in the event handler, not inside the state
+  // updater (updaters must be pure — they can run more than once).
+  const updateCart = (next: (prev: CartItem[]) => CartItem[]) => {
+    const n = next(cart);
+    setCart(n);
+    sessionStorage.setItem('roomCart', JSON.stringify(n));
+  };
   const totalRooms = cart.reduce((s, c) => s + c.qty, 0);
   const totalPrice = cart.reduce((s, c) => s + Number(c.property.nightly_rate || 0) * (nights || 1) * c.qty, 0);
   const groupUrl = `/stay/book/group?checkIn=${encodeURIComponent(applied.checkIn)}&checkOut=${encodeURIComponent(applied.checkOut)}&guests=${applied.guests}`;

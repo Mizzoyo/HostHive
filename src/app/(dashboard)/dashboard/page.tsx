@@ -6,6 +6,41 @@ import { StatsRow } from '@/components/stats/StatsRow';
 import toast from 'react-hot-toast';
 import { presetRange, toLocalYMD, type RangePreset } from '@/lib/dateRange';
 
+type CashflowPoint = { date: string; mpesa: number; cash: number; total: number };
+type UnitPerformance = {
+  id: string;
+  name: string;
+  status: string;
+  occupancyPct: number;
+  revenue: number;
+  avgStay: number;
+  bookings: number;
+};
+type DashboardStats = {
+  occupancy: { rate: number; occupied: number; available: number; blocked: number };
+  properties?: unknown[];
+  unitPerformance?: UnitPerformance[];
+  maxUnitRevenue?: number;
+  revenue: {
+    total: number; collected: number; outstanding: number;
+    stay: number; cleaning: number; fees: number; discounts: number; extra: number;
+    mpesa: number; cash: number; adr: number; revpar: number; projected: number;
+  };
+  bookings: {
+    roomsSold: number; newToday: number; cancellations: number; cancellationRate: number;
+    checkInsToday: number; checkOutsToday: number; tentative: number;
+    sources: Record<string, number>; total: number;
+  };
+  forecast: { next7: number; next30: number };
+  cashflow?: CashflowPoint[];
+  universalSettings?: {
+    checkInTime?: string; checkOutTime?: string; checkInMethod?: string;
+    defaultPropertyCity?: string; defaultPropertyCounty?: string; businessArea?: string;
+  };
+};
+type TrendMonth = { label: string; from: string; to: string; revenue: number; expenses: number; profit: number; occupancy: number };
+type TrendsData = { monthly: TrendMonth[]; bestMonth: TrendMonth | null; slowestMonth: TrendMonth | null; avgMonthly: number };
+
 export default function DashboardPage() {
   const [timeframe, setTimeframe] = useState('today');
   const [customFrom, setCustomFrom] = useState(() => presetRange('this month').from);
@@ -30,10 +65,10 @@ export default function DashboardPage() {
   const handleGenerateReport = () => router.push('/reports');
   const handleAddProperty   = () => router.push('/properties');
 
-  const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [trends, setTrends] = useState<any>(null);
-  const [trendsLoading, setTrendsLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsDoneKey, setStatsDoneKey] = useState<string | null>(null);
+  const [trends, setTrends] = useState<TrendsData | null>(null);
+  const [trendsDoneKey, setTrendsDoneKey] = useState<string | null>(null);
   const [alertsSummary, setAlertsSummary] = useState<{ checkIns: number; checkOuts: number; unpaid: number; upcoming: number } | null>(null);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [activeSeries, setActiveSeries] = useState({ revenue: true, expenses: true, profit: true, occupancy: false });
@@ -44,30 +79,31 @@ export default function DashboardPage() {
     return presetRange(timeframe as RangePreset);
   }, [timeframe, customFrom, customTo]);
 
+  const { from: rangeFrom, to: rangeTo } = getDateRange();
+  const rangeKey = `${rangeFrom}|${rangeTo}`;
+  const loading = statsDoneKey !== rangeKey;
+  const trendsLoading = trendsDoneKey !== rangeKey;
+
   useEffect(() => {
-    const { from, to } = getDateRange();
-    setLoading(true);
-    fetch(`/api/dashboard/stats?from=${from}&to=${to}`)
+    fetch(`/api/dashboard/stats?from=${rangeFrom}&to=${rangeTo}`)
       .then(r => r.json())
       .then(data => { if (data.error) toast.error(`Dashboard stats: ${data.error}`); else setStats(data); })
       .catch(() => toast.error('Failed to load dashboard stats'))
-      .finally(() => setLoading(false));
-  }, [getDateRange]);
+      .finally(() => setStatsDoneKey(rangeKey));
+  }, [rangeFrom, rangeTo, rangeKey]);
 
   useEffect(() => {
-    const { from, to } = getDateRange();
-    setTrendsLoading(true);
-    fetch(`/api/dashboard/trends?from=${from}&to=${to}`)
+    fetch(`/api/dashboard/trends?from=${rangeFrom}&to=${rangeTo}`)
       .then(r => r.json())
       .then(d => { if (!d.error) setTrends(d); })
-      .finally(() => setTrendsLoading(false));
-  }, [getDateRange]);
+      .finally(() => setTrendsDoneKey(rangeKey));
+  }, [rangeFrom, rangeTo, rangeKey]);
 
   useEffect(() => {
     fetch('/api/stay/requests')
       .then(r => r.json())
       .then(d => {
-        const pending = (d.requests ?? []).filter((r: any) => r.status === 'pending').length;
+        const pending = (d.requests ?? []).filter((r: { status?: string }) => r.status === 'pending').length;
         setPendingRequests(pending);
       })
       .catch(() => {});
@@ -88,9 +124,8 @@ export default function DashboardPage() {
     ? `${customFrom.split('-').reverse().join('/')} – ${customTo.split('-').reverse().join('/')}`
     : timeframe.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-  const { from: _drFrom, to: _drTo } = getDateRange();
   const _fmtD = (iso: string) => iso.split('-').reverse().join('/');
-  const dateRangeLabel = `${_fmtD(_drFrom)} – ${_fmtD(_drTo)}`;
+  const dateRangeLabel = `${_fmtD(rangeFrom)} – ${_fmtD(rangeTo)}`;
 
 
   return (
@@ -262,7 +297,7 @@ export default function DashboardPage() {
                 <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Occupied</p>
                 <p className="text-3xl font-bold text-green-600">{loading ? '…' : stats?.occupancy.occupied ?? 0}</p>
                 <div className="w-16 bg-gray-300 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-green-500 h-full rounded-full transition-all duration-500" style={{ width: (stats?.properties?.length ?? 0) > 0 ? `${Math.min(100, Math.round(((stats?.occupancy.occupied ?? 0) / stats.properties.length) * 100))}%` : '0%' }}></div>
+                  <div className="bg-green-500 h-full rounded-full transition-all duration-500" style={{ width: (stats?.properties?.length ?? 0) > 0 ? `${Math.min(100, Math.round(((stats?.occupancy.occupied ?? 0) / (stats?.properties?.length ?? 1)) * 100))}%` : '0%' }}></div>
                 </div>
               </div>
 
@@ -271,7 +306,7 @@ export default function DashboardPage() {
                 <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Available</p>
                 <p className="text-3xl font-bold text-blue-600">{loading ? '…' : stats?.occupancy.available ?? 0}</p>
                 <div className="w-16 bg-gray-300 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: (stats?.properties?.length ?? 0) > 0 ? `${Math.min(100, Math.round(((stats?.occupancy.available ?? 0) / stats.properties.length) * 100))}%` : '0%' }}></div>
+                  <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: (stats?.properties?.length ?? 0) > 0 ? `${Math.min(100, Math.round(((stats?.occupancy.available ?? 0) / (stats?.properties?.length ?? 1)) * 100))}%` : '0%' }}></div>
                 </div>
               </div>
 
@@ -300,7 +335,7 @@ export default function DashboardPage() {
               </div>
               {(stats?.unitPerformance ?? []).length === 0 ? (
                 <p className="text-xs text-gray-400">No properties yet.</p>
-              ) : (stats.unitPerformance as any[]).slice(0, 3).map((p: any) => (
+              ) : (stats?.unitPerformance ?? []).slice(0, 3).map((p) => (
                 <div key={p.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 mb-1">
                   <span className="text-sm text-gray-700 font-medium truncate max-w-[130px]">{p.name}</span>
                   <div className="flex items-center gap-2">
@@ -314,7 +349,7 @@ export default function DashboardPage() {
                   onClick={() => router.push('/properties')}
                   className="w-full mt-1 text-xs text-teal-600 hover:text-teal-700 font-medium text-center py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
                 >
-                  See all {(stats.properties as any[]).length} units →
+                  See all {(stats?.properties ?? []).length} units →
                 </button>
               )}
             </div>
@@ -366,9 +401,9 @@ export default function DashboardPage() {
                 
                 {/* Stacked Progress Bar */}
                 <div className="flex h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
-                  <div className="bg-teal-500 h-full" style={{ width: (stats?.revenue.total ?? 0) > 0 ? `${Math.round((stats.revenue.stay / stats.revenue.total) * 100)}%` : '0%' }}></div>
-                  <div className="bg-purple-500 h-full" style={{ width: (stats?.revenue.total ?? 0) > 0 ? `${Math.round((stats.revenue.cleaning / stats.revenue.total) * 100)}%` : '0%' }}></div>
-                  <div className="bg-red-500 h-full" style={{ width: (stats?.revenue.total ?? 0) > 0 ? `${Math.round((stats.revenue.extra / stats.revenue.total) * 100)}%` : '0%' }}></div>
+                  <div className="bg-teal-500 h-full" style={{ width: (stats?.revenue.total ?? 0) > 0 ? `${Math.round(((stats?.revenue.stay ?? 0) / (stats?.revenue.total ?? 1)) * 100)}%` : '0%' }}></div>
+                  <div className="bg-purple-500 h-full" style={{ width: (stats?.revenue.total ?? 0) > 0 ? `${Math.round(((stats?.revenue.cleaning ?? 0) / (stats?.revenue.total ?? 1)) * 100)}%` : '0%' }}></div>
+                  <div className="bg-red-500 h-full" style={{ width: (stats?.revenue.total ?? 0) > 0 ? `${Math.round(((stats?.revenue.extra ?? 0) / (stats?.revenue.total ?? 1)) * 100)}%` : '0%' }}></div>
                 </div>
 
                 {/* Legend */}
@@ -405,14 +440,14 @@ export default function DashboardPage() {
 
               {/* Revenue sparkline — period-aware */}
               {(() => {
-                const rangeDays = Math.round((new Date(_drTo).getTime() - new Date(_drFrom).getTime()) / 86400000) + 1;
+                const rangeDays = Math.round((new Date(rangeTo).getTime() - new Date(rangeFrom).getTime()) / 86400000) + 1;
                 const sparkLabel = rangeDays <= 60 ? 'Daily payments received' : rangeDays <= 365 ? 'Weekly payments received' : 'Monthly payments received';
 
-                const buildSparkData = (cf: any[]): Array<{ total: number }> => {
-                  if (rangeDays <= 60) return cf.map((r: any) => ({ total: Number(r.total) || 0 }));
+                const buildSparkData = (cf: CashflowPoint[]): Array<{ total: number }> => {
+                  if (rangeDays <= 60) return cf.map((r) => ({ total: Number(r.total) || 0 }));
                   if (rangeDays <= 365) {
                     const wkMap: Record<string, number> = {};
-                    cf.forEach((r: any) => {
+                    cf.forEach((r) => {
                       const d = new Date(r.date + 'T12:00:00'); const day = d.getDay();
                       const mon = new Date(d); mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
                       const wk = mon.toISOString().split('T')[0];
@@ -421,7 +456,7 @@ export default function DashboardPage() {
                     return Object.keys(wkMap).sort().map(k => ({ total: wkMap[k] }));
                   }
                   const moMap: Record<string, number> = {};
-                  cf.forEach((r: any) => { const ym = r.date.slice(0, 7); moMap[ym] = (moMap[ym] || 0) + (Number(r.total) || 0); });
+                  cf.forEach((r) => { const ym = r.date.slice(0, 7); moMap[ym] = (moMap[ym] || 0) + (Number(r.total) || 0); });
                   return Object.keys(moMap).sort().map(k => ({ total: moMap[k] }));
                 };
 
@@ -438,7 +473,7 @@ export default function DashboardPage() {
                           <p className="text-xs text-gray-400">No payments in this period</p>
                         </div>
                       ) : (() => {
-                        const pts = buildSparkData(stats.cashflow);
+                        const pts = buildSparkData(stats?.cashflow ?? []);
                         const W = 300, H = 80;
                         const maxVal = Math.max(...pts.map(p => p.total), 1);
                         const n = pts.length;
@@ -622,7 +657,7 @@ export default function DashboardPage() {
                     <tr><td colSpan={3} className="px-5 py-6 text-center text-gray-400 text-xs">Loading…</td></tr>
                   ) : (stats?.unitPerformance ?? []).length === 0 ? (
                     <tr><td colSpan={3} className="px-5 py-6 text-center text-gray-400 text-xs">No active properties yet.</td></tr>
-                  ) : (stats.unitPerformance as any[]).slice(0, 4).map((u: any) => {
+                  ) : (stats?.unitPerformance ?? []).slice(0, 4).map((u) => {
                     const maxRev = stats.maxUnitRevenue ?? 1;
                     return (
                       <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
@@ -661,7 +696,7 @@ export default function DashboardPage() {
                   onClick={() => router.push('/unit-performance')}
                   className="w-full text-xs text-teal-600 hover:text-teal-700 font-medium text-center hover:underline"
                 >
-                  See all {(stats.unitPerformance as any[]).length} units →
+                  See all {(stats?.unitPerformance ?? []).length} units →
                 </button>
               </div>
             )}
@@ -689,10 +724,10 @@ export default function DashboardPage() {
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div className={`${item.color} h-full rounded-full transition-all duration-500`}
-                      style={{ width: (stats?.revenue.collected ?? 0) > 0 ? `${Math.round((item.val / stats.revenue.collected) * 100)}%` : '0%' }} />
+                      style={{ width: (stats?.revenue.collected ?? 0) > 0 ? `${Math.round((item.val / (stats?.revenue.collected ?? 1)) * 100)}%` : '0%' }} />
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {(stats?.revenue.collected ?? 0) > 0 ? `${Math.round((item.val / stats.revenue.collected) * 100)}%` : '0%'} of collected
+                    {(stats?.revenue.collected ?? 0) > 0 ? `${Math.round((item.val / (stats?.revenue.collected ?? 1)) * 100)}%` : '0%'} of collected
                   </p>
                 </div>
               ))}
@@ -767,7 +802,7 @@ export default function DashboardPage() {
               <div className="w-7 h-7 border-4 border-gray-900 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (() => {
-            const monthly: any[] = trends?.monthly ?? [];
+            const monthly: TrendMonth[] = trends?.monthly ?? [];
             if (monthly.length === 0) return <p className="text-sm text-gray-400 py-8 text-center">No trend data yet.</p>;
 
             const todayIso = new Date().toISOString().split('T')[0];
@@ -779,9 +814,9 @@ export default function DashboardPage() {
             const n  = monthly.length;
 
             const kvs: number[] = [];
-            if (activeSeries.revenue)  monthly.forEach((m: any) => kvs.push(Number(m.revenue)  || 0));
-            if (activeSeries.expenses) monthly.forEach((m: any) => kvs.push(Number(m.expenses) || 0));
-            if (activeSeries.profit)   monthly.forEach((m: any) => kvs.push(Number(m.profit)   || 0));
+            if (activeSeries.revenue)  monthly.forEach((m) => kvs.push(Number(m.revenue)  || 0));
+            if (activeSeries.expenses) monthly.forEach((m) => kvs.push(Number(m.expenses) || 0));
+            if (activeSeries.profit)   monthly.forEach((m) => kvs.push(Number(m.profit)   || 0));
             const rawMax = kvs.length > 0 ? Math.max(...kvs, 1) : 10000;
             const mag    = Math.pow(10, Math.floor(Math.log10(rawMax)));
             const maxVal = Math.ceil(rawMax / (mag * 2)) * (mag * 2) || 10000;
@@ -801,7 +836,7 @@ export default function DashboardPage() {
               label: f * maxVal >= 1000 ? `${((f * maxVal) / 1000).toFixed(0)}k` : (f * maxVal).toFixed(0),
             }));
 
-            const occPts = monthly.map((m: any, i: number) => `${groupCx(i)},${occY(Number(m.occupancy) || 0)}`).join(' ');
+            const occPts = monthly.map((m, i) => `${groupCx(i)},${occY(Number(m.occupancy) || 0)}`).join(' ');
 
             const hm  = hoveredMonth !== null ? monthly[hoveredMonth] : null;
             const ttW = 148;
@@ -817,7 +852,7 @@ export default function DashboardPage() {
                   onMouseLeave={() => setHoveredMonth(null)}>
 
                   {/* Current period highlight */}
-                  {monthly.map((m: any, i: number) => (m.from <= todayIso && todayIso <= m.to) ? (
+                  {monthly.map((m, i) => (m.from <= todayIso && todayIso <= m.to) ? (
                     <rect key={`hl${i}`} x={ML + i * groupW} y={MT} width={groupW} height={cH}
                       fill="#f0fdf4" rx="3" />
                   ) : null)}
@@ -840,7 +875,7 @@ export default function DashboardPage() {
                   <line x1={ML} y1={baseline} x2={W - MR} y2={baseline} stroke="#d1d5db" strokeWidth="1" />
 
                   {/* Bars + hover targets */}
-                  {monthly.map((m: any, i: number) => {
+                  {monthly.map((m, i) => {
                     const gx = ML + i * groupW + pad;
                     const isH = hoveredMonth === i;
                     return (
@@ -878,7 +913,7 @@ export default function DashboardPage() {
                   {activeSeries.occupancy && monthly.length > 1 && (
                     <>
                       <polyline points={occPts} fill="none" stroke="#a855f7" strokeWidth="2" strokeDasharray="6,3" opacity="0.9" />
-                      {monthly.map((m: any, i: number) => (
+                      {monthly.map((m, i) => (
                         <circle key={`occ-${i}`} cx={groupCx(i)} cy={occY(Number(m.occupancy) || 0)} r="3"
                           fill="#a855f7" stroke="white" strokeWidth="1.5" />
                       ))}

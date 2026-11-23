@@ -86,7 +86,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true, message: `"${property.name}" has been deleted.` });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Delete Property]', err);
     return NextResponse.json(
       { error: { message: 'An unexpected error occurred.' } },

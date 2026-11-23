@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { amenityLabel } from '@/lib/amenities';
 
@@ -163,6 +163,39 @@ function AmenityIcon({ id }: { id: string }) {
   }
 }
 
+interface ConfettiPiece {
+  id: number;
+  left: number;
+  delay: number;
+  duration: number;
+  w: number;
+  h: number;
+  color: string;
+  round: string;
+  anim: string;
+}
+
+// Generated on demand (event handler) — Math.random() is not allowed during render.
+function generateConfettiPieces(): ConfettiPiece[] {
+  const colors = ['#22c55e','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#f97316','#06b6d4','#fbbf24','#10b981','#ff6b6b','#4ecdc4'];
+  const anims = ['cf-a','cf-b','cf-c','cf-d','cf-e','cf-f'];
+  return Array.from({ length: 160 }, (_, i) => {
+    const isRibbon = i % 5 === 0;
+    const isCircle = i % 7 === 0;
+    return {
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 3.5,
+      duration: 3 + Math.random() * 3,
+      w: isRibbon ? 4 : isCircle ? 9 : 7 + Math.random() * 7,
+      h: isRibbon ? 18 : isCircle ? 9 : 5 + Math.random() * 5,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      round: isCircle ? '50%' : isRibbon ? '1px' : '2px',
+      anim: anims[i % anims.length],
+    };
+  });
+}
+
 // ─── Stepper Component ────────────────────────────────────────────────────────
 function Stepper({ value, onChange, min = 0, max = 20 }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
   return (
@@ -192,13 +225,13 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
   useEffect(() => {
     fetch('/api/unit-types')
       .then(r => r.json())
-      .then(d => {
-        const active = (d.unit_types ?? []).filter((t: any) => t.is_active);
+      .then((d: { unit_types?: { is_active?: boolean; name?: string; description?: string | null }[] }) => {
+        const active = (d.unit_types ?? []).filter(t => t.is_active);
         if (active.length > 0) {
-          setPropertyTypes(active.map((t: any) => ({
-            id: t.name,
-            label: t.name,
-            desc: t.description || t.name,
+          setPropertyTypes(active.map(t => ({
+            id: t.name ?? '',
+            label: t.name ?? '',
+            desc: t.description || t.name || '',
           })));
         }
       })
@@ -219,22 +252,26 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     publish:  { ...INITIAL.publish,  ...(initialData?.publish  ?? {}) },
   });
 
-  useEffect(() => {
+  // Keep basics.bedrooms in sync with the selected property type.
+  // Uses the "adjust state during render" pattern (prev-value comparison)
+  // instead of a useEffect to satisfy react-hooks/set-state-in-effect.
+  const [prevPropertyType, setPrevPropertyType] = useState<string | null>(null);
+  if (data.propertyType !== prevPropertyType) {
+    setPrevPropertyType(data.propertyType);
     const n = deriveBedrooms(data.propertyType);
     if (n !== null) {
       setData(d => ({ ...d, basics: { ...d.basics, bedrooms: n } }));
     }
-  }, [data.propertyType]);
+  }
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [confetti, setConfetti] = useState(false);
+  const [confettiPieces, setConfettiPieces] = useState<ConfettiPiece[]>([]);
   const [countdown, setCountdown] = useState(6);
-  const [collapsedCats, setCollapsedCats] = useState<string[]>([]);
-  const [customAmenity, setCustomAmenity] = useState('');
   const [universalAmenities, setUniversalAmenities] = useState<{ id: string; label: string; category?: string }[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const photoDragSrc = useRef<number | null>(null);
   const photoDragOverRef = useRef<number | null>(null);
+  const [photoDragSrc, setPhotoDragSrc] = useState<number | null>(null);
   const [photoDragOver, setPhotoDragOver] = useState<number | null>(null);
   const photoGridRef = useRef<HTMLDivElement>(null);
   const [newSeason, setNewSeason] = useState({ name: '', start: '', end: '', price: '' });
@@ -266,7 +303,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     const grid = photoGridRef.current;
     if (!grid) return;
     const onTouchMove = (e: TouchEvent) => {
-      if (photoDragSrc.current === null) return;
+      if (photoDragSrc === null) return;
       e.preventDefault();
       const touch = e.touches[0];
       const el = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -279,33 +316,13 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     };
     grid.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => grid.removeEventListener('touchmove', onTouchMove);
-  }, [step]);
+  }, [step, photoDragSrc]);
 
   const showError = (msg: string) => {
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
     setStepError(msg);
     if (msg) errorTimerRef.current = setTimeout(() => setStepError(''), 5000);
   };
-
-  const confettiPieces = useMemo(() => {
-    const colors = ['#22c55e','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#f97316','#06b6d4','#fbbf24','#10b981','#ff6b6b','#4ecdc4'];
-    const anims = ['cf-a','cf-b','cf-c','cf-d','cf-e','cf-f'];
-    return Array.from({ length: 160 }, (_, i) => {
-      const isRibbon = i % 5 === 0;
-      const isCircle = i % 7 === 0;
-      return {
-        id: i,
-        left: Math.random() * 100,
-        delay: Math.random() * 3.5,
-        duration: 3 + Math.random() * 3,
-        w: isRibbon ? 4 : isCircle ? 9 : 7 + Math.random() * 7,
-        h: isRibbon ? 18 : isCircle ? 9 : 5 + Math.random() * 5,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        round: isCircle ? '50%' : isRibbon ? '1px' : '2px',
-        anim: anims[i % anims.length],
-      };
-    });
-  }, []);
 
   const navigate = (next: number) => {
     if (animating) return;
@@ -355,11 +372,15 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
   };
   const goBack = () => { showError(''); step > 1 && navigate(step - 1); };
 
-  useEffect(() => { showError(''); }, [data]);
+  // Clear any step error shortly after form data changes (deferred so the
+  // state update does not happen synchronously inside the effect body).
+  useEffect(() => {
+    const t = setTimeout(() => showError(''), 0);
+    return () => clearTimeout(t);
+  }, [data]);
 
   useEffect(() => {
-    if (!showSuccess) { setCountdown(6); return; }
-    if (countdown <= 0) return;
+    if (!showSuccess || countdown <= 0) return;
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(t);
   }, [showSuccess, countdown]);
@@ -414,7 +435,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
         setPublishing(false);
         return;
       }
-      if (!isEdit) { setConfetti(true); }
+      if (!isEdit) { setConfettiPieces(generateConfettiPieces()); setConfetti(true); setCountdown(6); }
       setShowSuccess(true);
       setTimeout(() => setConfetti(false), 7000);
       setTimeout(() => onClose(), isEdit ? 2800 : 7200);
@@ -679,21 +700,22 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
                 key={p.url}
                 data-photo-idx={i}
                 draggable
-                onDragStart={e => { photoDragSrc.current = i; photoDragOverRef.current = i; setPhotoDragOver(i); e.dataTransfer.effectAllowed = 'move'; }}
+                onDragStart={e => { setPhotoDragSrc(i); photoDragOverRef.current = i; setPhotoDragOver(i); e.dataTransfer.effectAllowed = 'move'; }}
                 onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; photoDragOverRef.current = i; setPhotoDragOver(i); }}
-                onDrop={e => { e.preventDefault(); if (photoDragSrc.current !== null) reorderPhotos(photoDragSrc.current, i); photoDragSrc.current = null; photoDragOverRef.current = null; setPhotoDragOver(null); }}
-                onDragEnd={() => { photoDragSrc.current = null; photoDragOverRef.current = null; setPhotoDragOver(null); }}
-                onTouchStart={() => { photoDragSrc.current = i; photoDragOverRef.current = i; setPhotoDragOver(i); }}
-                onTouchEnd={() => { if (photoDragSrc.current !== null && photoDragOverRef.current !== null) reorderPhotos(photoDragSrc.current, photoDragOverRef.current); photoDragSrc.current = null; photoDragOverRef.current = null; setPhotoDragOver(null); }}
+                onDrop={e => { e.preventDefault(); if (photoDragSrc !== null) reorderPhotos(photoDragSrc, i); setPhotoDragSrc(null); photoDragOverRef.current = null; setPhotoDragOver(null); }}
+                onDragEnd={() => { setPhotoDragSrc(null); photoDragOverRef.current = null; setPhotoDragOver(null); }}
+                onTouchStart={() => { setPhotoDragSrc(i); photoDragOverRef.current = i; setPhotoDragOver(i); }}
+                onTouchEnd={() => { if (photoDragSrc !== null && photoDragOverRef.current !== null) reorderPhotos(photoDragSrc, photoDragOverRef.current); setPhotoDragSrc(null); photoDragOverRef.current = null; setPhotoDragOver(null); }}
                 style={{ touchAction: 'none' }}
                 className={`relative group rounded-xl overflow-hidden aspect-square bg-gray-100 cursor-grab active:cursor-grabbing select-none transition-all border-2 ${
-                  photoDragOver === i && photoDragSrc.current !== null && photoDragSrc.current !== i
+                  photoDragOver === i && photoDragSrc !== null && photoDragSrc !== i
                     ? 'border-green-500 scale-95'
-                    : photoDragSrc.current === i
+                    : photoDragSrc === i
                     ? 'border-green-400 opacity-50'
                     : 'border-gray-200'
                 }`}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; next/image has no remotePatterns configured */}
                 <img src={p.url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
                 {i === 0 && (
                   <span className="absolute top-1 left-1 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-semibold pointer-events-none">Cover</span>
@@ -976,6 +998,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
                   className="absolute inset-0 transition-transform duration-500 ease-in-out"
                   style={{ transform: `translateX(${(i - photoIdx) * 100}%)` }}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; next/image has no remotePatterns configured */}
                   <img src={p.url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
                 </div>
               ))}

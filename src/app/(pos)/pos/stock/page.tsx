@@ -151,8 +151,11 @@ export default function StockPage() {
       router.replace('/pos/terminal');
       return;
     }
-    setStaffName(sName);
-    setRole(sRole);
+    /* Defer state updates so they aren't set synchronously inside the effect. */
+    queueMicrotask(() => {
+      setStaffName(sName);
+      setRole(sRole);
+    });
   }, [router]);
 
   // -- Data fetching --------------------------------------------------------
@@ -167,7 +170,9 @@ export default function StockPage() {
   }, []);
 
   useEffect(() => {
-    loadItems();
+    /* Defer so the synchronous setLoading inside loadItems doesn't run
+       directly in the effect body. */
+    void Promise.resolve().then(loadItems);
     fetch('/api/pos/settings')
       .then((r) => r.json())
       .then((d) => { if (d.settings?.currency) setCurrency(d.settings.currency); })

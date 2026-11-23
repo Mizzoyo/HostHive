@@ -17,7 +17,7 @@ interface CalendarProps {
 }
 
 export function Calendar({ events = [], onDateClick, onBlockDate }: CalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedRange, setSelectedRange] = useState<{
     start: Date | null;
     end: Date | null;

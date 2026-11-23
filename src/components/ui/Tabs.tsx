@@ -51,7 +51,7 @@ export function Tabs({ items, defaultValue, onChange, children }: TabsProps) {
       {/* Tab content */}
       <div>
         {React.Children.map(children, (child) => {
-          if (React.isValidElement(child) && (child.props as any).value === activeTab) {
+          if (React.isValidElement<{ value?: string }>(child) && child.props.value === activeTab) {
             return child;
           }
           return null;

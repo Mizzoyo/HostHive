@@ -18,7 +18,7 @@ export async function GET() {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ property_ids: (data ?? []).map((r: any) => r.property_id) });
+    return NextResponse.json({ property_ids: (data ?? []).map((r) => r.property_id) });
   } catch (err) {
     console.error('[wishlist/GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -99,7 +99,7 @@ export async function PUT() {
 
     if (!wishlistRows?.length) return NextResponse.json({ properties: [] });
 
-    const ids = wishlistRows.map((r: any) => r.property_id);
+    const ids = wishlistRows.map((r) => r.property_id);
 
     const { data: properties, error } = await supabase
       .from('properties')

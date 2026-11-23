@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { SidebarItem } from './SidebarItem';
 import { SidebarSection } from './SidebarSection';
@@ -14,14 +14,16 @@ interface SidebarProps {
 export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
-  const [userEmail, setUserEmail] = useState('');
   const [alertCount, setAlertCount] = useState(0);
+  // Read the uploaded brand logo from localStorage via useSyncExternalStore —
+  // reading it directly during render would be an impure render-phase access.
+  const brandLogo = useSyncExternalStore(
+    () => () => {},
+    () => localStorage.getItem('brand_logo'),
+    () => null
+  );
 
   useEffect(() => {
-    const email = localStorage.getItem('user_email') || 'admin@kogelosuites.com';
-    setUserEmail(email);
-    const applyLocal = () => {};
-
     let alertTotal = 0;
     fetch('/api/alerts')
       .then(r => r.ok ? r.json() : {})
@@ -69,8 +71,9 @@ export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarPro
       <div className="flex items-center justify-between px-4 py-6 border-b border-slate-800">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            {typeof window !== 'undefined' && localStorage.getItem('brand_logo') ? (
-              <img src={localStorage.getItem('brand_logo')!} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/10" />
+            {brandLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element -- dynamic URL from localStorage; next/image has no remotePatterns configured
+              <img src={brandLogo} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/10" />
             ) : (
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: '#9B1C1C' }}>
                 KS
@@ -81,8 +84,9 @@ export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarPro
         )}
         {collapsed && (
           <div className="w-full flex justify-center">
-            {typeof window !== 'undefined' && localStorage.getItem('brand_logo') ? (
-              <img src={localStorage.getItem('brand_logo')!} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/10" />
+            {brandLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element -- dynamic URL from localStorage; next/image has no remotePatterns configured
+              <img src={brandLogo} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white/10" />
             ) : (
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: '#9B1C1C' }}>
                 KS

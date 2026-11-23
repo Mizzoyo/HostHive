@@ -73,13 +73,16 @@ async function sendViaAfricasTalking(to: string, message: string): Promise<SmsRe
       body:    body.toString(),
     });
     const text = await res.text();
-    let data: any;
+    let data: {
+      SMSMessageData?: { Recipients?: { status?: string; messageId?: string }[] };
+      error?: string;
+    };
     try { data = JSON.parse(text); } catch { return { ok: false, error: `AT returned non-JSON (${res.status}): ${text.slice(0, 120)}` }; }
     const recipient = data?.SMSMessageData?.Recipients?.[0];
     if (recipient?.status === 'Success') return { ok: true, messageId: recipient.messageId };
     return { ok: false, error: recipient?.status ?? data?.error ?? 'Unknown AT error' };
-  } catch (err: any) {
-    return { ok: false, error: err.message };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -107,11 +110,11 @@ async function sendViaTwilio(to: string, message: string): Promise<SmsResult> {
       },
       body: body.toString(),
     });
-    const data = await res.json();
+    const data = (await res.json()) as { sid?: string; message?: string };
     if (data.sid) return { ok: true, messageId: data.sid };
     return { ok: false, error: data.message ?? 'Twilio error' };
-  } catch (err: any) {
-    return { ok: false, error: err.message };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

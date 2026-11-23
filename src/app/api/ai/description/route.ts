@@ -78,9 +78,9 @@ Write the description now:`;
     }
 
     return NextResponse.json({ description });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[AI Description]', err);
-    const message = err?.message?.includes('API key')
+    const message = err instanceof Error && err.message.includes('API key')
       ? 'Invalid OpenAI API key. Please check your OPENAI_API_KEY.'
       : 'Failed to generate description. Please try again.';
     return NextResponse.json({ error: { message } }, { status: 500 });

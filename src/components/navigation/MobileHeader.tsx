@@ -11,28 +11,10 @@ interface MobileHeaderProps {
   onGenerateReport: () => void;
 }
 
-export function MobileHeader({ 
-  onMenuOpen, 
-  onAddBooking, 
-  onAdjustPricing, 
-  onBlockDates, 
-  onMessageGuest, 
-  onGenerateReport 
+export function MobileHeader({
+  onMenuOpen,
 }: MobileHeaderProps) {
   const pathname = usePathname();
-
-  const getPageTitle = () => {
-    if (pathname === '/dashboard') return 'Dashboard';
-    if (pathname === '/properties') return 'Properties';
-    if (pathname === '/unit-performance') return 'Performance';
-    if (pathname === '/calendar') return 'Calendar';
-    if (pathname === '/guests') return 'Guests';
-    if (pathname === '/alerts') return 'Alerts';
-    if (pathname === '/expenses') return 'Expenses';
-    if (pathname === '/reports') return 'Reports';
-    if (pathname === '/settings') return 'Settings';
-    return 'Kogelo Suites';
-  };
 
   // Hide header on pages that have their own sticky header
   const pagesWithOwnHeader = ['/booking-calendar', '/alerts', '/guests', '/unit-performance', '/properties', '/expenses', '/reports', '/settings', '/help', '/requests', '/unit-types'];

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Users, Plus } from 'lucide-react';
 
 export interface POSTable {
@@ -37,7 +37,7 @@ export function TableMap({ onSelectTable, onNewTable, refreshKey }: TableMapProp
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('all');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/pos/tables');
@@ -48,9 +48,9 @@ export function TableMap({ onSelectTable, onNewTable, refreshKey }: TableMapProp
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(); }, [refreshKey]);
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   const visible = activeSection === 'all'
     ? tables

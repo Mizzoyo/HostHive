@@ -48,7 +48,7 @@ export async function PATCH(
     let autoError = '';
 
     if (status === 'confirmed') {
-      const bReq = data as any;
+      const bReq = data;
       // Resolve host ID: booking record → env var → session (in that order)
       let hostId = (bReq.host_user_id as string) || process.env.STAY_HOST_USER_ID || '';
       if (!hostId) {
@@ -117,7 +117,7 @@ export async function PATCH(
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Automated SMS ────────────────────────────────────────────────────────
-    const req2       = data as any;
+    const req2       = data;
     const rooms      = Array.isArray(req2.room_details) ? req2.room_details : [];
     const propName   = rooms[0]?.property_name ?? 'Kogelo Suites';
     const adminPhone = normalizePhone(process.env.ADMIN_PHONE ?? '');

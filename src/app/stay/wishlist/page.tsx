@@ -9,9 +9,22 @@ import CardImageCarousel from '@/components/stay/CardImageCarousel';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
 import { roomTypeLabel } from '@/lib/stay/roomType';
 
+type WishlistProperty = {
+  id: string;
+  name: string;
+  slug?: string | null;
+  type?: string | null;
+  nightly_rate: number;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  max_guests?: number | null;
+  photos?: string[];
+  amenities?: string[];
+};
+
 export default function WishlistPage() {
   const router = useRouter();
-  const [properties, setProperties] = useState<any[]>([]);
+  const [properties, setProperties] = useState<WishlistProperty[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [authed,     setAuthed]     = useState(false);
 
@@ -30,7 +43,7 @@ export default function WishlistPage() {
         .select('property_id')
         .eq('user_id', session.user.id);
 
-      const ids = (wishlistRows ?? []).map((r: any) => r.property_id);
+      const ids = (wishlistRows ?? []).map((r: { property_id: string }) => r.property_id);
 
       if (ids.length === 0) {
         setLoading(false);
@@ -41,7 +54,7 @@ export default function WishlistPage() {
       const res = await fetch('/api/stay/properties');
       const d = await res.json();
       const all = d.properties ?? [];
-      setProperties(all.filter((p: any) => ids.includes(p.id)));
+      setProperties((all as WishlistProperty[]).filter(p => ids.includes(p.id)));
       setLoading(false);
     });
   }, [router]);
@@ -125,7 +138,7 @@ export default function WishlistPage() {
                     <span className="flex items-center gap-1"><Droplets className="w-3 h-3" /> {p.bathrooms ?? 1}</span>
                     <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.max_guests ?? 2}</span>
                   </div>
-                  {p.amenities?.length > 0 && (
+                  {p.amenities && p.amenities.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
                       {p.amenities.slice(0, 3).map((a: string) => (
                         <span key={a} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{a}</span>

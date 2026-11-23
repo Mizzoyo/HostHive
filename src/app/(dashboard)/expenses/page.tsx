@@ -17,7 +17,6 @@ interface Expense {
 
 export default function ExpensesPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [savedCategories, setSavedCategories] = useState<{ id: string; name: string }[]>([]);
   const [loadingExpenses, setLoadingExpenses] = useState(true);
@@ -25,13 +24,13 @@ export default function ExpensesPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     date: new Date().toISOString().split('T')[0],
     category: '',
     vendor: '',
     gross: '',
     tax: '',
-  });
+  }));
 
   useEffect(() => {
     const h = (e: CustomEvent) => setSidebarCollapsed(e.detail.collapsed);
@@ -45,7 +44,6 @@ export default function ExpensesPage() {
       .then(d => { if (d.categories) setSavedCategories(d.categories); })
       .catch(() => {});
 
-    setLoadingExpenses(true);
     fetch('/api/expenses')
       .then(r => r.json())
       .then(d => { if (d.expenses) setExpenses(d.expenses); })
@@ -53,10 +51,6 @@ export default function ExpensesPage() {
       .finally(() => setLoadingExpenses(false));
   }, []);
 
-  useEffect(() => {
-    const email = localStorage.getItem('user_email') || 'admin@kogelosuites.com';
-    setUserEmail(email);
-  }, []);
 
   const handleAddExpense = async () => {
     if (!formData.date || !formData.category || !formData.vendor || !formData.gross) {

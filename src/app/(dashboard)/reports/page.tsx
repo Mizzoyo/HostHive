@@ -142,7 +142,6 @@ interface ReportData {
 
 export default function ReportsPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
   const [activeSection, setActiveSection] = useState<NavSection | 'quick'>('quick');
 
   // Preview modal state
@@ -162,11 +161,6 @@ export default function ReportsPage() {
     const h = (e: CustomEvent) => setSidebarCollapsed(e.detail.collapsed);
     window.addEventListener('sidebarToggle', h as EventListener);
     return () => window.removeEventListener('sidebarToggle', h as EventListener);
-  }, []);
-
-  useEffect(() => {
-    const email = localStorage.getItem('user_email') || 'admin@kogelosuites.com';
-    setUserEmail(email);
   }, []);
 
   const handleOpenReport = async (name: string, from = dateFrom, to = dateTo) => {

@@ -173,7 +173,6 @@ export default function BookingCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProperty, setSelectedProperty] = useState('all');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
 
   // Modal state
   const [modalMode, setModalMode] = useState<'closed' | 'create' | 'edit'>('closed');
@@ -192,11 +191,6 @@ export default function BookingCalendarPage() {
     const h = (e: Event) => setSidebarCollapsed((e as CustomEvent<{ collapsed: boolean }>).detail.collapsed);
     window.addEventListener('sidebarToggle', h);
     return () => window.removeEventListener('sidebarToggle', h);
-  }, []);
-
-  useEffect(() => {
-    const email = localStorage.getItem('user_email') || 'admin@kogelosuites.com';
-    setUserEmail(email);
   }, []);
 
   useEffect(() => {

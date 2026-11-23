@@ -2,14 +2,11 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabContent } from '@/components/ui/Tabs';
 
 export default function APIDocsPage() {
   const [selectedEndpoint, setSelectedEndpoint] = useState('auth-register');
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
 
   const endpoints = [
     {

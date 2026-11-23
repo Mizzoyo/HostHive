@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Badge } from '@/components/ui/Badge';
+import { Badge, type BadgeProps } from '@/components/ui/Badge';
 import { Tabs, TabContent } from '@/components/ui/Tabs';
 import toast from 'react-hot-toast';
 
@@ -103,8 +103,20 @@ export default function BookingsEnhancedPage() {
   });
 
   const _today    = new Date().toISOString().split('T')[0];
-  const _tomorrow  = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  const [formData, setFormData] = useState({
+  const _tomorrow  = new Date(new Date().getTime() + 86400000).toISOString().split('T')[0];
+  const [formData, setFormData] = useState<{
+    guestName: string;
+    guestEmail: string;
+    guestPhone: string;
+    property: string;
+    checkIn: string;
+    checkOut: string;
+    numAdults: string;
+    numChildren: string;
+    totalAmount: string;
+    source: Booking['source'];
+    notes: string;
+  }>({
     guestName: '',
     guestEmail: '',
     guestPhone: '',
@@ -114,7 +126,7 @@ export default function BookingsEnhancedPage() {
     numAdults: '1',
     numChildren: '0',
     totalAmount: '',
-    source: 'direct' as const,
+    source: 'direct',
     notes: '',
   });
 
@@ -193,7 +205,7 @@ export default function BookingsEnhancedPage() {
   const handleStatusChange = (bookingId: string, newStatus: string) => {
     setBookings(
       bookings.map((b) =>
-        b.id === bookingId ? { ...b, status: newStatus as any } : b
+        b.id === bookingId ? { ...b, status: newStatus as Booking['status'] } : b
       )
     );
     toast.success('Booking status updated');
@@ -420,10 +432,10 @@ export default function BookingsEnhancedPage() {
                       <div>
                         <p className="text-xs text-surface-600 mb-1">Status</p>
                         <div className="flex gap-2 flex-wrap">
-                          <Badge variant={BOOKING_STATUSES.find((s) => s.id === booking.status)?.color as any}>
+                          <Badge variant={BOOKING_STATUSES.find((s) => s.id === booking.status)?.color as BadgeProps['variant']}>
                             {BOOKING_STATUSES.find((s) => s.id === booking.status)?.label}
                           </Badge>
-                          <Badge variant={PAYMENT_STATUSES.find((s) => s.id === booking.paymentStatus)?.color as any}>
+                          <Badge variant={PAYMENT_STATUSES.find((s) => s.id === booking.paymentStatus)?.color as BadgeProps['variant']}>
                             {PAYMENT_STATUSES.find((s) => s.id === booking.paymentStatus)?.label}
                           </Badge>
                         </div>
@@ -559,7 +571,7 @@ export default function BookingsEnhancedPage() {
                 </div>
                 <div>
                   <p className="text-xs text-surface-600 mb-1">Payment Status</p>
-                  <Badge variant={PAYMENT_STATUSES.find((s) => s.id === selectedBooking.paymentStatus)?.color as any}>
+                  <Badge variant={PAYMENT_STATUSES.find((s) => s.id === selectedBooking.paymentStatus)?.color as BadgeProps['variant']}>
                     {PAYMENT_STATUSES.find((s) => s.id === selectedBooking.paymentStatus)?.label}
                   </Badge>
                 </div>
@@ -673,7 +685,7 @@ export default function BookingsEnhancedPage() {
             </label>
             <select
               value={formData.source}
-              onChange={(e) => setFormData({ ...formData, source: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, source: e.target.value as Booking['source'] })}
               className="w-full px-4 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               {BOOKING_SOURCES.map((source) => (

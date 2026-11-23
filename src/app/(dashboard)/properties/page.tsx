@@ -47,7 +47,45 @@ interface Property {
 
 const VALID_PROPERTY_TYPES = ['apartment', 'villa', 'studio', 'house', 'cottage', 'room', 'bungalow', 'townhouse', 'penthouse', 'cabin'];
 
-function dbRowToProperty(row: any): Property {
+interface DbPropertyRow {
+  id: string;
+  unit_number?: string | null;
+  created_at?: string | null;
+  name?: string | null;
+  title?: string | null;
+  type?: string | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  max_guests?: number | null;
+  location?: string | null;
+  county?: string | null;
+  city?: string | null;
+  nightly_rate?: string | number | null;
+  weekend_rate?: string | number | null;
+  monthly_rate?: string | number | null;
+  cleaning_fee?: string | number | null;
+  security_deposit?: string | number | null;
+  min_stay_nights?: number | null;
+  max_stay_nights?: number | null;
+  description?: string | null;
+  status?: string | null;
+  setup_step?: number | null;
+  setupStep?: number | null;
+  cover_photo?: string | null;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  check_in_method?: string | null;
+  check_in_instructions?: string | null;
+  caretaker_name?: string | null;
+  caretaker_phone?: string | null;
+  house_rules?: Record<string, boolean> | null;
+  additional_rules?: string | null;
+  cancellation_policy?: string | null;
+}
+
+const toNum = (v: string | number | null | undefined): number => Number(v) || 0;
+
+function dbRowToProperty(row: DbPropertyRow): Property {
   const beds = row.bedrooms ?? 1;
   const bedsLabel = beds === 0 ? 'Studio' : `${beds}BR`;
   const rawType = (row.type || '').toLowerCase();
@@ -66,16 +104,16 @@ function dbRowToProperty(row: any): Property {
     maxGuests: row.max_guests ?? 2,
     location: [row.location, row.county].filter(Boolean).join(', '),
     city: row.city || '',
-    pricePerNight: parseFloat(row.nightly_rate) || 0,
-    weekendRate: parseFloat(row.weekend_rate) || 0,
-    monthlyRate: parseFloat(row.monthly_rate) || 0,
-    cleaningFee: parseFloat(row.cleaning_fee) || 0,
-    deposit: parseFloat(row.security_deposit) || 0,
+    pricePerNight: toNum(row.nightly_rate),
+    weekendRate: toNum(row.weekend_rate),
+    monthlyRate: toNum(row.monthly_rate),
+    cleaningFee: toNum(row.cleaning_fee),
+    deposit: toNum(row.security_deposit),
     minStay: row.min_stay_nights ? `${row.min_stay_nights} night${row.min_stay_nights === 1 ? '' : 's'}` : '1 night',
     maxStayNights: row.max_stay_nights || 0,
     description: row.description || '',
     amenities: [],
-    status: (['active', 'inactive', 'maintenance', 'draft'].includes(row.status) ? row.status : 'active') as PropStatus,
+    status: (['active', 'inactive', 'maintenance', 'draft'].includes(row.status ?? '') ? row.status : 'active') as PropStatus,
     setupStep: row.setup_step ?? row.setupStep ?? 1,
     coverPhoto: row.cover_photo || '',
     checkInTime: row.check_in_time || '',
@@ -126,14 +164,13 @@ export default function PropertiesPage() {
   const [editWizardData, setEditWizardData] = useState<Partial<WizardFormData> | null>(null);
   const [continueWizardData, setContinueWizardData] = useState<Partial<WizardFormData> | null>(null);
   const [editLoading, setEditLoading] = useState<string | null>(null);
-  const [viewingPropertyDetails, setViewingPropertyDetails] = useState<{ amenities: string[]; photos: { url: string; isCover: boolean }[] } | null>(null);
+  const [viewingPropertyDetailsRaw, setViewingPropertyDetails] = useState<{ id: string; amenities: string[]; photos: { url: string; isCover: boolean }[] } | null>(null);
   const [view, setView] = useState<ViewMode>('grid');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All types');
   const [filterStatus, setFilterStatus] = useState('All statuses');
   const [viewingProperty, setViewingProperty] = useState<Property | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
   const [csvError, setCsvError] = useState('');
@@ -175,7 +212,7 @@ export default function PropertiesPage() {
         .eq('status', 'blocked').lte('check_in', today).gt('check_out', today),
     ]);
     if (!error && data) {
-      const blockedIds = new Set((blockedData ?? []).map((b: any) => b.property_id));
+      const blockedIds = new Set((blockedData ?? []).map((b: { property_id: string }) => b.property_id));
       setProperties(data.map(row => {
         const p = dbRowToProperty(row);
         if (blockedIds.has(p.id)) p.status = 'blocked';
@@ -187,16 +224,22 @@ export default function PropertiesPage() {
 
   useEffect(() => { loadProperties(); }, [loadProperties]);
 
+  const viewingId = viewingProperty?.id;
   useEffect(() => {
-    if (!viewingProperty) { setViewingPropertyDetails(null); return; }
-    fetch(`/api/properties/wizard?id=${viewingProperty.id}`)
+    if (!viewingId) return;
+    fetch(`/api/properties/wizard?id=${viewingId}`)
       .then(r => r.ok ? r.json() : null)
       .then(json => json && setViewingPropertyDetails({
+        id: viewingId,
         amenities: mergeAmenityLabels(json.universalAmenities ?? [], json.amenities ?? []),
         photos: json.photos ?? [],
       }))
       .catch(() => {});
-  }, [viewingProperty?.id]);
+  }, [viewingId]);
+
+  const viewingPropertyDetails = viewingPropertyDetailsRaw && viewingPropertyDetailsRaw.id === viewingId
+    ? viewingPropertyDetailsRaw
+    : null;
 
   const fetchPropertyForEdit = useCallback(async (id: string): Promise<Partial<WizardFormData> | null> => {
     const res = await fetch(`/api/properties/wizard?id=${id}`);
@@ -238,11 +281,6 @@ export default function PropertiesPage() {
     const h = (e: CustomEvent) => setSidebarCollapsed(e.detail.collapsed);
     window.addEventListener('sidebarToggle', h as EventListener);
     return () => window.removeEventListener('sidebarToggle', h as EventListener);
-  }, []);
-
-  useEffect(() => {
-    const email = localStorage.getItem('user_email') || 'admin@kogelosuites.com';
-    setUserEmail(email);
   }, []);
 
   const filtered = useMemo(() => sortProperties(properties.filter(p => {
@@ -346,6 +384,7 @@ export default function PropertiesPage() {
                   || viewingProperty.coverPhoto;
                 return coverUrl ? (
                   <div className="w-full h-44 bg-gray-200 overflow-hidden flex-shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
                     <img src={coverUrl} alt={viewingProperty.name} className="w-full h-full object-cover" />
                   </div>
                 ) : null;
@@ -525,6 +564,7 @@ export default function PropertiesPage() {
                     <div className="flex gap-2 overflow-x-auto pb-1">
                       {viewingPropertyDetails.photos.map((ph, i) => (
                         <div key={i} className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
                           <img src={ph.url} alt="" className="w-full h-full object-cover" />
                           {ph.isCover && <span className="absolute bottom-0 left-0 right-0 text-center text-[9px] font-bold bg-green-600 text-white py-0.5">Cover</span>}
                         </div>

@@ -16,8 +16,8 @@ export async function GET() {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data ?? []);
-  } catch (err: any) {
-    console.error('[GET /api/reminders]', err?.message ?? err);
+  } catch (err: unknown) {
+    console.error('[GET /api/reminders]', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data, { status: 201 });
-  } catch (err: any) {
-    console.error('[POST /api/reminders]', err?.message ?? err);
+  } catch (err: unknown) {
+    console.error('[POST /api/reminders]', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

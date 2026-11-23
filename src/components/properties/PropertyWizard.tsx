@@ -154,7 +154,7 @@ export function PropertyWizard() {
 
       toast.success('Property created successfully!');
       router.push('/properties');
-    } catch (error) {
+    } catch {
       toast.error('An error occurred');
     } finally {
       setIsLoading(false);
@@ -523,6 +523,7 @@ export function PropertyWizard() {
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {uploadedPhotoUrls.map((url, i) => (
                     <div key={url} className="relative group rounded-lg overflow-hidden border border-surface-200 aspect-square">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; next/image has no remotePatterns configured */}
                       <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
                       {i === 0 && (
                         <span className="absolute top-1 left-1 bg-teal-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">Cover</span>

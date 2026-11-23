@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { CheckCircle2, Clock, XCircle, BedDouble, Calendar, Phone, Search, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, BedDouble, Calendar, Phone, Search } from 'lucide-react';
 import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
 type BookingRequest = {
@@ -29,6 +29,16 @@ function MyBookingsContent() {
   const [searched,    setSearched]    = useState(false);
   const [error,       setError]       = useState('');
 
+  const loadBookings = useCallback(async ({ userId, phone: ph }: { userId?: string; phone?: string }) => {
+    setLoading(true); setError('');
+    const qs = userId ? `userId=${userId}` : `phone=${encodeURIComponent(ph ?? '')}`;
+    const res = await fetch(`/api/stay/my-bookings?${qs}`);
+    const data = await res.json();
+    if (data.error) setError(data.error);
+    else setBookings(data.bookings ?? []);
+    setLoading(false); setSearched(true);
+  }, []);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -38,17 +48,7 @@ function MyBookingsContent() {
       }
       setAuthChecked(true);
     });
-  }, []);
-
-  const loadBookings = async ({ userId, phone: ph }: { userId?: string; phone?: string }) => {
-    setLoading(true); setError('');
-    const qs = userId ? `userId=${userId}` : `phone=${encodeURIComponent(ph ?? '')}`;
-    const res = await fetch(`/api/stay/my-bookings?${qs}`);
-    const data = await res.json();
-    if (data.error) setError(data.error);
-    else setBookings(data.bookings ?? []);
-    setLoading(false); setSearched(true);
-  };
+  }, [loadBookings]);
 
   const handlePhoneSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +138,7 @@ function MyBookingsContent() {
                   <div className={`flex items-center gap-2 px-5 py-3 border-b text-xs font-bold ${cfg.color}`}>
                     <StatusIcon className="w-4 h-4" />
                     {cfg.label}
-                    {b.status === 'pending' && <span className="ml-auto text-xs font-normal opacity-70">We'll call you within 2 hours</span>}
+                    {b.status === 'pending' && <span className="ml-auto text-xs font-normal opacity-70">We&apos;ll call you within 2 hours</span>}
                     {b.status === 'confirmed' && <span className="ml-auto text-xs font-normal opacity-70">Your room is reserved 🎉</span>}
                   </div>
                   <div className="p-5 space-y-3">

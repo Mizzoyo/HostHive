@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 
 export function Header() {
@@ -18,7 +17,7 @@ export function Header() {
       await supabase.auth.signOut();
       toast.success('Logged out successfully');
       router.push('/auth/login');
-    } catch (error) {
+    } catch {
       toast.error('Failed to logout');
     } finally {
       setIsLoading(false);

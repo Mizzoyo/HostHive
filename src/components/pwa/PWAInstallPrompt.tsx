@@ -15,9 +15,10 @@ export function PWAInstallPrompt() {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if app is already installed
+    // Check if app is already installed (deferred so the state update does
+    // not happen synchronously inside the effect body)
     if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
+      queueMicrotask(() => setIsInstalled(true));
       return;
     }
 

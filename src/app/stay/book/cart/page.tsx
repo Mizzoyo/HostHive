@@ -5,7 +5,17 @@ import Link from 'next/link';
 import { Trash2, ShoppingCart, Home as HomeIcon } from 'lucide-react';
 import { roomTypeLabel } from '@/lib/stay/roomType';
 
-type CartItem = { property: any; qty: number };
+type CartProperty = {
+  id: string;
+  name: string;
+  slug?: string | null;
+  nightly_rate: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  max_guests?: number;
+  photos?: string[];
+};
+type CartItem = { property: CartProperty; qty: number };
 
 export default function CartPage() {
   const [cart, setCart]     = useState<CartItem[]>([]);
@@ -13,13 +23,17 @@ export default function CartPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const c = sessionStorage.getItem('roomCart');
-      const m = sessionStorage.getItem('roomCartMeta');
-      if (c) setCart(JSON.parse(c));
-      if (m) setMeta(JSON.parse(m));
-    } catch { /* ignore */ }
-    setLoaded(true);
+    // sessionStorage is client-only; defer reads so no setState runs synchronously in the effect
+    const id = setTimeout(() => {
+      try {
+        const c = sessionStorage.getItem('roomCart');
+        const m = sessionStorage.getItem('roomCartMeta');
+        if (c) setCart(JSON.parse(c) as CartItem[]);
+        if (m) setMeta(JSON.parse(m));
+      } catch { /* ignore */ }
+      setLoaded(true);
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   const save = (next: CartItem[]) => {
@@ -85,6 +99,7 @@ export default function CartPage() {
             {/* Thumbnail */}
             <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
               {p.photos?.[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL
                 <img src={p.photos[0]} alt={p.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#0f172a,#16a34a)' }}>

@@ -89,6 +89,7 @@ export default function CardImageCarousel({ photos, alt = 'Room', height = 'h-48
           className="absolute inset-0 transition-transform duration-300 ease-in-out"
           style={{ transform: `translateX(${(i - current) * 100}%)` }}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic photo URL; next/image has no remotePatterns configured */}
           <img src={src} alt={`${alt} ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
         </div>
       ))}

@@ -29,8 +29,8 @@ export async function PATCH(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data);
-  } catch (err: any) {
-    console.error('[PATCH /api/reminders/[id]]', err?.message ?? err);
+  } catch (err: unknown) {
+    console.error('[PATCH /api/reminders/[id]]', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -53,8 +53,8 @@ export async function DELETE(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error('[DELETE /api/reminders/[id]]', err?.message ?? err);
+  } catch (err: unknown) {
+    console.error('[DELETE /api/reminders/[id]]', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

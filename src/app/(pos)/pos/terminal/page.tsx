@@ -147,7 +147,7 @@ function TerminalInner() {
   const [isLoading, setIsLoading] = useState(true);
 
   /* room/location input ref (kept for potential future auto-focus) */
-  const locationRef = useRef<HTMLInputElement>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const locationRef = useRef<HTMLInputElement>(null);
 
   /* -- Mount: read session, load settings + orders -------------------------- */
   useEffect(() => {
@@ -168,7 +168,8 @@ function TerminalInner() {
       return;
     }
 
-    setStaff(session);
+    /* Defer the state update so it isn't set synchronously inside the effect. */
+    queueMicrotask(() => setStaff(session));
 
     /* Load settings and open orders in parallel */
     Promise.all([

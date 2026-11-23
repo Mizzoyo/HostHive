@@ -59,6 +59,7 @@ export default function RoomDetailGallery({ photos, propertyName, propertyId, pr
           >
             {photos.map((p, i) => (
               <div key={i} className="absolute inset-0 transition-transform duration-300 ease-in-out" style={{ transform: `translateX(${(i - mobileSlide) * 100}%)` }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- dynamic photo URL; next/image has no remotePatterns configured */}
                 <img src={p} alt={propertyName} className="w-full h-full object-cover pointer-events-none" draggable={false} />
               </div>
             ))}
@@ -122,10 +123,12 @@ export default function RoomDetailGallery({ photos, propertyName, propertyId, pr
         {photos.length > 0 ? (
           <div className="relative grid grid-cols-4 grid-rows-2 gap-1.5 rounded-xl overflow-hidden h-72 sm:h-[420px]">
             <div className="col-span-2 row-span-2 relative cursor-pointer" onClick={() => { setPhotoIdx(0); setLightbox(true); }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- dynamic photo URL; next/image has no remotePatterns configured */}
               <img src={photos[0]} alt={propertyName} className="w-full h-full object-cover hover:brightness-90 transition-all" />
             </div>
             {photos.slice(1, 5).map((url, i) => (
               <div key={i} className="relative cursor-pointer overflow-hidden" onClick={() => { setPhotoIdx(i + 1); setLightbox(true); }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- dynamic photo URL; next/image has no remotePatterns configured */}
                 <img src={url} alt="" className="w-full h-full object-cover hover:brightness-90 transition-all" />
               </div>
             ))}
@@ -157,6 +160,7 @@ export default function RoomDetailGallery({ photos, propertyName, propertyId, pr
           <button className="absolute left-4 text-white/80 hover:text-white" onClick={e => { e.stopPropagation(); setPhotoIdx(i => (i - 1 + photos.length) % photos.length); }}>
             <svg className="w-10 h-10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
           </button>
+          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic photo URL; next/image has no remotePatterns configured */}
           <img src={photos[photoIdx]} alt="" className="max-w-4xl max-h-[85vh] w-full object-contain px-16" onClick={e => e.stopPropagation()} />
           <button className="absolute right-4 text-white/80 hover:text-white" onClick={e => { e.stopPropagation(); setPhotoIdx(i => (i + 1) % photos.length); }}>
             <svg className="w-10 h-10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>

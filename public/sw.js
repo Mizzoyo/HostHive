@@ -142,7 +142,7 @@ async function syncBookings() {
     for (const request of bookingRequests) {
       try {
         await fetch(request.clone());
-      } catch (err) {
+      } catch {
         console.log('Sync failed for:', request.url);
       }
     }
@@ -162,7 +162,7 @@ async function syncPayments() {
     for (const request of paymentRequests) {
       try {
         await fetch(request.clone());
-      } catch (err) {
+      } catch {
         console.log('Sync failed for:', request.url);
       }
     }

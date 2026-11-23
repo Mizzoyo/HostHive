@@ -54,7 +54,9 @@ export default function TablesPage() {
     const raw = sessionStorage.getItem('pos_session');
     if (!raw) { router.replace('/pos'); return; }
     try {
-      setStaff(JSON.parse(raw));
+      const parsed = JSON.parse(raw) as StaffSession;
+      /* Defer the state update so it isn't set synchronously inside the effect. */
+      queueMicrotask(() => setStaff(parsed));
     } catch {
       router.replace('/pos');
     }

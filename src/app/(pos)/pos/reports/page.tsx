@@ -79,12 +79,13 @@ function KpiCard({ label, value, sub, icon, color }: {
 export default function PosReportsPage() {
   const router = useRouter();
 
-  const today     = new Date();
-  const thirtyAgo = new Date(today);
-  thirtyAgo.setDate(thirtyAgo.getDate() - 29);
-
-  const [dateFrom,    setDateFrom]    = useState(isoDate(thirtyAgo));
-  const [dateTo,      setDateTo]      = useState(isoDate(today));
+  /* Lazy initializers keep Date usage out of render (react-hooks/purity). */
+  const [dateFrom,    setDateFrom]    = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 29);
+    return isoDate(d);
+  });
+  const [dateTo,      setDateTo]      = useState(() => isoDate(new Date()));
   const [staffFilter, setStaffFilter] = useState('');
   const [staffList,   setStaffList]   = useState<StaffMember[]>([]);
   const [currency,    setCurrency]    = useState('KSh');
@@ -134,7 +135,11 @@ export default function PosReportsPage() {
       .finally(() => setLoading(false));
   }, [dateFrom, dateTo, staffFilter]);
 
-  useEffect(() => { fetchReport(); }, [fetchReport]);
+  useEffect(() => {
+    /* Defer so the synchronous setLoading/setPage inside fetchReport don't
+       run directly in the effect body. */
+    void Promise.resolve().then(fetchReport);
+  }, [fetchReport]);
 
   // CSV export
   const exportCsv = () => {

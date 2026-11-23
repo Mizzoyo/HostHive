@@ -27,7 +27,7 @@ async function getSessionUser() {
   return { supabase, user: session?.user ?? null };
 }
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const { supabase, user } = await getSessionUser();
     if (!user) {

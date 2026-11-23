@@ -62,17 +62,24 @@ export default function CustomReportsPage() {
   ]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<CustomReport | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    type: CustomReport['type'];
+    metrics: string[];
+    startDate: string;
+    endDate: string;
+    frequency: CustomReport['frequency'];
+    recipients: string;
+  }>({
     name: '',
     description: '',
-    type: 'revenue' as const,
-    metrics: [] as string[],
+    type: 'revenue',
+    metrics: [],
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
-    frequency: 'once' as const,
+    frequency: 'once',
     recipients: '',
   });
 
@@ -267,7 +274,7 @@ export default function CustomReportsPage() {
             <select
               value={formData.type}
               onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value as any })
+                setFormData({ ...formData, type: e.target.value as CustomReport['type'] })
               }
               className="w-full px-4 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
@@ -336,7 +343,7 @@ export default function CustomReportsPage() {
             <select
               value={formData.frequency}
               onChange={(e) =>
-                setFormData({ ...formData, frequency: e.target.value as any })
+                setFormData({ ...formData, frequency: e.target.value as CustomReport['frequency'] })
               }
               className="w-full px-4 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >

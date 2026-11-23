@@ -72,7 +72,7 @@ function WriteReviewContent() {
         setReady(true);
       }
     });
-  }, []);
+  }, [router, propertyId, propertyName]);
 
   const activeAll = hoverAll || overall;
 
@@ -95,8 +95,8 @@ function WriteReviewContent() {
       setTimeout(() => {
         router.push(propertyId ? `/stay/rooms/${toRoomSlug(null, propertyName, propertyId)}` : '/stay/rooms');
       }, 2200);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit review');
     } finally {
       setSubmitting(false);
     }

@@ -47,7 +47,6 @@ export async function GET(request: NextRequest) {
 
     const confirmed = (bookings ?? []).filter(b => !['cancelled', 'blocked', 'no_show'].includes(b.status));
     const cancelled = (bookings ?? []).filter(b => b.status === 'cancelled');
-    const blockedBookings = (bookings ?? []).filter(b => b.status === 'blocked');
 
     // Today's check-ins / check-outs (always today, not period-filtered)
     const { data: todayCheckins } = await supabase

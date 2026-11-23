@@ -112,6 +112,11 @@ export default function POSDashboardPage() {
   const [stats,    setStats]    = useState<TodayStats | null>(null);
   const [currency, setCurrency] = useState('KSh');
   const [loading,  setLoading]  = useState(true);
+  const [todayLabel] = useState(() =>
+    new Date().toLocaleDateString('en-KE', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    }),
+  );
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pos_session');
@@ -126,7 +131,8 @@ export default function POSDashboardPage() {
       return;
     }
 
-    setSession(sess);
+    /* Defer the state update so it isn't set synchronously inside the effect. */
+    queueMicrotask(() => setSession(sess));
 
     const today = isoToday();
     Promise.all([
@@ -156,7 +162,7 @@ export default function POSDashboardPage() {
             {session ? `Welcome, ${session.staffName}` : 'POS Dashboard'}
           </h1>
           <p className="text-slate-400 text-sm mt-0.5">
-            {new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {todayLabel}
           </p>
         </div>
 

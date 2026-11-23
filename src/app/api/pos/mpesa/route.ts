@@ -1,5 +1,4 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { getPosAuth } from '@/lib/pos/device-auth';
 
 // ─── Env vars (same set as /api/stay/mpesa) ──────────────────────────────────
 // MPESA_CONSUMER_KEY=

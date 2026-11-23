@@ -9,7 +9,7 @@
  * DELETE /api/pos/setup-device
  * Clears the cookie (revoke device access).
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { signDeviceToken, POS_DEVICE_COOKIE } from '@/lib/pos/device-auth';
 
@@ -50,7 +50,7 @@ export async function POST() {
   }
 }
 
-export async function DELETE(_request: NextRequest) {
+export async function DELETE() {
   const response = NextResponse.json({ ok: true, message: 'POS device unregistered.' });
   response.cookies.set(cookieOptions('', 0)); // clear cookie
   return response;

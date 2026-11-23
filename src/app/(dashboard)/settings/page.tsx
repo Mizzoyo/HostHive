@@ -37,7 +37,9 @@ const AMENITY_GROUPS = AMENITY_CATALOG.reduce<Record<string, Amenity[]>>((acc, a
 
 export default function SettingsPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState('admin@kogelosuites.com');
+  const [userEmail, setUserEmail] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('user_email') || 'admin@kogelosuites.com' : 'admin@kogelosuites.com'
+  );
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
   // General tab state
@@ -211,11 +213,6 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    const email = localStorage.getItem('user_email') || 'admin@kogelosuites.com';
-    setUserEmail(email);
-  }, []);
-
-  useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return;
@@ -232,7 +229,7 @@ export default function SettingsPage() {
       if (profile) {
         setKraPin(profile.kra_pin ?? '');
         const tl = Array.isArray(profile.tax_lines) ? profile.tax_lines : [];
-        setTaxLines(tl.map((t: any) => ({ label: t.label ?? '', rate: String(t.rate ?? '') })));
+        setTaxLines(tl.map((t: { label?: string | null; rate?: string | number | null }) => ({ label: t.label ?? '', rate: String(t.rate ?? '') })));
         if (profile.logo_url) {
           setLogoPreview(profile.logo_url);
           localStorage.setItem('brand_logo', profile.logo_url);
@@ -275,9 +272,9 @@ export default function SettingsPage() {
     setProfSaving(true);
     try {
       const supabase = createClient();
-      const updates: Record<string, unknown> = { data: { full_name: profName.trim(), phone: profPhone.trim() } };
-      if (profEmail.trim() && profEmail !== userEmail) (updates as any).email = profEmail.trim();
-      const { error } = await supabase.auth.updateUser(updates as any);
+      const updates: { data: { full_name: string; phone: string }; email?: string } = { data: { full_name: profName.trim(), phone: profPhone.trim() } };
+      if (profEmail.trim() && profEmail !== userEmail) updates.email = profEmail.trim();
+      const { error } = await supabase.auth.updateUser(updates);
       if (error) { toast.error(error.message); return; }
       toast.success('Profile updated');
     } catch { toast.error('Network error'); }
@@ -686,6 +683,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
                     {logoPreview ? (
+                      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
                       <img src={logoPreview} alt="Logo" className="w-full h-full object-contain" />
                     ) : (
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
@@ -729,6 +727,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
                     {faviconPreview ? (
+                      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
                       <img src={faviconPreview} alt="Favicon" className="w-10 h-10 object-contain" />
                     ) : (
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
@@ -1391,6 +1390,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-5">
               <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 overflow-hidden flex items-center justify-center bg-gray-50 flex-shrink-0">
                 {avatarUrl ? (
+                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
                   <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">

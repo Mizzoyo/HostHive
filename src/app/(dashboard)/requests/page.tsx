@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Clock, CheckCircle2, XCircle, BedDouble, Calendar, Phone, User, MessageCircle, RefreshCw, Send, CreditCard, AlertCircle, Menu, MessageSquare, Receipt, Mail } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Clock, CheckCircle2, XCircle, BedDouble, Calendar, Phone, User, MessageCircle, RefreshCw, CreditCard, AlertCircle, Menu, MessageSquare, Receipt, Mail } from 'lucide-react';
 
 type BookingRequest = {
   id: string; created_at: string; guest_name: string; guest_phone: string; guest_email: string;
@@ -59,13 +59,13 @@ export default function RequestsPage() {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     fetch('/api/stay/requests')
       .then(r => r.json())
       .then(d => setRequests(d.requests ?? []))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   const openReceiptModal = async (req: BookingRequest) => {
     const rooms = Array.isArray(req.room_details) ? req.room_details : [];
@@ -87,7 +87,7 @@ export default function RequestsPage() {
           .eq('id', user.id)
           .maybeSingle();
         const tl = Array.isArray(profile?.tax_lines) ? profile.tax_lines : [];
-        setReceiptTaxLines(tl.map((t: any) => ({ label: t.label ?? '', rate: String(t.rate ?? '') })));
+        setReceiptTaxLines(tl.map((t: { label?: string | null; rate?: string | number | null }) => ({ label: t.label ?? '', rate: String(t.rate ?? '') })));
       } else {
         setReceiptTaxLines([]);
       }
@@ -138,7 +138,7 @@ export default function RequestsPage() {
     finally { setReceiptSaving(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const updateStatus = async (id: string, status: string, extraPayload?: Record<string, string>) => {
     setUpdating(id);
@@ -242,8 +242,8 @@ export default function RequestsPage() {
   };
 
   const filtered = filter === 'all' ? requests : requests.filter(r => r.status === filter);
-  const counts   = { all: requests.length, pending: 0, confirmed: 0, declined: 0 };
-  requests.forEach(r => { if (r.status in counts) (counts as any)[r.status]++; });
+  const counts: Record<string, number> = { all: requests.length, pending: 0, confirmed: 0, declined: 0 };
+  requests.forEach(r => { if (r.status in counts) counts[r.status]++; });
 
   return (
     <div className="min-h-screen bg-gray-50">

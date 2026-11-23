@@ -85,7 +85,6 @@ function AlertCard({
 
 export default function AlertsPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [checkIns,  setCheckIns]  = useState<BookingAlert[]>([]);
@@ -111,10 +110,6 @@ export default function AlertsPage() {
     const h = (e: CustomEvent) => setSidebarCollapsed(e.detail.collapsed);
     window.addEventListener('sidebarToggle', h as EventListener);
     return () => window.removeEventListener('sidebarToggle', h as EventListener);
-  }, []);
-
-  useEffect(() => {
-    setUserEmail(localStorage.getItem('user_email') || 'admin@kogelosuites.com');
   }, []);
 
   const loadData = useCallback(async () => {

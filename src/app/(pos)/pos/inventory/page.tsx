@@ -121,9 +121,12 @@ export default function PosInventoryPage() {
       router.replace(getDefaultRoute(session.role)); // cashier/waiter → terminal
       return;
     }
-    setRole(session.role);
-    // Barman starts on the bar tab
-    if (session.role === 'barman') setActiveTab('bar');
+    /* Defer state updates so they aren't set synchronously inside the effect. */
+    queueMicrotask(() => {
+      setRole(session.role);
+      // Barman starts on the bar tab
+      if (session.role === 'barman') setActiveTab('bar');
+    });
   }, [router]);
 
   const loadItems = useCallback(() => {
@@ -136,7 +139,9 @@ export default function PosInventoryPage() {
   }, []);
 
   useEffect(() => {
-    loadItems();
+    /* Defer so the synchronous setLoading inside loadItems doesn't run
+       directly in the effect body. */
+    void Promise.resolve().then(loadItems);
     fetch('/api/pos/settings').then(r => r.json()).then(d => {
       if (d.settings?.currency) setCurrency(d.settings.currency);
     }).catch(() => {});

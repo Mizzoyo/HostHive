@@ -88,7 +88,8 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   const showBottomNav  = !isCheckoutPage && !isCartPage;
   const router    = useRouter();
   const [menuOpen,   setMenuOpen]   = useState(false);
-  const [loading,    setLoading]    = useState(false);
+  // Tracks the href being navigated to; skeleton hides once pathname catches up
+  const [loadingHref, setLoadingHref] = useState<string | null>(null);
   const [loggedIn,   setLoggedIn]   = useState(false);
   const [userMeta,   setUserMeta]   = useState<{ name: string; avatar: string | null } | null>(null);
   const [brandLogo,  setBrandLogo]  = useState('');
@@ -121,10 +122,6 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
-    setLoading(false);
-  }, [pathname]);
-
-  useEffect(() => {
     fetch('/api/stay/brand')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.logo_url) setBrandLogo(d.logo_url); })
@@ -138,10 +135,13 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
       window.location.href = href;
       return;
     }
-    setLoading(true);
+    setLoadingHref(href);
     router.push(href);
-    setTimeout(() => setLoading(false), 3000);
+    setTimeout(() => setLoadingHref(null), 3000);
   }, [router, pathname]);
+
+  // Skeleton shows while a navigation is in flight (pathname hasn't caught up yet)
+  const loading = loadingHref !== null && pathname !== loadingHref;
 
   return (
     <div className={`${dmSans.variable} ${playfair.variable} w-full min-h-screen flex flex-col`} style={{ fontFamily: 'var(--font-sans), Plus Jakarta Sans, system-ui, sans-serif' }}>
@@ -161,6 +161,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
             )}
             <Link href="/stay" className="flex items-center gap-2 flex-shrink-0">
               {brandLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element -- dynamic logo URL from Supabase storage
                 <img src={brandLogo} alt="Logo" className="h-8 w-auto max-w-[120px] object-contain" />
               ) : (
                 <span className="font-black text-lg tracking-tight text-white">Kogelo Suites</span>
@@ -189,6 +190,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
                 className="hidden md:flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border-2 border-white/30 hover:border-white transition-all flex-shrink-0"
                 title={`${userMeta.name} — View Profile`}>
                 {userMeta.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- dynamic avatar URL from OAuth provider
                   <img src={userMeta.avatar} alt={userMeta.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-sm font-black text-white" style={{ background: '#16a34a' }}>

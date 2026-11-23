@@ -60,8 +60,8 @@ export async function GET() {
       upcoming:     upRes.data     ?? [],
       unpaid:       unpaidRes.data ?? [],
     });
-  } catch (err: any) {
-    console.error('[GET /api/alerts]', err?.message ?? err);
+  } catch (err: unknown) {
+    console.error('[GET /api/alerts]', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

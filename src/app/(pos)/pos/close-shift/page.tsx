@@ -84,9 +84,12 @@ export default function CloseShiftPage() {
       return;
     }
 
-    setStaffId(session.staffId);
-    setStaffName(session.staffName);
-    setShiftId(session.shiftId);
+    /* Defer state updates so they aren't set synchronously inside the effect. */
+    queueMicrotask(() => {
+      setStaffId(session.staffId);
+      setStaffName(session.staffName);
+      setShiftId(session.shiftId);
+    });
 
     // Fetch shift
     fetch(`/api/pos/shifts/${session.shiftId}`)

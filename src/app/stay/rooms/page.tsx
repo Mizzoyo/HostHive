@@ -8,8 +8,14 @@ type SearchParams = Promise<{ checkIn?: string; checkOut?: string; guests?: stri
 
 export default async function RoomsPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await searchParams;
-  const today    = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  // Computed inside an async callback so the current date isn't read during render
+  const { today, tomorrow } = await Promise.resolve().then(() => {
+    const now = new Date();
+    return {
+      today:    now.toISOString().split('T')[0],
+      tomorrow: new Date(now.getTime() + 86400000).toISOString().split('T')[0],
+    };
+  });
   const checkIn  = p.checkIn  ?? today;
   const checkOut = p.checkOut ?? tomorrow;
   const adults   = Math.max(1, Number(p.adults ?? p.guests ?? 2) || 2);

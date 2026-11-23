@@ -22,6 +22,24 @@ const DEFAULT_UNIVERSAL_RULES = {
 
 type WizardSellOptionInput = { bedrooms?: number; nightly?: string; maxGuests?: string };
 
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+type UniversalProfile = {
+  default_house_rules?: unknown;
+  default_amenities?: unknown;
+  default_property_location?: string | null;
+  default_property_city?: string | null;
+  default_property_county?: string | null;
+  default_check_in_time?: string | null;
+  default_check_out_time?: string | null;
+  default_check_in_method?: string | null;
+  default_check_in_instructions?: string | null;
+  default_caretaker_name?: string | null;
+  default_caretaker_phone?: string | null;
+  default_cancellation_policy?: string | null;
+  default_additional_rules?: string | null;
+} | null;
+
 function toSellOptions(d: { basics?: { bedrooms?: number }; pricing?: { sellOptions?: unknown } }) {
   const bedrooms = Number(d.basics?.bedrooms ?? 1);
   const raw: WizardSellOptionInput[] = Array.isArray(d.pricing?.sellOptions) ? d.pricing.sellOptions : [];
@@ -31,7 +49,7 @@ function toSellOptions(d: { basics?: { bedrooms?: number }; pricing?: { sellOpti
   );
 }
 
-async function fetchUniversalProfile(supabase: any, userId: string) {
+async function fetchUniversalProfile(supabase: Supabase, userId: string) {
   const baseSelect = 'default_house_rules, default_check_in_time, default_check_out_time, default_check_in_method, default_check_in_instructions, default_caretaker_name, default_caretaker_phone, default_cancellation_policy, default_additional_rules, default_property_location, default_property_city, default_property_county';
   let profileRes = await supabase
     .from('profiles')
@@ -49,7 +67,7 @@ async function fetchUniversalProfile(supabase: any, userId: string) {
   return profileRes.data;
 }
 
-function getUniversalHouseRules(profile: any) {
+function getUniversalHouseRules(profile: UniversalProfile) {
   if (!profile?.default_house_rules || typeof profile.default_house_rules !== 'object' || Array.isArray(profile.default_house_rules)) {
     return { ...DEFAULT_UNIVERSAL_RULES };
   }
@@ -82,12 +100,12 @@ export async function GET(request: NextRequest) {
     const p = propRes.data;
     const photos =
       photoRes.data && photoRes.data.length > 0
-        ? photoRes.data.map((ph: any) => ({ url: ph.url, label: '', isCover: ph.url === p.cover_photo }))
+        ? photoRes.data.map((ph) => ({ url: ph.url, label: '', isCover: ph.url === p.cover_photo }))
         : p.cover_photo
         ? [{ url: p.cover_photo, label: '', isCover: true }]
         : [];
     const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
-    const roomAmenities = (amenRes.data?.map((a: any) => a.name) ?? [])
+    const roomAmenities = (amenRes.data?.map((a) => a.name) ?? [])
       .filter((name: string) => !isUniversalAmenity(name, universalAmenities));
 
     return NextResponse.json({
@@ -122,7 +140,7 @@ export async function POST(request: NextRequest) {
     const universalRules = getUniversalHouseRules(profile);
     const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
     const roomAmenities = (Array.isArray(d.amenities) ? d.amenities : [])
-      .filter((a: any) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
+      .filter((a) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
     const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Milimani';
     const syncedCity = profile?.default_property_city || d.location?.city || 'Kisumu';
     const syncedCounty = profile?.default_property_county || d.location?.county || 'Kisumu County';
@@ -152,7 +170,7 @@ export async function POST(request: NextRequest) {
       security_deposit: parseFloat(d.pricing?.deposit) || 0,
       min_stay_nights: parseInt(d.pricing?.minStay) || 1,
       max_stay_nights: parseInt(d.pricing?.maxStay) || 0,
-      cover_photo: d.photos?.find((p: any) => p.isCover)?.url || d.photos?.[0]?.url || '',
+      cover_photo: d.photos?.find((p) => p.isCover)?.url || d.photos?.[0]?.url || '',
       latitude: d.location?.lat || null,
       longitude: d.location?.lng || null,
       check_in_time: profile?.default_check_in_time || '14:00',
@@ -182,7 +200,7 @@ export async function POST(request: NextRequest) {
     const propertyId = property.id;
 
     if (roomAmenities.length > 0) {
-      const amenityRows = roomAmenities.map((a: any) => ({
+      const amenityRows = roomAmenities.map((a) => ({
         property_id: propertyId,
         user_id: userId,
         name: typeof a === 'string' ? a : a.name,
@@ -193,7 +211,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (Array.isArray(d.photos) && d.photos.length > 0) {
-      const photoRows = d.photos.map((p: any, i: number) => ({
+      const photoRows = d.photos.map((p, i: number) => ({
         property_id: propertyId,
         user_id: userId,
         url: p.url,
@@ -233,7 +251,7 @@ export async function PUT(request: NextRequest) {
     const universalRules = getUniversalHouseRules(profile);
     const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
     const roomAmenities = (Array.isArray(d.amenities) ? d.amenities : [])
-      .filter((a: any) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
+      .filter((a) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
     const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Milimani';
     const syncedCity = profile?.default_property_city || d.location?.city || 'Kisumu';
     const syncedCounty = profile?.default_property_county || d.location?.county || 'Kisumu County';
@@ -263,7 +281,7 @@ export async function PUT(request: NextRequest) {
         security_deposit: parseFloat(d.pricing?.deposit) || 0,
         min_stay_nights: parseInt(d.pricing?.minStay) || 1,
         max_stay_nights: parseInt(d.pricing?.maxStay) || 0,
-        cover_photo: d.photos?.find((p: any) => p.isCover)?.url || d.photos?.[0]?.url || '',
+        cover_photo: d.photos?.find((p) => p.isCover)?.url || d.photos?.[0]?.url || '',
         latitude: d.location?.lat || null,
         longitude: d.location?.lng || null,
         check_in_time: profile?.default_check_in_time || '14:00',
@@ -292,7 +310,7 @@ export async function PUT(request: NextRequest) {
     if (Array.isArray(d.amenities)) {
       await supabase.from('property_amenities').delete().eq('property_id', id).eq('user_id', userId);
       if (roomAmenities.length > 0) {
-        const amenityRows = roomAmenities.map((a: any) => ({
+        const amenityRows = roomAmenities.map((a) => ({
           property_id: id,
           user_id: userId,
           name: typeof a === 'string' ? a : a.name,
@@ -306,7 +324,7 @@ export async function PUT(request: NextRequest) {
     if (Array.isArray(d.photos)) {
       await supabase.from('property_photos').delete().eq('property_id', id).eq('user_id', userId);
       if (d.photos.length > 0) {
-        const photoRows = d.photos.map((p: any, i: number) => ({
+        const photoRows = d.photos.map((p, i: number) => ({
           property_id: id,
           user_id: userId,
           url: p.url,

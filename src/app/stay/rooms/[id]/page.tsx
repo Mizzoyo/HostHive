@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { MapPin, Clock, DoorOpen, ShieldOff, PawPrint, VolumeX } from 'lucide-react';
+import { MapPin, Clock, DoorOpen, ShieldOff, PawPrint, VolumeX, type LucideIcon } from 'lucide-react';
 import { publicSupabase } from '@/lib/supabase/public';
 import { toRoomSlug, resolveRoomParam } from '@/lib/stay/roomSlug';
 import { roomTypeLabel } from '@/lib/stay/roomType';
@@ -56,8 +56,14 @@ export default async function RoomDetailPage({
 }) {
   const { id: slug } = await params;
   const sp = await searchParams;
-  const today    = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  // Computed inside an async callback so the current date isn't read during render
+  const { today, tomorrow } = await Promise.resolve().then(() => {
+    const now = new Date();
+    return {
+      today:    now.toISOString().split('T')[0],
+      tomorrow: new Date(now.getTime() + 86400000).toISOString().split('T')[0],
+    };
+  });
   const initialCheckIn  = sp.checkIn  ?? today;
   const initialCheckOut = sp.checkOut ?? tomorrow;
   const initialGuests   = Number(sp.guests ?? 1);
@@ -92,8 +98,8 @@ export default async function RoomDetailPage({
     fetchUniversalStaySettings(),
   ]);
 
-  const photos    = photosResult.data?.map((p: any) => p.url) ?? (property.cover_photo ? [property.cover_photo] : []);
-  const amenities = mergeAmenityLabels(universalSettings.amenities, amenitiesResult.data?.map((a: any) => a.name) ?? []);
+  const photos    = photosResult.data?.map((p: { url: string }) => p.url) ?? (property.cover_photo ? [property.cover_photo] : []);
+  const amenities = mergeAmenityLabels(universalSettings.amenities, amenitiesResult.data?.map((a: { name: string }) => a.name) ?? []);
 
   const typeLabel = roomTypeLabel(property);
 
@@ -104,7 +110,7 @@ export default async function RoomDetailPage({
     property.house_rules?.noPets     && { Icon: PawPrint,  label: 'No pets' },
     property.house_rules?.noParties  && { Icon: VolumeX,   label: 'No parties / events' },
     property.house_rules?.quietHours && { Icon: VolumeX,   label: 'Quiet hours after 10pm' },
-  ].filter(Boolean) as { Icon: any; label: string }[];
+  ].filter(Boolean) as { Icon: LucideIcon; label: string }[];
 
   return (
     <div className="min-h-screen bg-[#f8fafc]" style={{ overflowX: 'clip' }}>

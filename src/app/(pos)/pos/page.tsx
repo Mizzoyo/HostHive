@@ -18,6 +18,12 @@ interface StaffMember {
 
 type Screen = 'select' | 'pin' | 'shift';
 
+/* Minimal shape of the `beforeinstallprompt` event (not in TS DOM lib). */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => void;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 /* --- Helpers --------------------------------------------------------------- */
 const ROLE_LABELS: Record<string, string> = {
   manager:       'Manager',
@@ -56,14 +62,13 @@ export default function POSLoginPage() {
   const [verifying, setVerifying] = useState(false);
 
   /* PWA install prompt */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const installPromptRef = useRef<any>(null);
+  const installPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
-      installPromptRef.current = e;
+      installPromptRef.current = e as BeforeInstallPromptEvent;
       setShowInstallBanner(true);
     };
     window.addEventListener('beforeinstallprompt', handler);
@@ -117,14 +122,6 @@ export default function POSLoginPage() {
     }
   };
 
-  /* -- Auto-submit PIN when 4 digits are entered ---------------------------- */
-  useEffect(() => {
-    if (pin.length === 4 && !verifying) {
-      handleVerifyPin();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pin]);
-
   /* -- Handlers ------------------------------------------------------------- */
   const handleSelectStaff = (member: StaffMember) => {
     setSelectedStaff(member);
@@ -133,33 +130,17 @@ export default function POSLoginPage() {
     setScreen('pin');
   };
 
-  const handleVerifyPin = async () => {
-    if (!selectedStaff) return;
-    setVerifying(true);
-    try {
-      const res  = await fetch('/api/pos/staff/verify-pin', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ staff_id: selectedStaff.id, pin }),
-      });
-      const data = await res.json();
-
-      if (data.ok) {
-        setScreen('shift');
-        checkOrOpenShift(selectedStaff.id, selectedStaff.name);
-      } else {
-        setPinShake(true);
-        setPinError(data.error ?? 'Invalid PIN');
-        setPin('');
-        setTimeout(() => setPinShake(false), 600);
-      }
-    } catch {
-      setPinError('Network error — try again');
-      setPin('');
-    } finally {
-      setVerifying(false);
-    }
-  };
+  /** Store session in sessionStorage and navigate by role. */
+  const saveSessionAndRedirect = useCallback(
+    (staffId: string, staffName: string, role: string, shiftId: string) => {
+      sessionStorage.setItem(
+        'pos_session',
+        JSON.stringify({ staffId, staffName, role, shiftId }),
+      );
+      router.push(getDefaultRoute(role));
+    },
+    [router],
+  );
 
   /** Check for an existing open shift, or create a new one (float=0 initially). */
   const checkOrOpenShift = async (staffId: string, staffName: string) => {
@@ -195,17 +176,41 @@ export default function POSLoginPage() {
     }
   };
 
-  /** Store session in sessionStorage and navigate by role. */
-  const saveSessionAndRedirect = useCallback(
-    (staffId: string, staffName: string, role: string, shiftId: string) => {
-      sessionStorage.setItem(
-        'pos_session',
-        JSON.stringify({ staffId, staffName, role, shiftId }),
-      );
-      router.push(getDefaultRoute(role));
-    },
-    [router],
-  );
+  const handleVerifyPin = async () => {
+    if (!selectedStaff) return;
+    setVerifying(true);
+    try {
+      const res  = await fetch('/api/pos/staff/verify-pin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ staff_id: selectedStaff.id, pin }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        setScreen('shift');
+        checkOrOpenShift(selectedStaff.id, selectedStaff.name);
+      } else {
+        setPinShake(true);
+        setPinError(data.error ?? 'Invalid PIN');
+        setPin('');
+        setTimeout(() => setPinShake(false), 600);
+      }
+    } catch {
+      setPinError('Network error — try again');
+      setPin('');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  /* -- Auto-submit PIN when 4 digits are entered ---------------------------- */
+  useEffect(() => {
+    if (pin.length === 4 && !verifying) {
+      handleVerifyPin();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin]);
 
   const handleConfirmFloat = async () => {
     if (!selectedStaff || !tempShiftId) return;

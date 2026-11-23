@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 
 interface Unit {
   id: string;
@@ -39,13 +38,11 @@ function getOccupancyBucket(occ: number) {
 const BUCKETS = ['90-100%','80-89%','70-79%','60-69%','50-59%','40-49%','30-39%','0-29%'];
 
 export default function UnitPerformancePage() {
-  const router = useRouter();
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [underperformersOnly, setUnderperformersOnly] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -54,11 +51,6 @@ export default function UnitPerformancePage() {
     };
     window.addEventListener('sidebarToggle', handler);
     return () => window.removeEventListener('sidebarToggle', handler);
-  }, []);
-
-  useEffect(() => {
-    const email = localStorage.getItem('user_email') || 'admin@kogelosuites.com';
-    setUserEmail(email);
   }, []);
 
   const monthOptions = useMemo(() => buildMonthOptions(), []);

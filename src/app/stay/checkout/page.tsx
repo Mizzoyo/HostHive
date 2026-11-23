@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense, useMemo } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -27,6 +27,27 @@ type AppliedDiscount = {
   saving: number;
 };
 
+// Generated once at module load — confetti pieces don't need per-render randomness
+const CONFETTI_PIECES = (() => {
+  const colors = ['#22c55e','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#f97316','#06b6d4','#fbbf24','#10b981','#ff6b6b','#4ecdc4'];
+  const anims  = ['cf-a','cf-b','cf-c','cf-d','cf-e','cf-f'];
+  return Array.from({ length: 160 }, (_, i) => {
+    const isRibbon = i % 5 === 0;
+    const isCircle = i % 7 === 0;
+    return {
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 3.5,
+      duration: 3 + Math.random() * 3,
+      w: isRibbon ? 4 : isCircle ? 9 : 7 + Math.random() * 7,
+      h: isRibbon ? 18 : isCircle ? 9 : 5 + Math.random() * 5,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      round: isCircle ? '50%' : isRibbon ? '1px' : '2px',
+      anim: anims[i % anims.length],
+    };
+  });
+})();
+
 function CheckoutContent() {
   const router      = useRouter();
   const params      = useSearchParams();
@@ -43,7 +64,8 @@ function CheckoutContent() {
   const [property,   setProperty]   = useState<Property | null>(null);
   const [authUser,   setAuthUser]   = useState<AuthUser | null>(null);
   const [authLoading,setAuthLoading]= useState(true);
-  const [propLoading,setPropLoading]= useState(true);
+  // Nothing to fetch when there's no propertyId — start settled in that case
+  const [propLoading,setPropLoading]= useState(() => Boolean(propertyId));
 
   const [name,       setName]       = useState('');
   const [phone,      setPhone]      = useState('');
@@ -56,28 +78,8 @@ function CheckoutContent() {
   const [step,       setStep]       = useState<1 | 2>(1);
   const [addBreakfast,setAddBreakfast] = useState(false);
   const [confetti,   setConfetti]   = useState(false);
-  const [appliedDiscounts, setAppliedDiscounts] = useState<AppliedDiscount[]>([]);
-  const [discountsLoading, setDiscountsLoading] = useState(false);
-
-  const confettiPieces = useMemo(() => {
-    const colors = ['#22c55e','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#ec4899','#f97316','#06b6d4','#fbbf24','#10b981','#ff6b6b','#4ecdc4'];
-    const anims  = ['cf-a','cf-b','cf-c','cf-d','cf-e','cf-f'];
-    return Array.from({ length: 160 }, (_, i) => {
-      const isRibbon = i % 5 === 0;
-      const isCircle = i % 7 === 0;
-      return {
-        id: i,
-        left: Math.random() * 100,
-        delay: Math.random() * 3.5,
-        duration: 3 + Math.random() * 3,
-        w: isRibbon ? 4 : isCircle ? 9 : 7 + Math.random() * 7,
-        h: isRibbon ? 18 : isCircle ? 9 : 5 + Math.random() * 5,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        round: isCircle ? '50%' : isRibbon ? '1px' : '2px',
-        anim: anims[i % anims.length],
-      };
-    });
-  }, []);
+  // null = discounts not fetched yet (drives the "checking" indicator)
+  const [appliedDiscounts, setAppliedDiscounts] = useState<AppliedDiscount[] | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -113,7 +115,7 @@ function CheckoutContent() {
   }, []);
 
   useEffect(() => {
-    if (!propertyId) { setPropLoading(false); return; }
+    if (!propertyId) return;
     fetch(`/api/stay/properties/${propertyId}`)
       .then(r => r.json())
       .then(d => setProperty(d.property ?? null))
@@ -123,7 +125,6 @@ function CheckoutContent() {
   // Fetch applicable discounts once we have property, dates, and auth user resolved
   useEffect(() => {
     if (!propertyId || !checkIn || authLoading) return;
-    setDiscountsLoading(true);
     const qs = new URLSearchParams({ propertyId, checkIn });
     if (authUser?.id) qs.set('userId', authUser.id);
     fetch(`/api/stay/applicable-discounts?${qs}`)
@@ -145,8 +146,7 @@ function CheckoutContent() {
         }));
         setAppliedDiscounts(withSavings);
       })
-      .catch(() => {})
-      .finally(() => setDiscountsLoading(false));
+      .catch(() => setAppliedDiscounts([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propertyId, checkIn, authUser, authLoading, property]);
 
@@ -154,7 +154,8 @@ function CheckoutContent() {
   const rate            = sellOption?.nightly_rate ?? 0;
   const stayTotal       = rate * nights * rooms;
   const breakfastTotal  = addBreakfast && property?.breakfast_rate ? property.breakfast_rate * guests * nights : 0;
-  const totalDiscount   = appliedDiscounts.reduce((sum, d) => {
+  const discounts       = appliedDiscounts ?? [];
+  const totalDiscount   = discounts.reduce((sum, d) => {
     const saving = d.value_type === 'percentage'
       ? Math.round(stayTotal * d.value / 100)
       : Number(d.value);
@@ -203,7 +204,7 @@ function CheckoutContent() {
           }],
           total_amount:     total,
           discount_total:   totalDiscount,
-          applied_discounts: appliedDiscounts.map(d => ({ id: d.id, name: d.name, saving: d.value_type === 'percentage' ? Math.round(stayTotal * d.value / 100) : d.value })),
+          applied_discounts: discounts.map(d => ({ id: d.id, name: d.name, saving: d.value_type === 'percentage' ? Math.round(stayTotal * d.value / 100) : d.value })),
           special_requests: requests.trim(),
           ...(authUser ? { user_id: authUser.id } : {}),
         }),
@@ -242,7 +243,7 @@ function CheckoutContent() {
       `}</style>
       {confetti && (
         <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
-          {confettiPieces.map(p => (
+          {CONFETTI_PIECES.map(p => (
             <div key={p.id} style={{
               position:'absolute', left:`${p.left}%`, top:0,
               width:`${p.w}px`, height:`${p.h}px`,
@@ -259,7 +260,7 @@ function CheckoutContent() {
         <h2 className="text-2xl font-black text-gray-900 mb-2">Reservation Requested!</h2>
         {bookingRef && <p className="text-xs font-bold mb-3 font-mono" style={{ color: '#16a34a' }}>Ref: {bookingRef.slice(0, 8).toUpperCase()}</p>}
         <p className="text-gray-500 text-sm mb-6">
-          We've received your request for <strong>{rooms > 1 ? `${rooms}× ` : ''}{property?.name}</strong>,{' '}
+          We&apos;ve received your request for <strong>{rooms > 1 ? `${rooms}× ` : ''}{property?.name}</strong>,{' '}
           {checkIn} → {checkOut}. Our team will call <strong>{phone}</strong> within 2 hours to confirm.
         </p>
         <div className="bg-gray-50 rounded-2xl p-4 text-left text-sm space-y-2 mb-6">
@@ -409,13 +410,13 @@ function CheckoutContent() {
                         <span>KSh {breakfastTotal.toLocaleString()}</span>
                       </div>
                     )}
-                    {discountsLoading && (
+                    {appliedDiscounts === null && propertyId && checkIn && !authLoading && (
                       <div className="flex items-center gap-2 text-xs text-gray-400">
                         <div className="animate-spin w-3 h-3 rounded-full border border-gray-300 border-t-green-600" />
                         Checking discounts…
                       </div>
                     )}
-                    {appliedDiscounts.map(d => {
+                    {discounts.map(d => {
                       const saving = d.value_type === 'percentage'
                         ? Math.round(stayTotal * d.value / 100)
                         : d.value;

@@ -3,24 +3,33 @@
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { BedDouble, Droplets, Users, Home as HomeIcon, CheckCircle2, MapPin, Plus, Minus } from 'lucide-react';
+import { BedDouble, Droplets, Users, Home as HomeIcon, CheckCircle2, Plus, Minus } from 'lucide-react';
 import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
-type SelectedRoom = { property: any; qty: number };
+type Property = {
+  id: string;
+  name: string;
+  slug?: string | null;
+  nightly_rate: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  max_guests?: number;
+  photos?: string[];
+};
+type SelectedRoom = { property: Property; qty: number };
 
 function GroupBookingContent() {
   const params = useSearchParams();
-  const today    = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
   const fromCart = params.get('fromCart') === 'true';
 
   const [step,       setStep]       = useState(fromCart ? 3 : 1);
-  const [properties, setProperties] = useState<any[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [selected,   setSelected]   = useState<SelectedRoom[]>([]);
-  const [checkIn,    setCheckIn]    = useState(params.get('checkIn')  ?? today);
-  const [checkOut,   setCheckOut]   = useState(params.get('checkOut') ?? tomorrow);
+  const [checkIn,    setCheckIn]    = useState(params.get('checkIn')  ?? '');
+  const [checkOut,   setCheckOut]   = useState(params.get('checkOut') ?? '');
+  const [today,      setToday]      = useState('');
   const [adults,     setAdults]     = useState(Number(params.get('guests') ?? 2));
   const [children,   setChildren]   = useState(0);
   const [groupName,  setGroupName]  = useState('');
@@ -32,24 +41,34 @@ function GroupBookingContent() {
   const [error,      setError]      = useState('');
 
   useEffect(() => {
-    if (fromCart) {
-      try {
-        const c = sessionStorage.getItem('roomCart');
-        if (c) setSelected(JSON.parse(c));
-      } catch { /* ignore */ }
-    }
+    // Default dates + cart restore happen inside an async callback:
+    // reading the clock and sessionStorage isn't allowed during render/effect body
+    Promise.resolve().then(() => {
+      const now = new Date();
+      const t  = now.toISOString().split('T')[0];
+      const tm = new Date(now.getTime() + 86400000).toISOString().split('T')[0];
+      setToday(t);
+      setCheckIn(prev  => prev  || t);
+      setCheckOut(prev => prev || tm);
+      if (fromCart) {
+        try {
+          const c = sessionStorage.getItem('roomCart');
+          if (c) setSelected(JSON.parse(c) as SelectedRoom[]);
+        } catch { /* ignore */ }
+      }
+    });
     fetch('/api/stay/properties')
       .then(r => r.json())
-      .then(d => setProperties(d.properties ?? []))
+      .then(d => setProperties((d.properties ?? []) as Property[]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [fromCart]);
 
   const nights = checkIn && checkOut && checkOut > checkIn
     ? Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000) : 0;
   const totalRooms  = selected.reduce((s, r) => s + r.qty, 0);
   const total       = selected.reduce((s, r) => s + Number(r.property.nightly_rate ?? 0) * nights * r.qty, 0);
 
-  const toggleRoom = (prop: any) => {
+  const toggleRoom = (prop: Property) => {
     setSelected(sel => {
       const exists = sel.find(r => r.property.id === prop.id);
       if (exists) return sel.filter(r => r.property.id !== prop.id);
@@ -109,7 +128,7 @@ function GroupBookingContent() {
         <div className="flex justify-center mb-5"><CheckCircle2 className="w-16 h-16" style={{ color: '#16a34a' }} /></div>
         <h2 className="text-2xl font-black text-gray-900 mb-2">Group Booking Sent!</h2>
         <p className="text-gray-500 text-sm mb-6">
-          We've received your group request for <strong>{totalRooms} room{totalRooms !== 1 ? 's' : ''}</strong> from <strong>{checkIn}</strong> to <strong>{checkOut}</strong>.
+          We&apos;ve received your group request for <strong>{totalRooms} room{totalRooms !== 1 ? 's' : ''}</strong> from <strong>{checkIn}</strong> to <strong>{checkOut}</strong>.
           Our team will call <strong>{phone}</strong> within 2 hours to confirm.
         </p>
         <div className="bg-gray-50 rounded-2xl p-4 text-left space-y-2 mb-6 text-sm">
@@ -174,13 +193,13 @@ function GroupBookingContent() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Check In *</label>
-                      <input type="date" value={checkIn} min={today}
+                      <input type="date" value={checkIn} min={today || undefined}
                         onChange={e => { setCheckIn(e.target.value); if (e.target.value >= checkOut) setCheckOut(''); }}
                         className="w-full text-sm font-semibold text-gray-900 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-red-800" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Check Out *</label>
-                      <input type="date" value={checkOut} min={checkIn || today}
+                      <input type="date" value={checkOut} min={checkIn || today || undefined}
                         onChange={e => setCheckOut(e.target.value)}
                         className="w-full text-sm font-semibold text-gray-900 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-red-800" />
                     </div>
@@ -247,6 +266,7 @@ function GroupBookingContent() {
                           <div className="flex gap-4">
                             <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
                               {prop.photos?.[0] ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL
                                 <img src={prop.photos[0]} alt={prop.name} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0f172a, #16a34a)' }}>
@@ -322,7 +342,7 @@ function GroupBookingContent() {
             {step === 3 && (
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                 <h2 className="text-xl font-black text-gray-900 mb-1">Group Leader Details</h2>
-                <p className="text-sm text-gray-500 mb-6">We'll contact this person to confirm the group reservation.</p>
+                <p className="text-sm text-gray-500 mb-6">We&apos;ll contact this person to confirm the group reservation.</p>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Full Name *</label>

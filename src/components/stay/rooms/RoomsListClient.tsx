@@ -74,7 +74,6 @@ export default function RoomsListClient({
   const [showMapView,     setShowMapView]     = useState(false);
   const [showDate,        setShowDate]        = useState(false);
   const [showGuests,      setShowGuests]      = useState(false);
-  const [searchExpanded,  setSearchExpanded]  = useState(false);
   const [priceMin,    setPriceMin]    = useState<number | ''>('');
   const [priceMax,    setPriceMax]    = useState<number | ''>('');
 
@@ -212,41 +211,28 @@ export default function RoomsListClient({
         </div>
 
         <div className="lg:hidden">
-          {!searchExpanded ? (
-            <button type="button" className="rooms-search-card rooms-search-summary" onClick={() => setSearchExpanded(true)}>
-              <Search size={18} />
-              <span className="summary-text">
-                <strong>{brandName}</strong>
-                <span>
-                  {checkIn && checkOut ? `${formatDate(checkIn)} – ${formatDate(checkOut)}${nightsBetween(checkIn, checkOut) > 0 ? ` (${nightsBetween(checkIn, checkOut)} night${nightsBetween(checkIn, checkOut) !== 1 ? 's' : ''})` : ''} · ` : 'Any dates · '}
-                  {adults} adult{adults !== 1 ? 's' : ''}{children > 0 ? `, ${children} child${children !== 1 ? 'ren' : ''}` : ''}
-                </span>
+          <div className="msearch-card" role="group" aria-label="Modify search">
+            <button type="button" className="msearch-field" onClick={() => setShowDate(true)}>
+              <span className="msearch-field-icon"><CalendarDays size={17} /></span>
+              <span className="msearch-field-text">
+                <small>Dates</small>
+                <strong>
+                  {checkIn && checkOut
+                    ? `${formatDate(checkIn)} – ${formatDate(checkOut)}${nightsBetween(checkIn, checkOut) > 0 ? ` · ${nightsBetween(checkIn, checkOut)} night${nightsBetween(checkIn, checkOut) !== 1 ? 's' : ''}` : ''}`
+                    : 'Select dates'}
+                </strong>
               </span>
-              <ChevronDown size={16} />
+              <ChevronDown size={16} className="msearch-chevron" />
             </button>
-          ) : (
-            <div className="rooms-search-card">
-              <div className="search-card-head">
-                <strong>Modify search</strong>
-                <button type="button" className="modal-close" onClick={() => setSearchExpanded(false)} aria-label="Close search"><X size={15} /></button>
-              </div>
-              <button type="button" className="search-card-row" onClick={() => setShowDate(true)}>
-                <CalendarDays size={16} />
-                <span><small>Dates</small>{checkIn && checkOut ? `${formatDate(checkIn)} – ${formatDate(checkOut)}` : 'Select dates'}</span>
-                <ChevronDown size={15} />
-              </button>
-              <button type="button" className="search-card-row" onClick={() => setShowGuests(true)}>
-                <Users size={16} />
-                <span><small>Guests</small>{adults} adult{adults !== 1 ? 's' : ''} · {children} child{children !== 1 ? 'ren' : ''} · {rooms} room{rooms !== 1 ? 's' : ''}</span>
-                <ChevronDown size={15} />
-              </button>
-              <div className="search-card-foot">
-                <button type="button" className="button-primary" onClick={() => { applySearch({ checkIn, checkOut, adults, children, rooms }); setSearchExpanded(false); }}>
-                  <Search size={15} /> Done
-                </button>
-              </div>
-            </div>
-          )}
+            <button type="button" className="msearch-field" onClick={() => setShowGuests(true)}>
+              <span className="msearch-field-icon"><Users size={17} /></span>
+              <span className="msearch-field-text">
+                <small>Guests</small>
+                <strong>{adults} adult{adults !== 1 ? 's' : ''} · {children} child{children !== 1 ? 'ren' : ''} · {rooms} room{rooms !== 1 ? 's' : ''}</strong>
+              </span>
+              <ChevronDown size={16} className="msearch-chevron" />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -428,12 +414,12 @@ export default function RoomsListClient({
 
       {showDate && (
         <DatePickerModal checkIn={checkIn} checkOut={checkOut}
-          onConfirm={(ci, co) => { setCheckIn(ci); setCheckOut(co); setShowDate(false); }}
+          onConfirm={(ci, co) => { applySearch({ checkIn: ci, checkOut: co, adults, children, rooms }); setShowDate(false); }}
           onClose={() => setShowDate(false)} />
       )}
       {showGuests && (
         <GuestsModal adults={adults} childCount={children} rooms={rooms}
-          onConfirm={(a, c, r) => { setAdults(a); setChildren(c); setRooms(r); setShowGuests(false); }}
+          onConfirm={(a, c, r) => { applySearch({ checkIn, checkOut, adults: a, children: c, rooms: r }); setShowGuests(false); }}
           onClose={() => setShowGuests(false)} />
       )}
 

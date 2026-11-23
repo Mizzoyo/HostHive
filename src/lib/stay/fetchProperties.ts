@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { publicSupabase } from '@/lib/supabase/public';
 import { mergeAmenityLabels, normalizeUniversalAmenities, type Amenity } from '@/lib/amenities';
 import { sortProperties } from '@/lib/propertySort';
@@ -87,7 +88,7 @@ function buildMapQuery({
     .join(', ') || 'Kenya';
 }
 
-export async function fetchUniversalStaySettings(): Promise<UniversalStaySettings> {
+export const fetchUniversalStaySettings = cache(async function fetchUniversalStaySettings(): Promise<UniversalStaySettings> {
   const defaults: UniversalStaySettings = {
     businessName: 'Kogelo Suites',
     houseRules: { ...DEFAULT_HOUSE_RULES },
@@ -154,7 +155,7 @@ export async function fetchUniversalStaySettings(): Promise<UniversalStaySetting
 
   settings.mapQuery = buildMapQuery(settings);
   return settings;
-}
+});
 
 export async function fetchAvailableProperties(
   checkIn?: string,
@@ -209,28 +210,39 @@ export async function fetchAvailableProperties(
   } catch { }
 
   const available = sortProperties((properties as any[]).filter((p) => !blockedIds.has(p.id)));
+  const ids = available.map((p) => p.id);
 
-  const withPhotos = await Promise.all(
-    available.map(async (p) => {
-      const [{ data: photos }, { data: amenities }] = await Promise.all([
-        publicSupabase
-          .from('property_photos')
-          .select('url, sort_order')
-          .eq('property_id', p.id)
-          .order('sort_order')
-          .limit(5),
-        publicSupabase
-          .from('property_amenities')
-          .select('name')
-          .eq('property_id', p.id),
-      ]);
-      return {
-        ...p,
-        photos: photos?.map((ph: any) => ph.url) ?? (p.cover_photo ? [p.cover_photo] : []),
-        amenities: mergeAmenityLabels(universalSettings.amenities, amenities?.map((a: { name: string }) => a.name) ?? []),
-      } as StayProperty;
-    })
-  );
+  const photosById = new Map<string, string[]>();
+  const amenityNamesById = new Map<string, string[]>();
 
-  return withPhotos;
+  if (ids.length) {
+    const [photosRes, amenitiesRes] = await Promise.all([
+      publicSupabase
+        .from('property_photos')
+        .select('property_id, url, sort_order')
+        .in('property_id', ids)
+        .order('sort_order'),
+      publicSupabase
+        .from('property_amenities')
+        .select('property_id, name')
+        .in('property_id', ids),
+    ]);
+
+    (photosRes.data ?? []).forEach((ph) => {
+      const list = photosById.get(ph.property_id) ?? [];
+      if (list.length < 5) list.push(ph.url);
+      photosById.set(ph.property_id, list);
+    });
+    (amenitiesRes.data ?? []).forEach((a) => {
+      const list = amenityNamesById.get(a.property_id) ?? [];
+      list.push(a.name);
+      amenityNamesById.set(a.property_id, list);
+    });
+  }
+
+  return available.map((p) => ({
+    ...p,
+    photos: photosById.get(p.id) ?? (p.cover_photo ? [p.cover_photo] : []),
+    amenities: mergeAmenityLabels(universalSettings.amenities, amenityNamesById.get(p.id) ?? []),
+  })) as StayProperty[];
 }

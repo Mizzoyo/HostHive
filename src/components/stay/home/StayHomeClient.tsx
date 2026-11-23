@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowDown, ArrowRight, ArrowUpRight, CalendarDays,
@@ -69,9 +69,17 @@ export default function StayHomeClient() {
   const [children, setChildren] = useState(0);
   const [roomCount, setRoomCount] = useState(1);
   const [filter, setFilter] = useState<'all' | 'poolside'>('all');
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  const goToRooms = () => router.push(buildRoomsPath({ checkIn, checkOut, adults, children, rooms: roomCount }));
+  const selection = { checkIn, checkOut, adults, children, rooms: roomCount };
+  const roomsPath = buildRoomsPath(selection);
+
+  useEffect(() => {
+    router.prefetch(roomsPath);
+  }, [router, roomsPath]);
+
+  const goToRooms = () => startTransition(() => router.push(roomsPath));
   const shownRooms = filter === 'poolside' ? roomData.filter((room) => room.poolside) : roomData;
 
   const amenities = [
@@ -130,8 +138,8 @@ export default function StayHomeClient() {
           <Counter label="Adults" value={adults} min={1} onChange={setAdults} />
           <Counter label="Children" value={children} min={0} onChange={setChildren} />
           <Counter label="Rooms" value={roomCount} min={1} onChange={setRoomCount} />
-          <button className="button-primary book-action" type="button" onClick={goToRooms} data-testid="button-check-availability">
-            Check live availability <ArrowRight size={16} />
+          <button className="button-primary book-action" type="button" onClick={goToRooms} disabled={isPending} aria-busy={isPending} data-testid="button-check-availability">
+            {isPending ? 'Checking availability…' : <>Check live availability <ArrowRight size={16} /></>}
           </button>
           <p className="booking-note">Your choices stay with you when you continue. Dates, space and rates are confirmed on our live booking site.</p>
         </div>

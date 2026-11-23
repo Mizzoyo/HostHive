@@ -41,7 +41,7 @@ export function StayPageSkeleton() {
 
 export function RoomsResultsSkeleton() {
   return (
-    <div className="stay-shell rooms-page" aria-busy="true" aria-label="Loading rooms">
+    <div className="stay-shell rooms-page" style={{ background: '#faf7ef', minHeight: '100vh' }} aria-busy="true" aria-label="Loading rooms">
       <div className="results-intro">
         <div>
           <Bar className="mb-3 h-4 w-32" />

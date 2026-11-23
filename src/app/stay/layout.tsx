@@ -83,6 +83,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   const isStayHome     = pathname === '/stay';
   const isCheckoutPage = pathname.startsWith('/stay/checkout');
   const isCartPage     = pathname.startsWith('/stay/book/cart');
+  const hasOwnChrome   = isStayHome || isRoomsPage;
   const router    = useRouter();
   const [menuOpen,   setMenuOpen]   = useState(false);
   const [loading,    setLoading]    = useState(false);
@@ -144,7 +145,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
     <div className={`${dmSans.variable} ${playfair.variable} w-full min-h-screen flex flex-col`} style={{ fontFamily: 'var(--font-sans), Plus Jakarta Sans, system-ui, sans-serif' }}>
 
       {/* ── Top Navigation ── */}
-      {!isPropertyPage && !isStayHome && <header className="fixed top-0 left-0 right-0 z-50" style={{ background: '#1e293b' }}>
+      {!isPropertyPage && !hasOwnChrome && <header className="fixed top-0 left-0 right-0 z-50" style={{ background: '#1e293b' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
 
           {/* LEFT: back button (mobile rooms) + logo */}
@@ -317,7 +318,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
       )}
 
       {/* ── Page content ── */}
-      <main className={`w-full flex-1${isPropertyPage || isStayHome ? '' : ' pt-14'}`} style={{ overflowX: 'clip' }}>
+      <main className={`w-full flex-1${isPropertyPage || hasOwnChrome ? '' : ' pt-14'}`} style={{ overflowX: 'clip' }}>
         {children}
       </main>
 
@@ -354,7 +355,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
       </nav>}
 
       {/* ── Footer (desktop only) ── */}
-      {!isStayHome && <footer className="hidden md:block text-white" style={{ background: '#0f172a' }}>
+      {!hasOwnChrome && <footer className="hidden md:block text-white" style={{ background: '#0f172a' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-10">
 
           <div>

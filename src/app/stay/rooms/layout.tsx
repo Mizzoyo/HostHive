@@ -2,17 +2,18 @@ import type { Metadata } from 'next';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://kogelosuites.com';
 
+const DESCRIPTION =
+  'Compare studios and suites at Kogelo Suites in Kisumu. Browse room photos, filter room options, and check live rates and availability.';
+
 export const metadata: Metadata = {
-  title: 'Rooms & Suites',
-  description:
-    'Browse all available rooms and suites at Kogelo Suites in Kogelo, Kenya. Studios, one-bedroom and two-bedroom units with modern amenities.',
+  title: { absolute: 'Rooms at Kogelo Suites | Studios & Suites in Kisumu' },
+  description: DESCRIPTION,
   alternates: {
     canonical: `${BASE_URL}/stay/rooms`,
   },
   openGraph: {
-    title: 'Rooms & Suites | Kogelo Suites',
-    description:
-      'Browse all available rooms and suites at Kogelo Suites in Kogelo, Kenya. Studios, one-bedroom and two-bedroom units with modern amenities.',
+    title: 'Rooms at Kogelo Suites | Studios & Suites in Kisumu',
+    description: DESCRIPTION,
     url: `${BASE_URL}/stay/rooms`,
     siteName: 'Kogelo Suites',
     images: [
@@ -28,9 +29,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Rooms & Suites | Kogelo Suites',
-    description:
-      'Browse all available rooms and suites at Kogelo Suites in Kogelo, Kenya.',
+    title: 'Rooms at Kogelo Suites | Studios & Suites in Kisumu',
+    description: DESCRIPTION,
     images: ['/images/og-image.jpg'],
   },
 };

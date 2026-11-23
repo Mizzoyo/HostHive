@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays,
-  CircleParking, Clock3, Coffee, Flower2, House, LockKeyhole, Minus,
-  Plus, ShieldCheck, Sparkles, Utensils, Wifi, X,
+  ArrowDown, ArrowRight, ArrowUpRight, CalendarDays,
+  CircleParking, Clock3, Coffee, Flower2, House, LockKeyhole,
+  ShieldCheck, Sparkles, Utensils, Wifi,
 } from 'lucide-react';
+import { Counter, StayFooter, StayGallery, StayTopbar, buildRoomsPath } from '@/components/stay/shared/StayChrome';
 
 type Room = { name: string; type: string; poolside: boolean; url: string; photos: string[] };
 
@@ -14,14 +16,6 @@ const photoBase =
 
 const toInputDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-function formatDate(date: string) {
-  if (!date) return 'Select a date';
-  return new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  });
-}
 
 const roomData: Room[] = [
   { name: 'R3', type: 'Studio', poolside: true, url: '/stay/rooms/r3-362f23b5-734f-4510-949d-08909d556c48', photos: ['1795078191666_awerxk66bvq.jpeg', '1795078189936_7yijtsf5dvl.jpeg', '1795078190883_dmd12owcmo9.jpeg', '1795078192449_fec9bobjfwa.jpeg', '1795078193239_ttfictwb12.jpeg'] },
@@ -43,72 +37,16 @@ const roomData: Room[] = [
   { name: 'Front 16', type: 'Four Bedroom', poolside: false, url: '/stay/rooms/front-16-e7edfd4a-772c-4d6e-af47-2e7b6b5a83c5', photos: ['1780482735495_mawfy5gw49.jpg', '1780482737876_ea9od89hccg.jpg', '1780482739440_f7euzr5dd7g.jpg', '1780482740258_5szi7kiztw7.jpg', '1780482742943_cvnlgnjauxe.jpg'] },
 ];
 
-function Counter({
-  label, value, min, onChange,
-}: { label: string; value: number; min: number; onChange: (value: number) => void }) {
-  return (
-    <div className="field-group">
-      <label>{label}</label>
-      <div
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-        className="field-control"
-      >
-        <button
-          type="button"
-          aria-label={`Decrease ${label.toLowerCase()}`}
-          onClick={() => onChange(Math.max(min, value - 1))}
-          style={{ display: 'grid', placeItems: 'center', width: 26, height: 30, border: 0, background: 'transparent', color: '#31503b', cursor: 'pointer' }}
-        >
-          <Minus size={14} />
-        </button>
-        <span aria-live="polite" data-testid={`text-${label.toLowerCase()}`}>{value}</span>
-        <button
-          type="button"
-          aria-label={`Increase ${label.toLowerCase()}`}
-          onClick={() => onChange(value + 1)}
-          style={{ display: 'grid', placeItems: 'center', width: 26, height: 30, border: 0, background: 'transparent', color: '#31503b', cursor: 'pointer' }}
-        >
-          <Plus size={14} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function RoomCard({ room, index }: { room: Room; index: number }) {
-  const [photoIndex, setPhotoIndex] = useState(0);
-  const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
-  const url = room.photos[photoIndex] ? `${photoBase}${room.photos[photoIndex]}` : '';
-  const shift = (step: number) =>
-    setPhotoIndex((current) => (current + step + room.photos.length) % room.photos.length);
   return (
     <article className="room-card" data-testid={`card-room-${room.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
-      <div
-        className="room-gallery"
-        onTouchStart={(event) => {
-          setTouch({ x: event.touches[0].clientX, y: event.touches[0].clientY });
-        }}
-        onTouchEnd={(event) => {
-          if (touch) {
-            const dx = event.changedTouches[0].clientX - touch.x;
-            if (Math.abs(dx) > 42) shift(dx < 0 ? 1 : -1);
-            setTouch(null);
-          }
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowLeft') { event.preventDefault(); shift(-1); }
-          if (event.key === 'ArrowRight') { event.preventDefault(); shift(1); }
-        }}
-        tabIndex={0}
-        aria-label={`${room.name} photo gallery. Use left and right arrow keys to change photos.`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt={`${room.name} ${room.type} — photo ${photoIndex + 1}`} loading={index < 3 ? 'eager' : 'lazy'} />
-        {room.poolside && <span className="room-tag">Poolside</span>}
-        <button type="button" className="gallery-arrow gallery-prev" aria-label={`Previous photo of ${room.name}`} onClick={() => shift(-1)} data-testid={`button-photo-prev-${index}`}><ArrowLeft size={17} /></button>
-        <button type="button" className="gallery-arrow gallery-next" aria-label={`Next photo of ${room.name}`} onClick={() => shift(1)} data-testid={`button-photo-next-${index}`}><ArrowRight size={17} /></button>
-        <span className="gallery-count" aria-live="polite">{photoIndex + 1} / {room.photos.length}</span>
-      </div>
+      <StayGallery
+        photos={room.photos.map((p) => `${photoBase}${p}`)}
+        alt={`${room.name} ${room.type}`}
+        eager={index < 3}
+        tag={room.poolside ? 'Poolside' : undefined}
+        testId={index}
+      />
       <div className="room-body">
         <span className="room-type">{room.type}</span>
         <h3>{room.name}</h3>
@@ -130,11 +68,10 @@ export default function StayHomeClient() {
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
   const [roomCount, setRoomCount] = useState(1);
-  const [showBookingInfo, setShowBookingInfo] = useState(false);
   const [filter, setFilter] = useState<'all' | 'poolside'>('all');
+  const router = useRouter();
 
-  const liveRoomsUrl = `/stay/rooms?checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${adults + children}&rooms=${roomCount}`;
-  const bookingSummary = `${formatDate(checkIn)} — ${formatDate(checkOut)} · ${adults} adult${adults === 1 ? '' : 's'} · ${children} child${children === 1 ? '' : 'ren'} · ${roomCount} room${roomCount === 1 ? '' : 's'}`;
+  const goToRooms = () => router.push(buildRoomsPath({ checkIn, checkOut, adults, children, rooms: roomCount }));
   const shownRooms = filter === 'poolside' ? roomData.filter((room) => room.poolside) : roomData;
 
   const amenities = [
@@ -150,18 +87,15 @@ export default function StayHomeClient() {
 
   return (
     <main className="stay-shell">
-      <header className="stay-topbar">
-        <a className="stay-brand" href="#top" aria-label="Kogelo Suites home">
-          <span className="brand-mark">K</span>
-          <span><span className="brand-title">Kogelo Suites</span><span className="brand-sub">Stay a little longer</span></span>
-        </a>
-        <nav className="stay-nav" aria-label="Main navigation">
-          <a href="#rooms">Stay</a>
-          <a href="#amenities">Our place</a>
-          <a href="https://restaurant.kogelosuites.com/" target="_blank" rel="noreferrer">Dining</a>
-          <a className="nav-book" href="#booking"><CalendarDays size={15} /> Plan your stay</a>
-        </nav>
-      </header>
+      <StayTopbar
+        brandHref="#top"
+        links={[
+          { href: '#rooms', label: 'Stay' },
+          { href: '#amenities', label: 'Our place' },
+          { href: 'https://restaurant.kogelosuites.com/', label: 'Dining' },
+        ]}
+        cta={{ href: '#booking', label: <><CalendarDays size={15} /> Plan your stay</> }}
+      />
 
       <section className="stay-hero" id="top">
         <div className="stay-hero-copy">
@@ -196,7 +130,7 @@ export default function StayHomeClient() {
           <Counter label="Adults" value={adults} min={1} onChange={setAdults} />
           <Counter label="Children" value={children} min={0} onChange={setChildren} />
           <Counter label="Rooms" value={roomCount} min={1} onChange={setRoomCount} />
-          <button className="button-primary book-action" type="button" onClick={() => setShowBookingInfo(true)} data-testid="button-check-availability">
+          <button className="button-primary book-action" type="button" onClick={goToRooms} data-testid="button-check-availability">
             Check live availability <ArrowRight size={16} />
           </button>
           <p className="booking-note">Your choices stay with you when you continue. Dates, space and rates are confirmed on our live booking site.</p>
@@ -218,7 +152,7 @@ export default function StayHomeClient() {
         <div className="room-controls">
           <span className="room-count" data-testid="text-room-count">{filter === 'poolside' ? '9 poolside properties' : '17 spaces · studios to suites'}</span>
           <div className="room-filters" role="group" aria-label="Filter room listings">
-            <button type="button" className={`filter-button ${filter === 'all' ? 'active' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')} data-testid="button-filter-all">All spaces</button>
+            <button type="button" className={`filter-button ${filter === 'all' ? 'active' : ''}`} aria-pressed={filter === 'all'} onClick={() => { setFilter('all'); goToRooms(); }} data-testid="button-filter-all">All spaces</button>
             <button type="button" className={`filter-button ${filter === 'poolside' ? 'active' : ''}`} aria-pressed={filter === 'poolside'} onClick={() => setFilter('poolside')} data-testid="button-filter-poolside">Poolside · 9</button>
           </div>
         </div>
@@ -227,7 +161,7 @@ export default function StayHomeClient() {
           {shownRooms.length === 0 && <div className="empty-rooms"><strong>No spaces found</strong>Try viewing all spaces.</div>}
         </div>
         <div className="hero-links" style={{ justifyContent: 'center', marginTop: 30 }}>
-          <button type="button" className="button-primary" onClick={() => setShowBookingInfo(true)}>Browse and book live <ArrowUpRight size={16} /></button>
+          <button type="button" className="button-primary" onClick={goToRooms}>Browse rooms <ArrowRight size={16} /></button>
         </div>
       </section>
 
@@ -246,39 +180,15 @@ export default function StayHomeClient() {
         </div>
       </section>
 
-      <footer className="stay-footer">
-        <div className="footer-inner">
-          <a className="stay-brand" href="#top"><span className="brand-mark">K</span><span><span className="brand-title">Kogelo Suites</span><span className="brand-sub">Stay a little longer</span></span></a>
-          <p>Studios, suites and a private compound.<br />Make yourself at home.</p>
-          <div className="footer-links">
-            <a href="#rooms">Explore rooms</a>
-            <a href="https://restaurant.kogelosuites.com/" target="_blank" rel="noreferrer">Dining</a>
-            <a href="#booking">Plan your stay</a>
-          </div>
-        </div>
-        <div className="live-note">Live rates and availability are checked on the Kogelo Suites booking site.</div>
-      </footer>
-
-      {showBookingInfo && (
-        <div
-          className="booking-modal-backdrop"
-          role="presentation"
-          onMouseDown={(event) => { if (event.target === event.currentTarget) setShowBookingInfo(false); }}
-        >
-          <section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div className="modal-top">
-              <h2 id="modal-title">Let’s find your room</h2>
-              <button type="button" className="modal-close" onClick={() => setShowBookingInfo(false)} aria-label="Close availability details"><X size={17} /></button>
-            </div>
-            <p>Your dates and guest count are ready. Continue to Kogelo Suites to check live room availability, current rates and reservation details.</p>
-            <div className="modal-summary"><strong>Your selection</strong><br />{bookingSummary}</div>
-            <a className="button-primary modal-cta" href={liveRoomsUrl} target="_blank" rel="noreferrer" data-testid="link-live-rooms">
-              Continue to live room listings <ArrowUpRight size={16} />
-            </a>
-            <p className="modal-footnote">This preview does not take reservations or display live rates.</p>
-          </section>
-        </div>
-      )}
+      <StayFooter
+        brandHref="#top"
+        links={[
+          { href: '#rooms', label: 'Explore rooms' },
+          { href: 'https://restaurant.kogelosuites.com/', label: 'Dining' },
+          { href: '#booking', label: 'Plan your stay' },
+        ]}
+        note="Live rates and availability are checked on the Kogelo Suites booking site."
+      />
     </main>
   );
 }

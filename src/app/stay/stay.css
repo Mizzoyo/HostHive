@@ -1038,6 +1038,14 @@ html {
   color: #205a3d;
 }
 
+@media (max-width: 1023px) {
+  .rooms-searchbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+}
+
 .results-content {
   max-width: 1240px;
   margin: auto;

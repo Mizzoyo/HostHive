@@ -85,7 +85,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   const isCheckoutPage = pathname.startsWith('/stay/checkout');
   const isCartPage     = pathname.startsWith('/stay/book/cart');
   const hasOwnChrome   = isStayHome || isRoomsPage;
-  const showBottomNav  = !isCheckoutPage && !isCartPage;
+  const showBottomNav  = !isCheckoutPage && !isCartPage && !isRoomsPage && !isPropertyPage;
   const router    = useRouter();
   const [menuOpen,   setMenuOpen]   = useState(false);
   // Tracks the href being navigated to; skeleton hides once pathname catches up

@@ -2025,13 +2025,13 @@ html {
 
   .cart-fab {
     display: inline-flex;
-    bottom: calc(3.5rem + 14px + env(safe-area-inset-bottom));
+    bottom: calc(14px + env(safe-area-inset-bottom));
   }
 }
 
 @media (min-width: 621px) and (max-width: 767px) {
   .cart-bar {
-    bottom: calc(3.5rem + 14px + env(safe-area-inset-bottom));
+    bottom: calc(14px + env(safe-area-inset-bottom));
   }
 }
 

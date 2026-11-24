@@ -42,6 +42,15 @@ export async function generateMetadata(
       description,
       url: `${BASE_URL}/stay/rooms/${slug}`,
       siteName: 'Kogelo Suites',
+      images: [
+        {
+          url: `${BASE_URL}/api/og/${slug}.jpg`,
+          width: 1200,
+          height: 630,
+          type: 'image/jpeg',
+          alt: `${title} at Kogelo Suites`,
+        },
+      ],
       type: 'website',
       locale: 'en_KE',
     },
@@ -49,6 +58,7 @@ export async function generateMetadata(
       card: 'summary_large_image',
       title: `${title} | Kogelo Suites`,
       description,
+      images: [`${BASE_URL}/api/og/${slug}.jpg`],
     },
   };
 }

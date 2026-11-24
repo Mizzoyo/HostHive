@@ -5,10 +5,13 @@ import { resolveRoomParam } from '@/lib/stay/roomSlug';
 const WIDTH = 1200;
 const HEIGHT = 630;
 
-const HEADERS = {
-  'Content-Type': 'image/jpeg',
-  'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800',
-};
+function imageHeaders(length: number) {
+  return {
+    'Content-Type': 'image/jpeg',
+    'Content-Length': String(length),
+    'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800',
+  };
+}
 
 async function fallbackImage(): Promise<Response> {
   const jpeg = await sharp({
@@ -16,7 +19,7 @@ async function fallbackImage(): Promise<Response> {
   })
     .jpeg({ quality: 80 })
     .toBuffer();
-  return new Response(new Uint8Array(jpeg), { headers: HEADERS });
+  return new Response(new Uint8Array(jpeg), { headers: imageHeaders(jpeg.length) });
 }
 
 export async function getRoomOgImage(slug: string): Promise<Response> {
@@ -49,7 +52,7 @@ export async function getRoomOgImage(slug: string): Promise<Response> {
       .resize(WIDTH, HEIGHT, { fit: 'cover' })
       .jpeg({ quality: 80 })
       .toBuffer();
-    return new Response(new Uint8Array(jpeg), { headers: HEADERS });
+    return new Response(new Uint8Array(jpeg), { headers: imageHeaders(jpeg.length) });
   } catch {
     return fallbackImage();
   }

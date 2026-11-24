@@ -7,7 +7,7 @@ import {
   ArrowRight, ArrowUpDown, ArrowUpRight, BedDouble, CalendarDays, Check, ChevronDown, Droplets, Heart, Map, MapPin,
   Plus, Search, ShoppingCart, SlidersHorizontal, Users, X,
 } from 'lucide-react';
-import SearchWidget, { DatePickerModal, GuestsModal } from '@/components/stay/SearchWidget';
+import SearchWidget, { SearchModal } from '@/components/stay/SearchWidget';
 import { createClient } from '@/lib/supabase/client';
 import type { StayProperty, UniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
@@ -72,13 +72,12 @@ export default function RoomsListClient({
   const [showSortSheet,   setShowSortSheet]   = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showMapView,     setShowMapView]     = useState(false);
-  const [showDate,        setShowDate]        = useState(false);
-  const [showGuests,      setShowGuests]      = useState(false);
+  const [showSearch,      setShowSearch]      = useState(false);
   const [priceMin,    setPriceMin]    = useState<number | ''>('');
   const [priceMax,    setPriceMax]    = useState<number | ''>('');
 
   useEffect(() => {
-    const anyOpen = showSortSheet || showFilterSheet || showMapView || showDate || showGuests;
+    const anyOpen = showSortSheet || showFilterSheet || showMapView || showSearch;
     if (!anyOpen) return;
     const y = window.scrollY;
     document.body.style.overflow = 'hidden';
@@ -92,7 +91,7 @@ export default function RoomsListClient({
       document.body.style.width = '';
       window.scrollTo(0, y);
     };
-  }, [showSortSheet, showFilterSheet, showMapView, showDate, showGuests]);
+  }, [showSortSheet, showFilterSheet, showMapView, showSearch]);
 
   useEffect(() => {
     fetch('/api/stay/wishlist')
@@ -218,23 +217,15 @@ export default function RoomsListClient({
 
         <div className="lg:hidden">
           <div className="msearch-card" role="group" aria-label="Modify search">
-            <button type="button" className="msearch-field" onClick={() => setShowDate(true)}>
+            <button type="button" className="msearch-field" onClick={() => setShowSearch(true)}>
               <span className="msearch-field-icon"><CalendarDays size={17} /></span>
               <span className="msearch-field-text">
-                <small>Dates</small>
+                <small>Dates & Guests</small>
                 <strong>
                   {checkIn && checkOut
-                    ? `${formatDate(checkIn)} – ${formatDate(checkOut)}${nightsBetween(checkIn, checkOut) > 0 ? ` · ${nightsBetween(checkIn, checkOut)} night${nightsBetween(checkIn, checkOut) !== 1 ? 's' : ''}` : ''}`
-                    : 'Select dates'}
+                    ? `${formatDate(checkIn)} – ${formatDate(checkOut)}${nightsBetween(checkIn, checkOut) > 0 ? ` · ${nightsBetween(checkIn, checkOut)} night${nightsBetween(checkIn, checkOut) !== 1 ? 's' : ''}` : ''} · ${adults + children} guest${adults + children !== 1 ? 's' : ''} · ${rooms} room${rooms !== 1 ? 's' : ''}`
+                    : 'Select dates & guests'}
                 </strong>
-              </span>
-              <ChevronDown size={16} className="msearch-chevron" />
-            </button>
-            <button type="button" className="msearch-field" onClick={() => setShowGuests(true)}>
-              <span className="msearch-field-icon"><Users size={17} /></span>
-              <span className="msearch-field-text">
-                <small>Guests</small>
-                <strong>{adults} adult{adults !== 1 ? 's' : ''} · {children} child{children !== 1 ? 'ren' : ''} · {rooms} room{rooms !== 1 ? 's' : ''}</strong>
               </span>
               <ChevronDown size={16} className="msearch-chevron" />
             </button>
@@ -418,15 +409,10 @@ export default function RoomsListClient({
         </>
       )}
 
-      {showDate && (
-        <DatePickerModal checkIn={checkIn} checkOut={checkOut}
-          onConfirm={(ci, co) => { applySearch({ checkIn: ci, checkOut: co, adults, children, rooms }); setShowDate(false); }}
-          onClose={() => setShowDate(false)} />
-      )}
-      {showGuests && (
-        <GuestsModal adults={adults} childCount={children} rooms={rooms}
-          onConfirm={(a, c, r) => { applySearch({ checkIn, checkOut, adults: a, children: c, rooms: r }); setShowGuests(false); }}
-          onClose={() => setShowGuests(false)} />
+      {showSearch && (
+        <SearchModal checkIn={checkIn} checkOut={checkOut} adults={adults} childCount={children} rooms={rooms}
+          onConfirm={(ci, co, a, c, r) => { applySearch({ checkIn: ci, checkOut: co, adults: a, children: c, rooms: r }); setShowSearch(false); }}
+          onClose={() => setShowSearch(false)} />
       )}
 
       {showSortSheet && (

@@ -385,14 +385,23 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     return () => clearTimeout(t);
   }, [showSuccess, countdown]);
 
+  // Keep latest handlers in refs so the keydown listener stays stable and
+  // never calls a stale closure (refs are written in an effect, not render).
+  const goNextRef = useRef<() => void>(() => {});
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    goNextRef.current = goNext;
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') goNext();
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Enter') goNextRef.current();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step]);
+  }, []);
 
   useEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0;

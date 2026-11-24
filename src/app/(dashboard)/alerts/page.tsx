@@ -136,7 +136,10 @@ export default function AlertsPage() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    const t = setTimeout(loadData, 0);
+    return () => clearTimeout(t);
+  }, [loadData]);
 
   const handleAddReminder = async () => {
     if (!newTitle.trim()) return;

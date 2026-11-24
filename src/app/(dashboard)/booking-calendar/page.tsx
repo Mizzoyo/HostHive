@@ -213,7 +213,10 @@ export default function BookingCalendarPage() {
     }
   }, [year, month]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const t = setTimeout(fetchData, 0);
+    return () => clearTimeout(t);
+  }, [fetchData]);
 
   const prevMonth = () => {
     if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1);
@@ -311,8 +314,6 @@ export default function BookingCalendarPage() {
   };
 
   const handleSave = async () => {
-    const _nights = form.check_in && form.check_out && form.check_out > form.check_in
-      ? Math.round((parseDate(form.check_out).getTime() - parseDate(form.check_in).getTime()) / 86400000) : 0;
     const _rate = parseFloat(form.nightly_rate) || 0;
     const _clean = parseFloat(form.cleaning_fee) || 0;
     const _extra = parseFloat(form.extra_fees) || 0;

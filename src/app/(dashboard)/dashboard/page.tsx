@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { StatsRow } from '@/components/stats/StatsRow';
 import toast from 'react-hot-toast';
 import { presetRange, toLocalYMD, type RangePreset } from '@/lib/dateRange';
 
@@ -570,14 +569,14 @@ export default function DashboardPage() {
               const topEntry = sorted[0];
               const COLORS = ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4'];
               const circumference = 251.2;
-              let offset = 0;
-              const segments = sorted.map(([src, cnt], i) => {
-                const pct = total > 0 ? (cnt as number) / total : 0;
-                const dash = pct * circumference;
-                const seg = { src, pct: Math.round(pct * 100), dash, offset, color: COLORS[i % COLORS.length] };
-                offset += dash;
-                return seg;
-              });
+              const dashes = sorted.map(([, cnt]) => (total > 0 ? (cnt as number) / total : 0) * circumference);
+              const segments = sorted.map(([src, cnt], i) => ({
+                src,
+                pct: total > 0 ? Math.round(((cnt as number) / total) * 100) : 0,
+                dash: dashes[i],
+                offset: dashes.slice(0, i).reduce((a, b) => a + b, 0),
+                color: COLORS[i % COLORS.length],
+              }));
               return (
                 <div className="flex gap-4 items-center">
                   <div className="flex-shrink-0">
@@ -658,7 +657,7 @@ export default function DashboardPage() {
                   ) : (stats?.unitPerformance ?? []).length === 0 ? (
                     <tr><td colSpan={3} className="px-5 py-6 text-center text-gray-400 text-xs">No active properties yet.</td></tr>
                   ) : (stats?.unitPerformance ?? []).slice(0, 4).map((u) => {
-                    const maxRev = stats.maxUnitRevenue ?? 1;
+                    const maxRev = stats?.maxUnitRevenue ?? 1;
                     return (
                       <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                         <td className="px-5 py-3">

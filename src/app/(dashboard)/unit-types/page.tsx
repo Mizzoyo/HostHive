@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface UnitType {
   id: string;
@@ -33,8 +33,7 @@ export default function UnitTypesPage() {
     return () => window.removeEventListener('sidebarToggle', handler);
   }, []);
 
-  const fetchTypes = async () => {
-    setLoading(true);
+  const fetchTypes = useCallback(async () => {
     try {
       const res = await fetch('/api/unit-types');
       const data = await res.json();
@@ -42,9 +41,9 @@ export default function UnitTypesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchTypes(); }, []);
+  useEffect(() => { fetchTypes(); }, [fetchTypes]);
 
   const openAdd = () => {
     setEditTarget(null);
@@ -75,6 +74,7 @@ export default function UnitTypesPage() {
       const data = await res.json();
       if (!res.ok) { setFormError(data.error || 'Failed to save'); return; }
       setShowModal(false);
+      setLoading(true);
       await fetchTypes();
     } finally {
       setSaving(false);

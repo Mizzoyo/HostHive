@@ -207,7 +207,8 @@ export default function POSLoginPage() {
   /* -- Auto-submit PIN when 4 digits are entered ---------------------------- */
   useEffect(() => {
     if (pin.length === 4 && !verifying) {
-      handleVerifyPin();
+      const t = setTimeout(() => handleVerifyPin(), 0);
+      return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);

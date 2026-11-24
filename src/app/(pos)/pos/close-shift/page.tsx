@@ -55,7 +55,7 @@ export default function CloseShiftPage() {
   const router = useRouter();
 
   // Session state
-  const [staffId,   setStaffId]   = useState('');
+  const [,         setStaffId]   = useState('');
   const [staffName, setStaffName] = useState('');
   const [shiftId,   setShiftId]   = useState('');
 

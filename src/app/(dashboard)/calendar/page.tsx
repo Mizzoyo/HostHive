@@ -53,7 +53,7 @@ export default function CalendarPage() {
       setShowBlockModal(false);
       setBlockForm({ startDate: '', endDate: '', reason: '' });
       toast.success('Date range blocked successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to block dates');
     }
   };

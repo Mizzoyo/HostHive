@@ -71,14 +71,14 @@ export default function UnitPerformancePage() {
     }
   }, [monthOptions]);
 
-  useEffect(() => { fetchUnits(selectedMonthIdx); }, [selectedMonthIdx, fetchUnits]);
+  useEffect(() => {
+    const t = setTimeout(() => fetchUnits(selectedMonthIdx), 0);
+    return () => clearTimeout(t);
+  }, [selectedMonthIdx, fetchUnits]);
 
   const sorted = [...units].sort((a, b) => b.score - a.score);
   const groupFiltered = selectedGroup === 'all' ? sorted : sorted.filter(u => u.name.toLowerCase().includes(selectedGroup.toLowerCase()));
   const displayed = underperformersOnly ? groupFiltered.filter(u => u.occupancy < 30) : groupFiltered;
-  // Attention section and charts respond to group filter but not underperformers toggle
-  const attention = groupFiltered.filter(u => u.occupancy < 30);
-
   // KPIs reflect the active group filter
   const kpiUnits = groupFiltered;
   const totalUnits = units.length; // total is always all units

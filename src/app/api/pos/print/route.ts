@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
           .single();
         if (mgr) managerName = mgr.name;
       }
-      await trySend(barIp, 'bar', formatVoidSlip(orderData, managerName, settings));
+      await trySend(barIp, 'bar', formatVoidSlip(orderData, managerName));
     }
 
     return NextResponse.json({

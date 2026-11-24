@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Badge } from '@/components/ui/Badge';
 
 interface CalendarEvent {
   date: string;
@@ -190,7 +189,7 @@ export function Calendar({ events = [], onDateClick, onBlockDate }: CalendarProp
           return (
             <button
               key={day}
-              onClick={() => handleDateClick(day)}
+              onClick={() => { handleDateClick(day); handleDateRangeClick(day); }}
               className={`aspect-square p-2 rounded-lg border-2 transition-colors text-sm font-medium ${
                 event
                   ? getEventColor(event.type)

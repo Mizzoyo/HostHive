@@ -51,7 +51,6 @@ export default function GuestsPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Guest | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
 
   // Add guest modal state
   const [showAdd, setShowAdd] = useState(false);
@@ -63,11 +62,6 @@ export default function GuestsPage() {
     const h = (e: Event) => setSidebarCollapsed((e as CustomEvent<{ collapsed: boolean }>).detail.collapsed);
     window.addEventListener('sidebarToggle', h);
     return () => window.removeEventListener('sidebarToggle', h);
-  }, []);
-
-  useEffect(() => {
-    const email = localStorage.getItem('user_email') || 'admin@kogelosuites.com';
-    setUserEmail(email);
   }, []);
 
   useEffect(() => {

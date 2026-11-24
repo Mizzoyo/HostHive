@@ -106,16 +106,6 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
-      if (!res.ok) { toast.error('Failed to delete expense'); return; }
-      setExpenses(prev => prev.filter(e => e.id !== id));
-      toast.success('Expense deleted');
-    } catch {
-      toast.error('Network error');
-    }
-  };
 
   const handleExportCSV = () => {
     if (expenses.length === 0) { toast.error('No expenses to export'); return; }

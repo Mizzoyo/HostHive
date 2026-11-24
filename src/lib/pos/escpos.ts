@@ -5,7 +5,6 @@
 
 const ESC = 0x1b;
 const GS  = 0x1d;
-const LF  = 0x0a;
 
 const CMD = {
   INIT:           Buffer.from([ESC, 0x40]),
@@ -325,7 +324,7 @@ export function formatZReport(shift: ShiftData, settings: POSSettings): Buffer {
 // 5. Void Slip
 // ──────────────────────────────────────────────────────────────
 
-export function formatVoidSlip(order: POSOrderData, managerName: string, settings: POSSettings): Buffer {
+export function formatVoidSlip(order: POSOrderData, managerName: string): Buffer {
   const ts = new Date().toLocaleString('en-KE', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: false,

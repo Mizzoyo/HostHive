@@ -62,7 +62,7 @@ export default function MenuPage() {
 
   // ── Featured Dishes state ──────────────────────────────────────────────────
   const [dishes, setDishes]           = useState<FeaturedDish[]>([]);
-  const [dishesLoading, setDishesLoading] = useState(false);
+  const [dishesLoading, setDishesLoading] = useState(true);
   const [dishForm, setDishForm]       = useState<Omit<FeaturedDish, 'id'>>(DISH_EMPTY);
   const [editingDish, setEditingDish] = useState<FeaturedDish | null>(null);
   const [showDishForm, setShowDishForm] = useState(false);
@@ -72,7 +72,6 @@ export default function MenuPage() {
   const uploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const loadDishes = useCallback(() => {
-    setDishesLoading(true);
     fetch('/api/featured-dishes')
       .then(r => r.json())
       .then(d => setDishes(d.dishes ?? []))
@@ -114,6 +113,7 @@ export default function MenuPage() {
       const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dishForm) });
       const data   = await res.json();
       if (!res.ok) { setDishError(data.error ?? 'Failed to save.'); return; }
+      setDishesLoading(true);
       loadDishes();
       setShowDishForm(false); setEditingDish(null); setDishForm(DISH_EMPTY);
     } finally {
@@ -161,7 +161,6 @@ export default function MenuPage() {
   };
 
   const load = useCallback(() => {
-    setLoading(true);
     fetch('/api/stay/menu')
       .then(r => r.json())
       .then(d => setItems(d.items ?? []))
@@ -203,6 +202,7 @@ export default function MenuPage() {
       const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const data   = await res.json();
       if (!res.ok) { setError(data.error ?? 'Failed to save.'); return; }
+      setLoading(true);
       load();
       closeForm();
     } finally {
@@ -295,8 +295,10 @@ export default function MenuPage() {
                     {/* Image area */}
                     <div className="relative h-40 bg-gray-100">
                       {dish.image_url ? (
-                        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL, not in next.config remotePatterns */}
-                        <img src={dish.image_url} alt={dish.name} className="w-full h-full object-cover" />
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL, not in next.config remotePatterns */}
+                          <img src={dish.image_url} alt={dish.name} className="w-full h-full object-cover" />
+                        </>
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                           <ImagePlus className="w-8 h-8 text-gray-300" />
@@ -379,8 +381,10 @@ export default function MenuPage() {
                 {/* Thumbnail */}
                 <label className="relative cursor-pointer flex-shrink-0" style={{ width: 80, height: 80 }}>
                   {item.image_url ? (
-                    {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL, not in next.config remotePatterns */}
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL, not in next.config remotePatterns */}
+                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                    </>
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex flex-col items-center justify-center gap-1">
                       <ImagePlus className="w-5 h-5 text-gray-300" />

@@ -54,7 +54,7 @@ function buildPeriods(fromParam: string | null, toParam: string | null): Period[
   if (rangeDays <= 365) {
     // Weekly grouping
     const periods: Period[] = [];
-    let cur = new Date(fromDate);
+    const cur = new Date(fromDate);
     while (cur <= toDate) {
       const wFrom = cur.toISOString().split('T')[0];
       const wEnd  = new Date(cur);

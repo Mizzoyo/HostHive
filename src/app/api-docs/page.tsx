@@ -234,7 +234,7 @@ export default function APIDocsPage() {
                   <ol className="text-sm text-surface-600 space-y-2 list-decimal list-inside">
                     <li>Log in to your Kogelo Suites account</li>
                     <li>Go to Settings → API Keys</li>
-                    <li>Click "Generate New Key"</li>
+                    <li>Click &quot;Generate New Key&quot;</li>
                     <li>Copy your key and store it securely</li>
                   </ol>
                 </div>

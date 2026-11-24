@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Save, X, Tag, Calendar, BedDouble, Percent, DollarSign, ChevronDown, ChevronUp } from 'lucide-react';
 import { DatePickerModal } from '@/components/stay/SearchWidget';
 import toast from 'react-hot-toast';
@@ -83,20 +83,19 @@ export default function DiscountsPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const load = () => {
-    setLoading(true);
+  const load = useCallback(() => {
     fetch('/api/discounts')
       .then(r => r.json())
       .then(d => setDiscounts(d.discounts ?? []))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     load();
     fetch('/api/stay/properties')
       .then(r => r.json())
       .then(d => setProperties((d.properties ?? []).map((p: Property) => ({ id: p.id, name: p.name }))));
-  }, []);
+  }, [load]);
 
   const openNew = () => {
     setEditing(null);
@@ -156,6 +155,7 @@ export default function DiscountsPage() {
       const data   = await res.json();
       if (!res.ok) { setError(data.error ?? 'Failed to save.'); return; }
       toast.success(editing ? 'Discount updated!' : 'Discount created!');
+      setLoading(true);
       load();
       closeForm();
     } finally {

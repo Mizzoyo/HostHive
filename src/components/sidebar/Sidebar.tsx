@@ -5,6 +5,12 @@ import { usePathname } from 'next/navigation';
 import { SidebarItem } from './SidebarItem';
 import { SidebarSection } from './SidebarSection';
 
+// Stable useSyncExternalStore callbacks — brand_logo lives in localStorage,
+// an external store React cannot observe, so a no-op subscribe is correct.
+const subscribeBrandLogo = () => () => {};
+const getBrandLogoSnapshot = () => localStorage.getItem('brand_logo');
+const getBrandLogoServerSnapshot = () => null;
+
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -18,9 +24,9 @@ export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarPro
   // Read the uploaded brand logo from localStorage via useSyncExternalStore —
   // reading it directly during render would be an impure render-phase access.
   const brandLogo = useSyncExternalStore(
-    () => () => {},
-    () => localStorage.getItem('brand_logo'),
-    () => null
+    subscribeBrandLogo,
+    getBrandLogoSnapshot,
+    getBrandLogoServerSnapshot
   );
 
   useEffect(() => {

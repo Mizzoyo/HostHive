@@ -231,13 +231,6 @@ export async function GET(request: NextRequest) {
 
     const maxUnitRevenue = unitPerformance.reduce((m, u) => Math.max(m, u.revenue), 0);
 
-    // Fetch universal settings
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('default_check_in_time, default_check_out_time, default_check_in_method, default_property_city, default_property_county, business_area')
-      .eq('id', userId)
-      .maybeSingle();
-
     return NextResponse.json({
       occupancy: { rate: occupancyRate, occupied: confirmed.length, available: availableNow, blocked: blockedNow },
       properties: properties ?? [],

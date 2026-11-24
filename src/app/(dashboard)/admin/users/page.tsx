@@ -18,7 +18,7 @@ type Member = {
 
 export default function AdminUsersPage() {
   const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     fullName: '',
@@ -40,7 +40,6 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     fetch('/api/admin/users')
       .then((r) => r.json())
       .then((d) => {

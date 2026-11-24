@@ -214,7 +214,7 @@ export async function fetchAvailableProperties(
     });
   } catch { }
 
-  const available = sortProperties(((properties ?? []) as PropertyDbRow[]).filter((p) => !blockedIds.has(p.id)));
+  const available = sortProperties(((properties ?? []) as unknown as PropertyDbRow[]).filter((p) => !blockedIds.has(p.id)));
   const ids = available.map((p) => p.id);
 
   const photosById = new Map<string, string[]>();

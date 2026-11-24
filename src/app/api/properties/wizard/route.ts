@@ -21,6 +21,8 @@ const DEFAULT_UNIVERSAL_RULES = {
 };
 
 type WizardSellOptionInput = { bedrooms?: number; nightly?: string; maxGuests?: string };
+type AmenityInput = string | { name?: string; icon?: string | null; category?: string | null };
+type PhotoInput = { url?: string; thumbnail_url?: string | null; isCover?: boolean };
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -140,7 +142,7 @@ export async function POST(request: NextRequest) {
     const universalRules = getUniversalHouseRules(profile);
     const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
     const roomAmenities = (Array.isArray(d.amenities) ? d.amenities : [])
-      .filter((a) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
+      .filter((a: AmenityInput) => !isUniversalAmenity(typeof a === 'string' ? a : (a?.name ?? ''), universalAmenities));
     const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Milimani';
     const syncedCity = profile?.default_property_city || d.location?.city || 'Kisumu';
     const syncedCounty = profile?.default_property_county || d.location?.county || 'Kisumu County';
@@ -170,7 +172,7 @@ export async function POST(request: NextRequest) {
       security_deposit: parseFloat(d.pricing?.deposit) || 0,
       min_stay_nights: parseInt(d.pricing?.minStay) || 1,
       max_stay_nights: parseInt(d.pricing?.maxStay) || 0,
-      cover_photo: d.photos?.find((p) => p.isCover)?.url || d.photos?.[0]?.url || '',
+      cover_photo: d.photos?.find((p: PhotoInput) => p.isCover)?.url || d.photos?.[0]?.url || '',
       latitude: d.location?.lat || null,
       longitude: d.location?.lng || null,
       check_in_time: profile?.default_check_in_time || '14:00',
@@ -200,7 +202,7 @@ export async function POST(request: NextRequest) {
     const propertyId = property.id;
 
     if (roomAmenities.length > 0) {
-      const amenityRows = roomAmenities.map((a) => ({
+      const amenityRows = roomAmenities.map((a: AmenityInput) => ({
         property_id: propertyId,
         user_id: userId,
         name: typeof a === 'string' ? a : a.name,
@@ -211,7 +213,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (Array.isArray(d.photos) && d.photos.length > 0) {
-      const photoRows = d.photos.map((p, i: number) => ({
+      const photoRows = d.photos.map((p: PhotoInput, i: number) => ({
         property_id: propertyId,
         user_id: userId,
         url: p.url,
@@ -251,7 +253,7 @@ export async function PUT(request: NextRequest) {
     const universalRules = getUniversalHouseRules(profile);
     const universalAmenities = normalizeUniversalAmenities(profile?.default_amenities);
     const roomAmenities = (Array.isArray(d.amenities) ? d.amenities : [])
-      .filter((a) => !isUniversalAmenity(typeof a === 'string' ? a : a?.name, universalAmenities));
+      .filter((a: AmenityInput) => !isUniversalAmenity(typeof a === 'string' ? a : (a?.name ?? ''), universalAmenities));
     const syncedLocation = profile?.default_property_location || d.location?.neighbourhood || d.location?.address || 'Milimani';
     const syncedCity = profile?.default_property_city || d.location?.city || 'Kisumu';
     const syncedCounty = profile?.default_property_county || d.location?.county || 'Kisumu County';
@@ -281,7 +283,7 @@ export async function PUT(request: NextRequest) {
         security_deposit: parseFloat(d.pricing?.deposit) || 0,
         min_stay_nights: parseInt(d.pricing?.minStay) || 1,
         max_stay_nights: parseInt(d.pricing?.maxStay) || 0,
-        cover_photo: d.photos?.find((p) => p.isCover)?.url || d.photos?.[0]?.url || '',
+        cover_photo: d.photos?.find((p: PhotoInput) => p.isCover)?.url || d.photos?.[0]?.url || '',
         latitude: d.location?.lat || null,
         longitude: d.location?.lng || null,
         check_in_time: profile?.default_check_in_time || '14:00',
@@ -310,7 +312,7 @@ export async function PUT(request: NextRequest) {
     if (Array.isArray(d.amenities)) {
       await supabase.from('property_amenities').delete().eq('property_id', id).eq('user_id', userId);
       if (roomAmenities.length > 0) {
-        const amenityRows = roomAmenities.map((a) => ({
+        const amenityRows = roomAmenities.map((a: AmenityInput) => ({
           property_id: id,
           user_id: userId,
           name: typeof a === 'string' ? a : a.name,
@@ -324,7 +326,7 @@ export async function PUT(request: NextRequest) {
     if (Array.isArray(d.photos)) {
       await supabase.from('property_photos').delete().eq('property_id', id).eq('user_id', userId);
       if (d.photos.length > 0) {
-        const photoRows = d.photos.map((p, i: number) => ({
+        const photoRows = d.photos.map((p: PhotoInput, i: number) => ({
           property_id: id,
           user_id: userId,
           url: p.url,

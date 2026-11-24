@@ -33,7 +33,7 @@ export default function RequestsPage() {
   const [updating,       setUpdating]       = useState<string | null>(null);
   const [sendingWa,      setSendingWa]      = useState<string | null>(null);
   const [sendingPayment, setSendingPayment] = useState<string | null>(null);
-  const [waLinks,        setWaLinks]        = useState<Record<string, string>>({});
+
   const [toast,          setToast]          = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -138,7 +138,10 @@ export default function RequestsPage() {
     finally { setReceiptSaving(false); }
   };
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const t = setTimeout(load, 0);
+    return () => clearTimeout(t);
+  }, [load]);
 
   const updateStatus = async (id: string, status: string, extraPayload?: Record<string, string>) => {
     setUpdating(id);
@@ -558,7 +561,7 @@ export default function RequestsPage() {
                   ))}
                 </div>
                 {req.special_requests && (
-                  <p className="text-xs text-gray-400 italic border-t border-gray-50 pt-2">"{req.special_requests}"</p>
+                  <p className="text-xs text-gray-400 italic border-t border-gray-50 pt-2">&quot;{req.special_requests}&quot;</p>
                 )}
               </div>
 

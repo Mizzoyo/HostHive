@@ -151,7 +151,6 @@ const STATUS_DOT: Record<PropStatus, string> = {
 
 const STEP_LABELS = ['','Property Type','Location','Basics','Amenities','Photos','Title & Description','Pricing','Review & Publish'];
 
-const STATUSES = ['All statuses', 'active', 'inactive', 'maintenance', 'draft'];
 
 type ViewMode = 'grid' | 'list';
 
@@ -222,7 +221,10 @@ export default function PropertiesPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadProperties(); }, [loadProperties]);
+  useEffect(() => {
+    const t = setTimeout(loadProperties, 0);
+    return () => clearTimeout(t);
+  }, [loadProperties]);
 
   const viewingId = viewingProperty?.id;
   useEffect(() => {

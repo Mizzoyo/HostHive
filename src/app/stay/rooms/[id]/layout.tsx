@@ -25,21 +25,11 @@ export async function generateMetadata(
     };
   }
 
-  const id = property.id;
   const bedLabel = roomTypeLabel(property);
   const title = property.name ?? `${bedLabel} Suite`;
   const description =
     property.description ||
     `${bedLabel} suite at Kogelo Suites, Kogelo, Kenya. Sleeps up to ${property.max_guests ?? 2} guests. ${property.nightly_rate ? `From KES ${property.nightly_rate.toLocaleString()} per night.` : ''}`;
-
-  const { data: photos } = await publicSupabase
-    .from('property_photos')
-    .select('url')
-    .eq('property_id', id)
-    .order('sort_order')
-    .limit(1);
-
-  const ogImage = photos?.[0]?.url || '/images/og-image.jpg';
 
   return {
     title,
@@ -52,14 +42,6 @@ export async function generateMetadata(
       description,
       url: `${BASE_URL}/stay/rooms/${slug}`,
       siteName: 'Kogelo Suites',
-      images: [
-        {
-          url: ogImage,
-          width: 1200,
-          height: 800,
-          alt: `${title} at Kogelo Suites`,
-        },
-      ],
       type: 'website',
       locale: 'en_KE',
     },
@@ -67,7 +49,6 @@ export async function generateMetadata(
       card: 'summary_large_image',
       title: `${title} | Kogelo Suites`,
       description,
-      images: [ogImage],
     },
   };
 }

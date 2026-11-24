@@ -98,9 +98,7 @@ export default function IntegrationsPage() {
     },
   ]);
 
-  const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
-  const [selectedIntegration, setSelectedIntegration] = useState<string>('');
 
   const [notificationForm, setNotificationForm] = useState({
     name: '',

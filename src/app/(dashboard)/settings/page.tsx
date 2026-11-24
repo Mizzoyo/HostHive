@@ -37,7 +37,7 @@ const AMENITY_GROUPS = AMENITY_CATALOG.reduce<Record<string, Amenity[]>>((acc, a
 
 export default function SettingsPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState(() =>
+  const [userEmail] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem('user_email') || 'admin@kogelosuites.com' : 'admin@kogelosuites.com'
   );
   const [activeTab, setActiveTab] = useState<Tab>('general');
@@ -73,7 +73,7 @@ export default function SettingsPage() {
   // Categories tab state
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [newCategory, setNewCategory] = useState('');
-  const [catLoading, setCatLoading] = useState(false);
+  const [, setCatLoading] = useState(false);
 
   // SMS Templates tab state
   const [smsTemplates, setSmsTemplates] = useState<SmsTemplate[]>([]);
@@ -683,8 +683,10 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
                     {logoPreview ? (
-                      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
-                      <img src={logoPreview} alt="Logo" className="w-full h-full object-contain" />
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
+                        <img src={logoPreview} alt="Logo" className="w-full h-full object-contain" />
+                      </>
                     ) : (
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -727,8 +729,10 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
                     {faviconPreview ? (
-                      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
-                      <img src={faviconPreview} alt="Favicon" className="w-10 h-10 object-contain" />
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
+                        <img src={faviconPreview} alt="Favicon" className="w-10 h-10 object-contain" />
+                      </>
                     ) : (
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                         <path d="M3 12h1m8-9v1m8 8h-1M5.6 5.6l.7.7m12.1-.7-.7.7M12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14z"/>
@@ -1390,8 +1394,10 @@ export default function SettingsPage() {
             <div className="flex items-center gap-5">
               <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 overflow-hidden flex items-center justify-center bg-gray-50 flex-shrink-0">
                 {avatarUrl ? (
-                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Supabase storage URL; no remotePatterns configured */}
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  </>
                 ) : (
                   <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>

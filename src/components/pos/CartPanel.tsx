@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState } from 'react';
-import { Minus, Plus, Trash2, MessageSquare, X, UserPlus, Loader2, UtensilsCrossed, Beer } from 'lucide-react';
+import { Minus, Plus, MessageSquare, X, UserPlus, Loader2, UtensilsCrossed, Beer } from 'lucide-react';
 import { canPerformTerminalAction } from '@/lib/pos/session';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */

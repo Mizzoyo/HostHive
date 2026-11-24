@@ -70,7 +70,6 @@ export default function HelpCenterPage() {
   }, []);
 
   const loadTickets = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fetch('/api/support');
       const data = await res.json();
@@ -105,6 +104,7 @@ export default function HelpCenterPage() {
       if (!res.ok) { toast.error(data.error || 'Failed to submit'); return; }
       toast.success("Ticket submitted! We'll respond within 24 hours.");
       setSubject(''); setDescription(''); setCategory('general'); setPriority('normal');
+      setLoading(true);
       await loadTickets();
       setActiveTab('my_tickets');
     } finally {

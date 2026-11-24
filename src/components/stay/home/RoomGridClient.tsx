@@ -1,19 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import CardImageCarousel from '@/components/stay/CardImageCarousel';
 import type { StayProperty } from '@/lib/stay/fetchProperties';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
 import { roomTypeLabel } from '@/lib/stay/roomType';
 
-function RoomCard({ property, wishlisted, onToggle }: {
-  property: StayProperty;
-  wishlisted: boolean;
-  onToggle: (e: React.MouseEvent, id: string) => void;
-}) {
+function RoomCard({ property }: { property: StayProperty }) {
   const badge = roomTypeLabel(property);
   return (
     <Link href={`/stay/rooms/${toRoomSlug(property.slug, property.name, property.id)}`} className="group block">
@@ -36,37 +29,6 @@ function RoomCard({ property, wishlisted, onToggle }: {
 }
 
 export default function RoomGridClient({ properties }: { properties: StayProperty[] }) {
-  const router = useRouter();
-  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
-  const [wishPending, setWishPending] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    fetch('/api/stay/wishlist')
-      .then(r => r.json())
-      .then(d => setWishlistIds(new Set(d.property_ids ?? [])))
-      .catch(() => {});
-  }, []);
-
-  const toggleWishlist = useCallback(async (e: React.MouseEvent, propertyId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) { router.push('/stay/auth?redirect=/stay'); return; }
-    if (wishPending.has(propertyId)) return;
-    setWishPending(prev => new Set(prev).add(propertyId));
-    setWishlistIds(prev => { const s = new Set(prev); s.has(propertyId) ? s.delete(propertyId) : s.add(propertyId); return s; });
-    const res = await fetch('/api/stay/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ property_id: propertyId }) });
-    const data = await res.json();
-    if (!res.ok) {
-      alert(`Error: ${data.error || 'Failed to update wishlist'}`);
-      setWishlistIds(prev => { const s = new Set(prev); s.has(propertyId) ? s.delete(propertyId) : s.add(propertyId); return s; });
-    } else {
-      alert(data.wishlisted ? 'Room saved to your wishlist' : 'Room removed from your wishlist');
-    }
-    setWishPending(prev => { const s = new Set(prev); s.delete(propertyId); return s; });
-  }, [router, wishPending]);
-
   if (properties.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 text-center">
@@ -89,7 +51,7 @@ export default function RoomGridClient({ properties }: { properties: StayPropert
       <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-4 md:gap-5 md:overflow-visible md:pb-0">
         {properties.slice(0, 8).map(p => (
           <div key={p.id} className="flex-shrink-0 w-[46vw] sm:w-56 md:w-auto">
-            <RoomCard property={p} wishlisted={wishlistIds.has(p.id)} onToggle={toggleWishlist} />
+            <RoomCard property={p} />
           </div>
         ))}
       </div>

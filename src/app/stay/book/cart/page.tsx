@@ -53,11 +53,6 @@ export default function CartPage() {
   const totalRooms = cart.reduce((s, c) => s + c.qty, 0);
   const total      = cart.reduce((s, c) => s + Number(c.property.nightly_rate || 0) * (nights || 1) * c.qty, 0);
 
-  const fmt = (d: string) => {
-    if (!d) return '—';
-    return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
   const handleCheckout = () => {
     if (!meta) return;
     sessionStorage.setItem('roomCart', JSON.stringify(cart));
@@ -94,7 +89,7 @@ export default function CartPage() {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-32 space-y-4">
 
         {/* Room rows */}
-        {cart.map(({ property: p, qty }) => (
+        {cart.map(({ property: p }) => (
           <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-4">
             {/* Thumbnail */}
             <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">

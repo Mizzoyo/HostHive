@@ -50,7 +50,10 @@ export function TableMap({ onSelectTable, onNewTable, refreshKey }: TableMapProp
     }
   }, []);
 
-  useEffect(() => { load(); }, [load, refreshKey]);
+  useEffect(() => {
+    const t = setTimeout(load, 0);
+    return () => clearTimeout(t);
+  }, [load, refreshKey]);
 
   const visible = activeSection === 'all'
     ? tables

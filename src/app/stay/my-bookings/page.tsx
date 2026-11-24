@@ -165,7 +165,7 @@ function MyBookingsContent() {
                     </div>
                     {/* Special requests */}
                     {b.special_requests && (
-                      <p className="text-xs text-gray-400 italic">"{b.special_requests}"</p>
+                      <p className="text-xs text-gray-400 italic">&quot;{b.special_requests}&quot;</p>
                     )}
                   </div>
                 </div>

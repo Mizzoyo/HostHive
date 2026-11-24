@@ -81,17 +81,6 @@ function PropIcon({ id }: { id: string }) {
   }
 }
 
-const AMENITY_CATEGORIES = [
-  { cat: '🌐 Internet & Entertainment', items: [{ id: 'wifi', icon: '📶', label: 'WiFi', sub: 'Fast 50+' }, { id: 'dstv', icon: '📺', label: 'DSTV' }, { id: 'netflix', icon: '🎬', label: 'Netflix' }, { id: 'smarttv', icon: '🎮', label: 'Smart TV' }, { id: 'speaker', icon: '🔊', label: 'Bluetooth Speaker' }] },
-  { cat: '🍳 Kitchen', items: [{ id: 'kitchen', icon: '🍽️', label: 'Full Kitchen' }, { id: 'coffee', icon: '☕', label: 'Coffee Maker' }, { id: 'fridge', icon: '🧊', label: 'Refrigerator' }, { id: 'microwave', icon: '🍳', label: 'Microwave' }, { id: 'cooker', icon: '🫙', label: 'Cooking Gas + Cooker' }, { id: 'utensils', icon: '🧹', label: 'Dishes & Utensils' }] },
-  { cat: '❄️ Climate & Comfort', items: [{ id: 'ac', icon: '❄️', label: 'A/C' }, { id: 'fan', icon: '🌡️', label: 'Ceiling Fan' }, { id: 'balcony', icon: '🪟', label: 'Balcony' }] },
-  { cat: '🔒 Safety & Security', items: [{ id: 'smartlock', icon: '🔒', label: 'Smart Lock' }, { id: 'cctv', icon: '📹', label: 'CCTV' }, { id: 'guard', icon: '💂', label: '24hr Guard' }, { id: 'smoke', icon: '🚨', label: 'Smoke Alarm' }, { id: 'fire', icon: '🧯', label: 'Fire Extinguisher' }, { id: 'firstaid', icon: '🏥', label: 'First Aid' }] },
-  { cat: '⚡ Utilities', items: [{ id: 'generator', icon: '🔋', label: 'Generator / Inverter' }, { id: 'water', icon: '💧', label: 'Water Backup' }, { id: 'solar', icon: '☀️', label: 'Solar' }] },
-  { cat: '🚗 Parking & Access', items: [{ id: 'parking', icon: '🚗', label: 'Free Parking' }, { id: 'elevator', icon: '🛗', label: 'Elevator' }, { id: 'gated', icon: '🚪', label: 'Gated Entry' }] },
-  { cat: '🧺 Laundry & Bathroom', items: [{ id: 'washer', icon: '🫧', label: 'Washing Machine' }, { id: 'hotshower', icon: '🚿', label: 'Hot Shower' }, { id: 'bathtub', icon: '🛁', label: 'Bathtub' }, { id: 'hairdryer', icon: '🪒', label: 'Hair Dryer' }, { id: 'toiletries', icon: '🧴', label: 'Toiletries Provided' }] },
-  { cat: '🏊 Building Facilities', items: [{ id: 'pool', icon: '🏊', label: 'Swimming Pool' }, { id: 'gym', icon: '💪', label: 'Gym' }, { id: 'garden', icon: '🌳', label: 'Garden / Rooftop' }, { id: 'poolside', icon: '🌊', label: 'Pool Side' }, { id: 'next-to-garden', icon: '🌿', label: 'Next to Garden' }, { id: 'bbq', icon: '🍖', label: 'BBQ Area' }, { id: 'child', icon: '🧒', label: 'Child-Safe Building' }] },
-];
-
 // ─── Amenities Data & Icon ────────────────────────────────────────────────
 const AMENITIES_FLAT = [
   { id: 'wifi',      label: 'Wi-Fi' },
@@ -194,17 +183,6 @@ function generateConfettiPieces(): ConfettiPiece[] {
       anim: anims[i % anims.length],
     };
   });
-}
-
-// ─── Stepper Component ────────────────────────────────────────────────────────
-function Stepper({ value, onChange, min = 0, max = 20 }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
-  return (
-    <div className="flex items-center gap-3">
-      <button onClick={() => onChange(Math.max(min, value - 1))} className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center text-xl font-bold hover:border-gray-900 transition-all disabled:opacity-30" disabled={value <= min}>−</button>
-      <span className="w-12 text-center text-xl font-semibold">{value}</span>
-      <button onClick={() => onChange(Math.min(max, value + 1))} className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center text-xl font-bold hover:border-gray-900 transition-all disabled:opacity-30" disabled={value >= max}>+</button>
-    </div>
-  );
 }
 
 // ─── Main Wizard ──────────────────────────────────────────────────────────────
@@ -370,7 +348,7 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
       navigate(next);
     }
   };
-  const goBack = () => { showError(''); step > 1 && navigate(step - 1); };
+  const goBack = () => { showError(''); if (step > 1) navigate(step - 1); };
 
   // Clear any step error shortly after form data changes (deferred so the
   // state update does not happen synchronously inside the effect body).
@@ -407,7 +385,6 @@ export function AirbnbPropertyWizard({ onClose, initialData, mode = 'add', initi
     if (contentRef.current) contentRef.current.scrollTop = 0;
   }, [step]);
 
-  const pct = Math.round((step / TOTAL) * 100);
   const upd = (field: keyof WizardFormData, val: unknown) => setData(d => ({ ...d, [field]: val }));
 
   const saveDraft = async () => {

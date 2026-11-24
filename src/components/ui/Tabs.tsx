@@ -61,6 +61,6 @@ export function Tabs({ items, defaultValue, onChange, children }: TabsProps) {
   );
 }
 
-export function TabContent({ value, children }: TabContentProps) {
+export function TabContent({ children }: TabContentProps) {
   return <div>{children}</div>;
 }

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Badge, type BadgeProps } from '@/components/ui/Badge';
-import { Tabs, TabContent } from '@/components/ui/Tabs';
 import toast from 'react-hot-toast';
 
 interface Booking {
@@ -229,12 +228,6 @@ export default function BookingsEnhancedPage() {
     );
     toast.success('Payment recorded');
   };
-
-  const bookingTabs = [
-    { label: 'All Bookings', value: 'all', icon: '📋' },
-    { label: 'Upcoming', value: 'upcoming', icon: '📅' },
-    { label: 'Pending Payment', value: 'pending_payment', icon: '💳' },
-  ];
 
   return (
     <div>

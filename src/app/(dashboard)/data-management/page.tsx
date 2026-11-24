@@ -46,7 +46,7 @@ export default function DataManagementPage() {
 
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [, setShowExportModal] = useState(false);
   const [backupSettings, setBackupSettings] = useState({
     autoBackup: true,
     frequency: 'daily',
@@ -78,11 +78,11 @@ export default function DataManagementPage() {
   };
 
   const handleRestoreBackup = (backupId: string) => {
-    toast.success('Restore process started. This may take a few minutes.');
+    toast.success(`Restore started for backup ${backupId}. This may take a few minutes.`);
   };
 
   const handleDownloadBackup = (backupId: string) => {
-    toast.success('Backup download started');
+    toast.success(`Downloading backup ${backupId}`);
   };
 
   const handleDeleteBackup = (backupId: string) => {

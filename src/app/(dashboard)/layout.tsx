@@ -44,7 +44,8 @@ export default function DashboardLayout({
 
   // Close mobile sidebar whenever the route changes
   useEffect(() => {
-    setMobileMenuOpen(false);
+    const t = setTimeout(() => setMobileMenuOpen(false), 0);
+    return () => clearTimeout(t);
   }, [pathname]);
 
   if (isLoading) {

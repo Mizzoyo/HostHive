@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Trash2, ShoppingCart, Home as HomeIcon } from 'lucide-react';
+import { ArrowRight, BedDouble, CalendarDays, Clock3, Droplets, House, MapPin, Minus, Plus, ShoppingCart, Trash2, Users } from 'lucide-react';
+import { StayFooter, StayTopbar } from '@/components/stay/shared/StayChrome';
 import { roomTypeLabel } from '@/lib/stay/roomType';
+import '../../stay.css';
 
 type CartProperty = {
   id: string;
   name: string;
+  type?: string;
   slug?: string | null;
   nightly_rate: number;
   bedrooms?: number;
@@ -16,10 +19,26 @@ type CartProperty = {
   photos?: string[];
 };
 type CartItem = { property: CartProperty; qty: number };
+type CartMeta = { checkIn: string; checkOut: string; guests: number };
+
+const MAX_ROOM_QTY = 8;
+
+function formatDate(value: string) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-KE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${value}T12:00:00`));
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 }).format(value);
+}
 
 export default function CartPage() {
   const [cart, setCart]     = useState<CartItem[]>([]);
-  const [meta, setMeta]     = useState<{ checkIn: string; checkOut: string; guests: number } | null>(null);
+  const [meta, setMeta]     = useState<CartMeta | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -38,16 +57,16 @@ export default function CartPage() {
 
   const save = (next: CartItem[]) => {
     setCart(next);
-    sessionStorage.setItem('roomCart', JSON.stringify(next));
+    try { sessionStorage.setItem('roomCart', JSON.stringify(next)); } catch { /* ignore */ }
   };
 
   const setQty = (id: string, qty: number) => {
     if (qty <= 0) { save(cart.filter(c => c.property.id !== id)); return; }
-    save(cart.map(c => c.property.id === id ? { ...c, qty } : c));
+    save(cart.map(c => c.property.id === id ? { ...c, qty: Math.min(MAX_ROOM_QTY, qty) } : c));
   };
 
   const nights = meta?.checkIn && meta?.checkOut && meta.checkOut > meta.checkIn
-    ? Math.round((new Date(meta.checkOut).getTime() - new Date(meta.checkIn).getTime()) / 86400000)
+    ? Math.round((new Date(`${meta.checkOut}T12:00:00`).getTime() - new Date(`${meta.checkIn}T12:00:00`).getTime()) / 86400000)
     : 0;
 
   const totalRooms = cart.reduce((s, c) => s + c.qty, 0);
@@ -55,8 +74,10 @@ export default function CartPage() {
 
   const handleCheckout = () => {
     if (!meta) return;
-    sessionStorage.setItem('roomCart', JSON.stringify(cart));
-    sessionStorage.setItem('roomCartMeta', JSON.stringify(meta));
+    try {
+      sessionStorage.setItem('roomCart', JSON.stringify(cart));
+      sessionStorage.setItem('roomCartMeta', JSON.stringify(meta));
+    } catch { /* ignore */ }
     const q = new URLSearchParams({
       fromCart: 'true',
       checkIn:  meta.checkIn,
@@ -66,101 +87,171 @@ export default function CartPage() {
     window.location.href = `/stay/book/group?${q.toString()}`;
   };
 
+  const chrome = (
+    <>
+      <StayTopbar
+        brandHref="/stay"
+        links={[
+          { href: '/stay#rooms', label: 'Stay' },
+          { href: '/stay#amenities', label: 'Our place' },
+          { href: 'https://restaurant.kogelosuites.com/', label: 'Dining' },
+        ]}
+        cta={{ href: '/stay/house-rules', label: <><MapPin size={15} /> Kisumu, Kenya</> }}
+      />
+    </>
+  );
+
+  const footer = (
+    <StayFooter
+      brandHref="/stay"
+      links={[
+        { href: '/stay', label: 'Explore the stay' },
+        { href: 'https://restaurant.kogelosuites.com/', label: 'Dining' },
+        { href: '/stay/house-rules', label: 'Location' },
+      ]}
+      note="Rates shown are current nightly rates. Final price and availability are confirmed by our team."
+    />
+  );
+
   if (!loaded) return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
-      <div className="animate-spin w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full" />
-    </div>
+    <main className="stay-shell gb-page">
+      {chrome}
+      <div className="gb-wrap gb-center"><div className="rooms-spinner" /></div>
+      {footer}
+    </main>
   );
 
   if (cart.length === 0) return (
-    <div className="min-h-screen bg-[#f8fafc] pt-5 sm:pt-20 flex flex-col items-center justify-center px-4">
-      <ShoppingCart className="w-16 h-16 text-gray-300 mb-4" />
-      <h2 className="text-xl font-black text-gray-900 mb-2">Your cart is empty</h2>
-      <p className="text-sm text-gray-500 mb-6">Add rooms from the rooms page to continue.</p>
-      <Link href="/stay/rooms" className="text-sm font-bold text-white px-6 py-3 rounded-xl" style={{ background: '#16a34a' }}>
-        Browse Rooms
-      </Link>
-    </div>
+    <main className="stay-shell gb-page">
+      {chrome}
+      <div className="gb-wrap gb-center">
+        <div className="gb-empty gb-empty-page">
+          <ShoppingCart size={44} />
+          <strong>Your cart is empty.</strong>
+          <p>Add rooms from the rooms page, then come back to check out as a group.</p>
+          <Link href="/stay/rooms" className="gb-button gb-primary">Browse rooms <ArrowRight size={15} /></Link>
+        </div>
+      </div>
+      {footer}
+    </main>
   );
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pt-5 sm:pt-16">
+    <main className="stay-shell gb-page">
+      {chrome}
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-32 space-y-4">
+      <div className="gb-wrap">
+        <div className="gb-intro">
+          <div className="eyebrow">Your selection</div>
+          <h1>Your <em>rooms.</em></h1>
+          <p>Adjust quantities if you need to, then send the whole group&apos;s request in one go.</p>
+        </div>
 
-        {/* Room rows */}
-        {cart.map(({ property: p }) => (
-          <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-4">
-            {/* Thumbnail */}
-            <div className="w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
-              {p.photos?.[0] ? (
-                // eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL
-                <img src={p.photos[0]} alt={p.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#0f172a,#16a34a)' }}>
-                  <HomeIcon className="w-8 h-8 text-white/40" />
-                </div>
-              )}
+        <div className="gb-grid">
+          <section className="gb-panel">
+            <div className="gb-room-list">
+              {cart.map(({ property: p, qty }) => (
+                <article className="gb-room gb-selected" key={p.id}>
+                  <div className="gb-room-thumb" aria-hidden="true">
+                    {p.photos?.[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL
+                      <img src={p.photos[0]} alt="" />
+                    ) : (
+                      <div className="gb-room-thumb-empty"><House size={26} /></div>
+                    )}
+                  </div>
+                  <div className="gb-room-copy">
+                    <p className="room-type">{roomTypeLabel(p)}</p>
+                    <h3>{p.name}</h3>
+                    <div className="gb-room-facts">
+                      <span><BedDouble size={13} /> {p.bedrooms ?? 1}</span>
+                      <span><Droplets size={13} /> {p.bathrooms ?? 1}</span>
+                      <span><Users size={13} /> Sleeps {p.max_guests ?? 2}</span>
+                    </div>
+                    <button type="button" className="gb-remove" onClick={() => setQty(p.id, 0)}>
+                      <Trash2 size={13} /> Remove
+                    </button>
+                  </div>
+                  <div className="gb-room-select">
+                    <strong>KSh {money(Number(p.nightly_rate || 0) * (nights || 1) * qty)}</strong>
+                    <small>KSh {money(Number(p.nightly_rate || 0))} / night{nights > 1 ? ` × ${nights}` : ''}</small>
+                    <div className="gb-qty" role="group" aria-label={`${p.name} quantity selector`}>
+                      <button
+                        type="button"
+                        aria-label={`Remove one ${p.name}`}
+                        disabled={qty <= 0}
+                        onClick={() => setQty(p.id, qty - 1)}
+                      ><Minus size={13} /></button>
+                      <span aria-live="polite">{qty}</span>
+                      <button
+                        type="button"
+                        aria-label={`Add one ${p.name}`}
+                        disabled={qty >= MAX_ROOM_QTY}
+                        onClick={() => setQty(p.id, qty + 1)}
+                      ><Plus size={13} /></button>
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
+          </section>
 
-            {/* Details */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-bold text-gray-900 text-sm truncate">{p.name}</h3>
-                  <p className="text-xs text-gray-400 capitalize">{roomTypeLabel(p)}</p>
-                </div>
-                <button onClick={() => setQty(p.id, 0)} className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="mt-3 flex items-center justify-end">
-                <div className="text-right">
-                  <p className="font-black text-gray-900 text-sm">
-                    KSh {(Number(p.nightly_rate || 0) * (nights || 1)).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    KSh {Number(p.nightly_rate || 0).toLocaleString()} / night{nights > 1 ? ` × ${nights} nights` : ''}
-                  </p>
-                </div>
-              </div>
+          <aside className="gb-summary" aria-label="Order summary">
+            <p className="gb-summary-kicker">Order summary</p>
+            <h2 className="gb-summary-heading">Almost there.</h2>
+            <div className="gb-summary-rule" />
+            <div className="gb-summary-line">
+              <span><CalendarDays size={13} /> Dates</span>
+              <b>{formatDate(meta?.checkIn ?? '')}<br />{formatDate(meta?.checkOut ?? '')}</b>
             </div>
-          </div>
-        ))}
-
-        {/* Summary card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
-          <h3 className="font-black text-gray-900">Order Summary</h3>
-          {cart.map(({ property: p }) => (
-            <div key={p.id} className="flex justify-between text-sm text-gray-600">
-              <span className="truncate flex-1 mr-2">{p.name}</span>
-              <span className="font-semibold text-gray-900 flex-shrink-0">
-                KSh {(Number(p.nightly_rate || 0) * (nights || 1)).toLocaleString()}
-              </span>
+            <div className="gb-summary-line">
+              <span><Clock3 size={13} /> Length</span>
+              <b>{nights || '—'} {nights === 1 ? 'night' : 'nights'}</b>
             </div>
-          ))}
-          <div className="border-t border-gray-100 pt-3 flex justify-between font-black text-gray-900 text-base">
-            <span>Estimated Total</span>
-            <span>KSh {total.toLocaleString()}</span>
-          </div>
-          <p className="text-xs text-gray-400">{totalRooms} room{totalRooms !== 1 ? 's' : ''} · {nights || '—'} night{(nights || 1) !== 1 ? 's' : ''} · Payment settled at property</p>
+            <div className="gb-summary-line">
+              <span><Users size={13} /> Guests</span>
+              <b>{meta?.guests ?? '—'}</b>
+            </div>
+            <div className="gb-summary-rooms">
+              {cart.map(({ property: p, qty }) => (
+                <div className="gb-summary-room" key={p.id}>
+                  <span>{p.name} <small>× {qty}</small></span>
+                  <b>KSh {money(Number(p.nightly_rate || 0) * (nights || 1) * qty)}</b>
+                  <small>KSh {money(Number(p.nightly_rate || 0))} / room / night</small>
+                </div>
+              ))}
+            </div>
+            <div className="gb-summary-rule" />
+            <div className="gb-summary-price">
+              <span>Estimated total</span>
+              <b>KSh {money(total)}</b>
+            </div>
+            <div className="gb-summary-line">
+              <span>{totalRooms} room{totalRooms !== 1 ? 's' : ''} · {nights || 1} {(nights || 1) === 1 ? 'night' : 'nights'}</span>
+              <b>KSh {money(total)}</b>
+            </div>
+            <div className="gb-summary-note">
+              <Users size={14} />
+              <span>Payment is settled at the property — this sends a request to our team.</span>
+            </div>
+          </aside>
         </div>
       </div>
 
       {/* Sticky checkout bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4 z-40" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
-        <div className="max-w-2xl mx-auto flex items-center gap-4">
+      <div className="gb-checkout-bar">
+        <div className="gb-checkout-inner">
           <div>
-            <p className="text-xs text-gray-500">{totalRooms} room{totalRooms !== 1 ? 's' : ''}</p>
-            <p className="font-black text-gray-900">KSh {total.toLocaleString()}</p>
+            <p className="gb-checkout-count">{totalRooms} room{totalRooms !== 1 ? 's' : ''}</p>
+            <p className="gb-checkout-total">KSh {money(total)}</p>
           </div>
-          <button onClick={handleCheckout}
-            className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90" style={{ background: '#16a34a' }}>
-            Proceed to Checkout →
+          <button type="button" className="gb-checkout-cta" onClick={handleCheckout}>
+            Proceed to checkout <ArrowRight size={15} />
           </button>
         </div>
       </div>
-    </div>
+
+      {footer}
+    </main>
   );
 }

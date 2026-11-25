@@ -33,7 +33,7 @@ const roomData: Room[] = [
   { name: 'Omuga', type: 'Studio', poolside: true, url: '/stay/rooms/omuga-e91b75bb-bb87-4484-89a8-e8c27cc44f48', photos: ['1780412159192_wgtzgsiwgb.jpg', '1780412140127_35bu8succt9.jpg', '1780412143452_xka47v6q3j9.jpg', '1780412145570_v5b2g8hsfz.jpg', '1780412148583_r71atobjxvd.jpg'] },
   { name: 'R12', type: 'Executive Studio', poolside: true, url: '/stay/rooms/r12-3196cf98-1998-43ac-aee5-3ac24f94a9b6', photos: ['1783522157936_2m20evy6ekf.jpg', '1783522162036_ydf35ckf1o.jpg', '1783522165484_lax7owd0lnd.jpg', '1783522169294_92om9jgu.jpg', '1783522172464_uozbg0567rn.jpg'] },
   { name: 'R17', type: 'One Bedroom', poolside: true, url: '/stay/rooms/r17-ddd1d002-a2b3-447c-bdf8-dc5bbc94d58c', photos: ['1795254048505_62tdz1vsn3x.jpeg', '1795254040404_fow7tmctkt.jpeg', '1795254041730_q1gm5bfwiu.jpeg', '1795254042877_s60v4136ky7.jpeg', '1795254043498_gnvmujjbgx.jpeg'] },
-  { name: 'Cottage 16', type: 'One Bedroom', poolside: false, url: '/stay/rooms/cottage-16-7b28aa8b-3b6e-4020-a334-0ee7cfeebbd8', photos: ['1780390343004_ueayq35qjzh.jpg', '1780390344201_4zgr333eqdc.jpg', '1780390345428_3qijk12s2t.jpg', '1780390346200_uolbmv2xy5a.jpg', '1780390346946_mpirmc9a0fd.jpg'] },
+  { name: 'Cottage 16', type: 'Cottage', poolside: false, url: '/stay/rooms/cottage-16-7b28aa8b-3b6e-4020-a334-0ee7cfeebbd8', photos: ['1780390343004_ueayq35qjzh.jpg', '1780390344201_4zgr333eqdc.jpg', '1780390345428_3qijk12s2t.jpg', '1780390346200_uolbmv2xy5a.jpg', '1780390346946_mpirmc9a0fd.jpg'] },
   { name: 'Robert Ouko', type: 'One Bedroom', poolside: false, url: '/stay/rooms/robert-ouko-d2b8e034-1f82-44d0-a5c2-feeaa85867d2', photos: ['1794469193271_oa32nbas11.jpeg', '1794469186365_15385x9ranl.jpeg', '1794469187732_2xpu3ys8otu.jpeg', '1794469188742_kep205a5yf.jpeg', '1794469189732_gfvq4ao728.jpeg'] },
   { name: 'R23', type: 'One Bedroom', poolside: true, url: '/stay/rooms/r23-0490368d-7bde-4a1c-bb36-1bc3563cea66', photos: ['1795252956355_0gttsfeybym.jpeg', '1795252957659_65xhp0zebuy.jpeg', '1795252958907_4l4j020ahio.jpeg', '1795252959526_hlr247f0txc.jpeg', '1795252960204_7u53h4k3gq9.jpeg'] },
   { name: 'Front 16', type: 'Four Bedroom', poolside: false, url: '/stay/rooms/front-16-e7edfd4a-772c-4d6e-af47-2e7b6b5a83c5', photos: ['1780482735495_mawfy5gw49.jpg', '1780482737876_ea9od89hccg.jpg', '1780482739440_f7euzr5dd7g.jpg', '1780482740258_5szi7kiztw7.jpg', '1780482742943_cvnlgnjauxe.jpg'] },
@@ -69,7 +69,7 @@ export default function StayHomeClient() {
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
   const [roomCount, setRoomCount] = useState(1);
-  const [filter, setFilter] = useState<'all' | 'poolside'>('all');
+  const [filter, setFilter] = useState<'all' | 'under3k' | 'cottage' | 'poolside'>('all');
   const [, startTransition] = useTransition();
   const router = useRouter();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -112,7 +112,18 @@ export default function StayHomeClient() {
     setAdults(sel.adults); setChildren(sel.children); setRoomCount(sel.rooms);
     startTransition(() => router.push(buildRoomsPath(sel)));
   };
-  const shownRooms = filter === 'poolside' ? roomData.filter((room) => room.poolside) : roomData;
+  const shownRooms =
+    filter === 'poolside' ? roomData.filter((room) => room.poolside)
+    : filter === 'under3k' ? roomData.filter((room) => room.type === 'Budget room')
+    : filter === 'cottage' ? roomData.filter((room) => room.type === 'Cottage')
+    : roomData;
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  const countText = {
+    all: `${roomData.length} spaces · studios to suites`,
+    under3k: `${roomData.filter((room) => room.type === 'Budget room').length} ${plural(roomData.filter((room) => room.type === 'Budget room').length, 'budget space', 'budget spaces')} · under KSh 3,000`,
+    cottage: `${roomData.filter((room) => room.type === 'Cottage').length} ${plural(roomData.filter((room) => room.type === 'Cottage').length, 'space', 'spaces')} · extra privacy`,
+    poolside: `${roomData.filter((room) => room.poolside).length} poolside properties`,
+  }[filter];
 
   const amenities = [
     { icon: Sparkles, title: 'Swimming pool', note: 'Relax in our pristine outdoor pool' },
@@ -184,9 +195,11 @@ export default function StayHomeClient() {
           <p>From easy-going studios to roomy suites, all set within one exclusive compound.</p>
         </div>
         <div className="room-controls">
-          <span className="room-count" data-testid="text-room-count">{filter === 'poolside' ? '9 poolside properties' : '17 spaces · studios to suites'}</span>
+          <span className="room-count" data-testid="text-room-count">{countText}</span>
           <div className="room-filters" role="group" aria-label="Filter room listings">
-            <button type="button" className={`filter-button ${filter === 'all' ? 'active' : ''}`} aria-pressed={filter === 'all'} onClick={() => { setFilter('all'); goToRooms(); }} data-testid="button-filter-all">All spaces</button>
+            <button type="button" className={`filter-button ${filter === 'all' ? 'active' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')} data-testid="button-filter-all">All</button>
+            <button type="button" className={`filter-button ${filter === 'under3k' ? 'active' : ''}`} aria-pressed={filter === 'under3k'} onClick={() => setFilter('under3k')} data-testid="button-filter-under3k">Under 3k</button>
+            <button type="button" className={`filter-button ${filter === 'cottage' ? 'active' : ''}`} aria-pressed={filter === 'cottage'} onClick={() => setFilter('cottage')} data-testid="button-filter-cottage">Extra privacy</button>
             <button type="button" className={`filter-button ${filter === 'poolside' ? 'active' : ''}`} aria-pressed={filter === 'poolside'} onClick={() => setFilter('poolside')} data-testid="button-filter-poolside">Poolside · 9</button>
           </div>
         </div>

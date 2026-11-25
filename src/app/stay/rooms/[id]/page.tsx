@@ -8,6 +8,8 @@ import { getSellOptions } from '@/lib/sellOptions';
 import RoomPreview, { type PreviewPhoto } from '@/components/stay/room-detail/RoomPreview';
 import './room-detail.css';
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://kogelosuites.com';
+
 export const revalidate = 3600;
 
 export async function generateStaticParams() {
@@ -100,8 +102,46 @@ export default async function RoomDetailPage({
   const locationLine = [...lineParts, 'Kenya'].join(', ');
   const city = universalSettings.defaultPropertyCity || 'Kisumu';
 
+  const roomJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'HotelRoom',
+    name: property.name,
+    description: property.description || 'A comfortable room at Kogelo Suites, Kogelo, Kenya.',
+    url: `${BASE_URL}/stay/rooms/${slug}`,
+    image: photoUrls.slice(0, 3),
+    occupancy: { '@type': 'QuantitativeValue', maxValue: property.max_guests ?? 2 },
+    bed: { '@type': 'BedDetails', numberOfBeds: property.bedrooms ?? 1 },
+    containedInPlace: { '@type': 'LodgingBusiness', name: 'Kogelo Suites', url: `${BASE_URL}/stay` },
+    offers: property.nightly_rate
+      ? {
+          '@type': 'Offer',
+          price: property.nightly_rate,
+          priceCurrency: 'KES',
+          availability: 'https://schema.org/InStock',
+        }
+      : undefined,
+  };
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home',  item: `${BASE_URL}/stay` },
+      { '@type': 'ListItem', position: 2, name: 'Rooms', item: `${BASE_URL}/stay/rooms` },
+      { '@type': 'ListItem', position: 3, name: property.name ?? 'Room' },
+    ],
+  };
+
   return (
-    <RoomPreview
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(roomJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <RoomPreview
       property={{
         id,
         slug: property.slug,
@@ -126,6 +166,7 @@ export default async function RoomDetailPage({
       initialCheckIn={initialCheckIn}
       initialCheckOut={initialCheckOut}
       initialGuests={initialGuests}
-    />
+      />
+    </>
   );
 }

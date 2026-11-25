@@ -122,6 +122,10 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
+
+  useEffect(() => {
     fetch('/api/stay/brand')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.logo_url) setBrandLogo(d.logo_url); })

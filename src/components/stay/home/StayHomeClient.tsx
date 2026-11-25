@@ -52,7 +52,6 @@ function RoomCard({ room, index }: { room: Room; index: number }) {
       <div className="room-body">
         <span className="room-type">{room.type}</span>
         <h3>{room.name}</h3>
-        <p className="room-detail">View room details, features and current options on the live Kogelo Suites site.</p>
         <div className="room-card-foot">
           <span>Room details & live rates</span>
           <a className="room-link" href={room.url} target="_blank" rel="noreferrer" aria-label={`See details for ${room.name}`}>

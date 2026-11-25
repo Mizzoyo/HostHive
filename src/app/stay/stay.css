@@ -516,6 +516,7 @@ html {
   .rooms-carousel {
     margin: 0 -19px;
     padding: 8px 19px 14px;
+    scroll-padding: 0 19px;
   }
 
   .rooms-carousel .room-card {
@@ -2272,7 +2273,7 @@ html {
 /* Stepper */
 .gb-stepper {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 10px;
   margin-bottom: 26px;
 }
@@ -2283,8 +2284,9 @@ html {
 
 .gb-step {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
 }
 
 .gb-step-num {
@@ -2332,6 +2334,7 @@ html {
   flex: 1;
   min-width: 20px;
   height: 1.5px;
+  margin-bottom: 14px;
   background: #ddd6c7;
 }
 

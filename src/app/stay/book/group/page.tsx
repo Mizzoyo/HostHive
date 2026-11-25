@@ -458,8 +458,8 @@ function GroupBookingContent() {
                   className={`gb-step ${number === step ? 'active' : ''} ${done ? 'done' : ''}`}
                   aria-current={number === step ? 'step' : undefined}
                 >
-                  <span className="gb-step-num">{done ? <Check size={14} /> : number}</span>
                   <span className="gb-step-label">{label}</span>
+                  <span className="gb-step-num">{done ? <Check size={14} /> : number}</span>
                 </div>
                 {number < steps.length && <span className="gb-step-line" />}
               </div>

@@ -14,7 +14,6 @@ import {
   Droplets,
   House,
   MapPin,
-  Minus,
   Plus,
   ShieldCheck,
   Users,
@@ -48,7 +47,6 @@ type Guest = {
 
 type CartItem = { property: { id: string; name: string }; qty: number };
 
-const MAX_ROOM_QTY = 8;
 const MAX_ADULTS = 30;
 const MAX_CHILDREN = 20;
 
@@ -112,6 +110,8 @@ function GroupBookingContent() {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const knownNames = useRef<Record<string, string>>({});
+  const panelRef = useRef<HTMLElement | null>(null);
+  const prevStep = useRef(step);
 
   const [guest, setGuest] = useState<Guest>({
     firstName: '',
@@ -142,7 +142,7 @@ function GroupBookingContent() {
             const seeded: Record<string, number> = {};
             items.forEach(item => {
               if (item.property?.id && item.qty > 0) {
-                seeded[item.property.id] = Math.min(MAX_ROOM_QTY, item.qty);
+                seeded[item.property.id] = 1;
                 knownNames.current[item.property.id] = item.property.name;
               }
             });
@@ -179,6 +179,13 @@ function GroupBookingContent() {
     return () => ctrl.abort();
   }, [checkIn, checkOut, reloadNonce]);
 
+  /* Bring the panel's top into view on every step change (not on first load) */
+  useEffect(() => {
+    if (prevStep.current === step) return;
+    prevStep.current = step;
+    panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [step]);
+
   /* ── Drop selections whose rooms are no longer available ── */
   useEffect(() => {
     if (loadingRooms || roomsError) return;
@@ -214,18 +221,13 @@ function GroupBookingContent() {
     0,
   );
   const capacityShortfall = Math.max(0, partySize - totalCapacity);
-  const maxSelectableCapacity = properties.reduce(
-    (s, p) => s + (p.max_guests ?? 2) * MAX_ROOM_QTY,
-    0,
-  );
+  // One of each physical room can be selected — capacity caps at one unit per room
+  const maxSelectableCapacity = properties.reduce((s, p) => s + (p.max_guests ?? 2), 0);
   const capacityImpossible = capacityShortfall > 0 && partySize > maxSelectableCapacity;
 
   /* ── Helpers ── */
-  function setRoomQuantity(roomId: string, change: number) {
-    setQuantities(current => ({
-      ...current,
-      [roomId]: Math.min(MAX_ROOM_QTY, Math.max(0, (current[roomId] || 0) + change)),
-    }));
+  function toggleRoom(roomId: string) {
+    setQuantities(current => ({ ...current, [roomId]: current[roomId] ? 0 : 1 }));
     setError('');
     setNote('');
   }
@@ -468,7 +470,7 @@ function GroupBookingContent() {
         </nav>
 
         <div className="gb-grid">
-          <section className="gb-panel" key={step}>
+          <section className="gb-panel" key={step} ref={panelRef}>
             {/* ── Step 1: dates & group ── */}
             {step === 1 && (
               <>
@@ -575,33 +577,18 @@ function GroupBookingContent() {
                           <div className="gb-room-select">
                             <strong>KSh {money(Number(room.nightly_rate ?? 0))}</strong>
                             <small>/ room / night</small>
-                            <div
-                              className="gb-qty"
-                              role="group"
-                              aria-label={`${room.name} quantity selector`}
+                            <button
+                              type="button"
+                              className={`cart-add ${isSelected ? 'added' : ''}`}
+                              aria-pressed={isSelected}
+                              aria-label={isSelected ? `Remove ${room.name} from your group` : `Add ${room.name} to your group`}
+                              data-testid={`button-toggle-${room.id}`}
+                              onClick={() => toggleRoom(room.id)}
                             >
-                              <button
-                                type="button"
-                                aria-label={`Remove one ${room.name}`}
-                                data-testid={`button-remove-${room.id}`}
-                                disabled={quantity === 0}
-                                onClick={() => setRoomQuantity(room.id, -1)}
-                              ><Minus size={13} /></button>
-                              <span aria-live="polite" data-testid={`text-quantity-${room.id}`}>
-                                {quantity}
-                              </span>
-                              <button
-                                type="button"
-                                aria-label={`Add one ${room.name}`}
-                                data-testid={`button-add-${room.id}`}
-                                disabled={quantity >= MAX_ROOM_QTY}
-                                onClick={() => setRoomQuantity(room.id, 1)}
-                              ><Plus size={13} /></button>
-                            </div>
+                              {isSelected ? <><Check size={13} /> Added</> : <><Plus size={13} /> Add</>}
+                            </button>
                             <span className="gb-select-mark">
-                              {isSelected
-                                ? <><CheckCircle2 size={14} /> {quantity} selected</>
-                                : 'Add a room'}
+                              {isSelected ? <><CheckCircle2 size={14} /> In your group</> : 'Add a room'}
                             </span>
                           </div>
                         </article>

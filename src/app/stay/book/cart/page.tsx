@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BedDouble, CalendarDays, Clock3, Droplets, House, MapPin, Minus, Plus, ShoppingCart, Trash2, Users } from 'lucide-react';
+import { ArrowRight, BedDouble, CalendarDays, Clock3, Droplets, House, MapPin, ShoppingCart, Trash2, Users } from 'lucide-react';
 import { StayFooter, StayTopbar } from '@/components/stay/shared/StayChrome';
 import { roomTypeLabel } from '@/lib/stay/roomType';
 import '../../stay.css';
@@ -20,8 +20,6 @@ type CartProperty = {
 };
 type CartItem = { property: CartProperty; qty: number };
 type CartMeta = { checkIn: string; checkOut: string; guests: number };
-
-const MAX_ROOM_QTY = 8;
 
 function formatDate(value: string) {
   if (!value) return '—';
@@ -60,10 +58,7 @@ export default function CartPage() {
     try { sessionStorage.setItem('roomCart', JSON.stringify(next)); } catch { /* ignore */ }
   };
 
-  const setQty = (id: string, qty: number) => {
-    if (qty <= 0) { save(cart.filter(c => c.property.id !== id)); return; }
-    save(cart.map(c => c.property.id === id ? { ...c, qty: Math.min(MAX_ROOM_QTY, qty) } : c));
-  };
+  const removeFromCart = (id: string) => save(cart.filter(c => c.property.id !== id));
 
   const nights = meta?.checkIn && meta?.checkOut && meta.checkOut > meta.checkIn
     ? Math.round((new Date(`${meta.checkOut}T12:00:00`).getTime() - new Date(`${meta.checkIn}T12:00:00`).getTime()) / 86400000)
@@ -144,7 +139,7 @@ export default function CartPage() {
         <div className="gb-intro">
           <div className="eyebrow">Your selection</div>
           <h1>Your <em>rooms.</em></h1>
-          <p>Adjust quantities if you need to, then send the whole group&apos;s request in one go.</p>
+          <p>Review your rooms, then send the whole group&apos;s request in one go.</p>
         </div>
 
         <div className="gb-grid">
@@ -168,28 +163,13 @@ export default function CartPage() {
                       <span><Droplets size={13} /> {p.bathrooms ?? 1}</span>
                       <span><Users size={13} /> Sleeps {p.max_guests ?? 2}</span>
                     </div>
-                    <button type="button" className="gb-remove" onClick={() => setQty(p.id, 0)}>
+                    <button type="button" className="gb-remove" onClick={() => removeFromCart(p.id)}>
                       <Trash2 size={13} /> Remove
                     </button>
                   </div>
                   <div className="gb-room-select">
                     <strong>KSh {money(Number(p.nightly_rate || 0) * (nights || 1) * qty)}</strong>
                     <small>KSh {money(Number(p.nightly_rate || 0))} / night{nights > 1 ? ` × ${nights}` : ''}</small>
-                    <div className="gb-qty" role="group" aria-label={`${p.name} quantity selector`}>
-                      <button
-                        type="button"
-                        aria-label={`Remove one ${p.name}`}
-                        disabled={qty <= 0}
-                        onClick={() => setQty(p.id, qty - 1)}
-                      ><Minus size={13} /></button>
-                      <span aria-live="polite">{qty}</span>
-                      <button
-                        type="button"
-                        aria-label={`Add one ${p.name}`}
-                        disabled={qty >= MAX_ROOM_QTY}
-                        onClick={() => setQty(p.id, qty + 1)}
-                      ><Plus size={13} /></button>
-                    </div>
                   </div>
                 </article>
               ))}
@@ -215,7 +195,7 @@ export default function CartPage() {
             <div className="gb-summary-rooms">
               {cart.map(({ property: p, qty }) => (
                 <div className="gb-summary-room" key={p.id}>
-                  <span>{p.name} <small>× {qty}</small></span>
+                  <span>{p.name}</span>
                   <b>KSh {money(Number(p.nightly_rate || 0) * (nights || 1) * qty)}</b>
                   <small>KSh {money(Number(p.nightly_rate || 0))} / room / night</small>
                 </div>

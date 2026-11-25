@@ -85,13 +85,20 @@ export default async function RoomDetailPage({
     amenitiesResult.data?.map((a: { name: string }) => a.name) ?? [],
   );
 
-  const locationParts = [property.location, property.city, property.county]
-    .filter((part): part is string => Boolean(part));
-  const uniqueParts = locationParts.filter((part, index) => locationParts.indexOf(part) === index);
-  const locationLine = [...uniqueParts, 'Kenya'].join(', ');
-  const areaLabel = [property.location ?? property.county, property.city]
-    .filter(Boolean)
-    .join(', ') || property.city || 'Kisumu';
+  // All rooms share one compound — location comes from the host's universal
+  // settings (Settings → Universal Location Settings), not per-property rows.
+  const dedupe = (parts: string[]) => parts.filter((v, i) => parts.indexOf(v) === i);
+  const areaParts = dedupe(
+    [universalSettings.defaultPropertyLocation, universalSettings.defaultPropertyCity]
+      .filter((part): part is string => Boolean(part)),
+  );
+  const lineParts = dedupe(
+    [universalSettings.defaultPropertyLocation, universalSettings.defaultPropertyCity, universalSettings.defaultPropertyCounty]
+      .filter((part): part is string => Boolean(part)),
+  );
+  const areaLabel = areaParts.join(', ') || 'Kisumu';
+  const locationLine = [...lineParts, 'Kenya'].join(', ');
+  const city = universalSettings.defaultPropertyCity || 'Kisumu';
 
   return (
     <RoomPreview
@@ -106,7 +113,7 @@ export default async function RoomDetailPage({
         bathrooms: Number(property.bathrooms ?? 1) || 1,
         areaLabel,
         locationLine,
-        city: property.city ?? 'Kisumu',
+        city,
         description: property.description ?? '',
         checkInTime: property.check_in_time ?? '14:00',
         checkOutTime: property.check_out_time ?? '11:00',

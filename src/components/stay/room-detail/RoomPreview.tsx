@@ -332,7 +332,7 @@ export default function RoomPreview({
 
           <div className="room-title-row" id="room-details">
             <div>
-              <p className="eyebrow">A private compound in {property.city || 'Kisumu'}</p>
+              <p className="eyebrow">A private compound in {property.areaLabel}</p>
               <h1>{property.name} <em>{property.typeLabel}</em></h1>
               <p className="room-subtitle">A quiet little place to land, in the heart of {property.areaLabel}.</p>
             </div>

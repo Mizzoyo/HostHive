@@ -221,11 +221,22 @@ export default function SettingsPage() {
       setProfPhone(meta.phone ?? '');
       setProfEmail(data.user.email ?? '');
       // Load KRA + tax config + universal rules from profiles
-      const { data: profile } = await supabase
+      // favicon_url comes from migration 30 — retry without it if the column isn't there yet,
+      // otherwise the whole query fails and the form silently shows defaults.
+      const profileCols = 'kra_pin, tax_lines, logo_url, default_house_rules, default_check_in_time, default_check_out_time, default_check_in_method, default_check_in_instructions, default_caretaker_name, default_caretaker_phone, default_cancellation_policy, default_additional_rules, default_property_location, default_property_city, default_property_county, business_area, business_address';
+      let res = await supabase
         .from('profiles')
-        .select('kra_pin, tax_lines, logo_url, favicon_url, default_house_rules, default_check_in_time, default_check_out_time, default_check_in_method, default_check_in_instructions, default_caretaker_name, default_caretaker_phone, default_cancellation_policy, default_additional_rules, default_property_location, default_property_city, default_property_county, business_area, business_address')
+        .select(`${profileCols}, favicon_url`)
         .eq('id', data.user.id)
         .maybeSingle();
+      if (res.error) {
+        res = await supabase
+          .from('profiles')
+          .select(profileCols)
+          .eq('id', data.user.id)
+          .maybeSingle();
+      }
+      const profile = res.data;
       if (profile) {
         setKraPin(profile.kra_pin ?? '');
         const tl = Array.isArray(profile.tax_lines) ? profile.tax_lines : [];

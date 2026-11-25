@@ -2002,12 +2002,16 @@ html {
 
   .room-filters {
     width: 100%;
-    overflow: auto;
+    overflow: visible;
     padding: 2px 0 5px;
   }
 
   .filter-button {
-    white-space: nowrap;
+    flex: 1;
+    white-space: normal;
+    text-align: center;
+    padding: 8px 4px;
+    font-size: 10px;
   }
 
   .rooms-grid {

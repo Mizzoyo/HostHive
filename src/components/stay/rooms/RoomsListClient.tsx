@@ -4,14 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowRight, ArrowUpDown, ArrowUpRight, BedDouble, CalendarDays, Check, ChevronDown, Droplets, Heart, Map, MapPin,
-  Plus, Search, ShoppingCart, SlidersHorizontal, Users, X,
+  ArrowRight, ArrowUpDown, ArrowUpRight, CalendarDays, Check, ChevronDown, Heart, Map, MapPin,
+  Plus, Search, ShoppingCart, SlidersHorizontal, X,
 } from 'lucide-react';
 import SearchWidget, { SearchModal } from '@/components/stay/SearchWidget';
 import { createClient } from '@/lib/supabase/client';
 import type { StayProperty, UniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { toRoomSlug } from '@/lib/stay/roomSlug';
-import { getSellOptions } from '@/lib/sellOptions';
 import { compareProperties } from '@/lib/propertySort';
 import { normalizeType } from '@/lib/stay/roomType';
 import { StayFooter, StayGallery, StayTopbar, buildRoomsPath, type StaySelection } from '@/components/stay/shared/StayChrome';
@@ -315,52 +314,25 @@ export default function RoomsListClient({
                 {filtered.map((p, i) => {
                   const href = `/stay/rooms/${toRoomSlug(p.slug, p.name, p.id)}${applied.checkIn ? `?checkIn=${applied.checkIn}&checkOut=${applied.checkOut}&guests=${applied.guests}` : ''}`;
                   const inCart = cart.some(c => c.property.id === p.id);
-                  const type = normalizeType(p.type || '');
-                  const smaller = getSellOptions(p).filter(o => !o.isFull);
-                  const cheapest = smaller.length ? smaller.reduce((m, o) => (o.nightly_rate < m.nightly_rate ? o : m)) : null;
-                  const hasBreakfast = Number(p.breakfast_rate) > 0;
                   return (
                     <article key={p.id} className={`room-card result-card ${isMultiMode && inCart ? 'in-cart' : ''}`}>
-                      <StayGallery photos={p.photos ?? []} alt={p.name} eager={i < 3} tag={type || undefined} testId={i}>
+                      <StayGallery photos={p.photos ?? []} alt={p.name} eager={i < 3} testId={i}>
                         <button type="button" className={`wish-button ${wishlistIds.has(p.id) ? 'is-saved' : ''}`} onClick={e => toggleWishlist(e, p.id)}
                           aria-label={wishlistIds.has(p.id) ? `Remove ${p.name} from wishlist` : `Save ${p.name} to wishlist`}>
                           <Heart size={16} fill={wishlistIds.has(p.id) ? 'currentColor' : 'none'} />
                         </button>
-                        {nights > 0 && <span className="room-total">KSh {(Number(p.nightly_rate || 0) * nights).toLocaleString()} total</span>}
-                      </StayGallery>
-                      <div className="room-body">
-                        <Link href={href} className="result-link">
-                          {type && <span className="room-type">{type}</span>}
-                          <h3>{p.name}</h3>
-                          <div className="room-stats">
-                            <span><BedDouble size={13} /> {p.bedrooms ?? 1}</span>
-                            <span><Droplets size={13} /> {p.bathrooms ?? 1}</span>
-                            <span><Users size={13} /> {p.max_guests ?? 2}</span>
-                          </div>
-                          {(p.amenities?.length > 0 || hasBreakfast) && (
-                            <div className="room-chips">
-                              {hasBreakfast && <span className="chip chip-bb">B&amp;B available</span>}
-                              {p.amenities?.slice(0, hasBreakfast ? 2 : 3).map((a: string) => <span key={a} className="chip">{a}</span>)}
-                            </div>
-                          )}
-                        </Link>
-                        <div className="room-card-foot">
-                          <div className="result-price">
-                            <strong>KSh {Number(p.nightly_rate || 0).toLocaleString()}</strong> <small>/ night</small>
-                            {cheapest && (
-                              <span className="sell-note">Also as {smaller.map(o => `${o.bedrooms} BR`).join(' / ')} from KSh {cheapest.nightly_rate.toLocaleString()}</span>
-                            )}
-                          </div>
+                        <div className="room-overlay">
+                          <Link href={href} className="room-overlay-name">{p.name}</Link>
                           {isMultiMode ? (
                             <button type="button" className={`cart-add ${inCart ? 'added' : ''}`}
                               onClick={() => updateCart(prev => inCart ? prev.filter(c => c.property.id !== p.id) : [...prev, { property: p, qty: 1 }])}>
                               {inCart ? <><Check size={13} /> Added</> : <><Plus size={13} /> Add</>}
                             </button>
                           ) : (
-                            <Link href={href} className="room-link">View room <ArrowRight size={14} /></Link>
+                            <Link href={href} className="overlay-cta">View room <ArrowRight size={14} /></Link>
                           )}
                         </div>
-                      </div>
+                      </StayGallery>
                     </article>
                   );
                 })}

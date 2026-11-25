@@ -275,7 +275,13 @@ export default function RoomPreview({
   }
 
   const photoLabel = `${displayPhotos.length} photo${displayPhotos.length === 1 ? '' : 's'}`;
-  const bedroomLabel = property.bedrooms === 0 ? 'Studio' : `${property.bedrooms} bedroom${property.bedrooms === 1 ? '' : 's'}`;
+  // Types that describe a layout rather than a bedroom count (Studio, Executive
+  // Studio, Bedsitter, Budget room, Cottage) shouldn't claim "1 bedroom".
+  const isStudioType = !/bedroom/i.test(property.typeLabel) || property.bedrooms === 0;
+  const bedroomLabel = isStudioType
+    ? property.typeLabel
+    : `${property.bedrooms} bedroom${property.bedrooms === 1 ? '' : 's'}`;
+  const bedroomSub = isStudioType ? 'Open-plan layout' : property.typeLabel;
   const bathroomLabel = `${property.bathrooms} bathroom${property.bathrooms === 1 ? '' : 's'}`;
   const rulesLine = [
     property.houseRules.noSmoking && 'no smoking',
@@ -363,7 +369,7 @@ export default function RoomPreview({
                 </div>
                 <div>
                   <span className="fact-icon"><BedDouble size={17} /></span>
-                  <span><strong>{bedroomLabel}</strong><small>{property.typeLabel} layout</small></span>
+                  <span><strong>{bedroomLabel}</strong><small>{bedroomSub}</small></span>
                 </div>
                 <div>
                   <span className="fact-icon"><Bath size={17} /></span>

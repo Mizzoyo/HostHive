@@ -967,13 +967,13 @@
     scrollbar-width: none;
   }
   .room-shell .photo-grid::-webkit-scrollbar { display: none; }
-  .room-shell .photo-grid > button {
+  .room-shell .photo-grid > button:not(.all-photos-button) {
     flex: 0 0 86%;
     height: 240px;
     scroll-snap-align: start;
   }
   .room-shell .photo-grid .photo-main { flex-basis: 92%; }
-  .room-shell .all-photos-button { display: inline-flex; }
+  .room-shell .all-photos-button { display: inline-flex; height: auto; width: auto; }
   .room-shell .photo-count { display: none; }
   .room-shell .room-facts { grid-template-columns: 1fr 1fr; }
   .room-shell .amenity-grid,

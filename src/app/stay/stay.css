@@ -442,6 +442,91 @@ html {
   gap: 18px;
 }
 
+/* Rooms carousel — stay home page */
+.rooms-carousel-wrap {
+  position: relative;
+}
+
+.rooms-carousel {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 8px 4px 14px;
+}
+
+.rooms-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.rooms-carousel .room-card {
+  flex: 0 0 340px;
+  scroll-snap-align: start;
+}
+
+.rooms-carousel .empty-rooms {
+  flex: 1;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #294333;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(30, 44, 34, 0.22);
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.carousel-arrow:hover:not(:disabled) {
+  background: #205a3d;
+  color: #fff8eb;
+}
+
+.carousel-arrow:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.carousel-arrow.prev {
+  left: -10px;
+}
+
+.carousel-arrow.next {
+  right: -10px;
+}
+
+@media (max-width: 1023px) {
+  .rooms-carousel .room-card {
+    flex-basis: 300px;
+  }
+}
+
+@media (max-width: 620px) {
+  .rooms-carousel {
+    margin: 0 -19px;
+    padding: 8px 19px 14px;
+  }
+
+  .rooms-carousel .room-card {
+    flex: 0 0 min(78vw, 290px);
+  }
+
+  .carousel-arrow {
+    display: none;
+  }
+}
+
 .room-card {
   background: #faf7ef;
   border: 1px solid #e5dfd2;

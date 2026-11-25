@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowDown, ArrowRight, ArrowUpRight, CalendarDays,
+  ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight,
   CircleParking, Clock3, Coffee, Flower2, House, LockKeyhole,
   ShieldCheck, Sparkles, Utensils, Wifi,
 } from 'lucide-react';
@@ -73,6 +73,23 @@ export default function StayHomeClient() {
   const [filter, setFilter] = useState<'all' | 'poolside'>('all');
   const [, startTransition] = useTransition();
   const router = useRouter();
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(true);
+
+  const updateArrows = () => {
+    const el = trackRef.current;
+    if (!el) return;
+    setCanPrev(el.scrollLeft > 4);
+    setCanNext(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  };
+
+  const scrollRooms = (dir: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const card = el.querySelector<HTMLElement>('.room-card');
+    el.scrollBy({ left: dir * (card ? card.offsetWidth + 18 : el.clientWidth * 0.8), behavior: 'smooth' });
+  };
 
   const selection = { checkIn, checkOut, adults, children, rooms: roomCount };
   const roomsPath = buildRoomsPath(selection);
@@ -81,6 +98,14 @@ export default function StayHomeClient() {
   useEffect(() => {
     router.prefetch(roomsPath);
   }, [router, roomsPath]);
+
+  useEffect(() => {
+    // Deferred — calling setState synchronously in an effect body is not allowed
+    Promise.resolve().then(() => {
+      trackRef.current?.scrollTo({ left: 0 });
+      updateArrows();
+    });
+  }, [filter]);
 
   const goToRooms = () => startTransition(() => router.push(roomsPath));
   const handleSearch = (sel: StaySelection) => {
@@ -166,9 +191,13 @@ export default function StayHomeClient() {
             <button type="button" className={`filter-button ${filter === 'poolside' ? 'active' : ''}`} aria-pressed={filter === 'poolside'} onClick={() => setFilter('poolside')} data-testid="button-filter-poolside">Poolside · 9</button>
           </div>
         </div>
-        <div className="rooms-grid">
-          {shownRooms.map((room, i) => <RoomCard key={room.name} room={room} index={i} />)}
-          {shownRooms.length === 0 && <div className="empty-rooms"><strong>No spaces found</strong>Try viewing all spaces.</div>}
+        <div className="rooms-carousel-wrap">
+          <div className="rooms-carousel" ref={trackRef} onScroll={updateArrows}>
+            {shownRooms.map((room, i) => <RoomCard key={room.name} room={room} index={i} />)}
+            {shownRooms.length === 0 && <div className="empty-rooms"><strong>No spaces found</strong>Try viewing all spaces.</div>}
+          </div>
+          <button type="button" className="carousel-arrow prev" disabled={!canPrev} aria-label="Previous rooms" onClick={() => scrollRooms(-1)}><ChevronLeft size={18} /></button>
+          <button type="button" className="carousel-arrow next" disabled={!canNext} aria-label="More rooms" onClick={() => scrollRooms(1)}><ChevronRight size={18} /></button>
         </div>
         <div className="hero-links" style={{ justifyContent: 'center', marginTop: 30 }}>
           <button type="button" className="button-primary" onClick={goToRooms}>Browse rooms <ArrowRight size={16} /></button>

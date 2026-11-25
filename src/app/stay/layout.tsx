@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { DM_Sans, Playfair_Display } from 'next/font/google';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 
@@ -88,6 +88,8 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   const showBottomNav  = !isCheckoutPage && !isBookFlowPage && !isRoomsPage && !isPropertyPage;
   const router    = useRouter();
   const [menuOpen,   setMenuOpen]   = useState(false);
+  const [navHidden,  setNavHidden]  = useState(false);
+  const lastY = useRef(0);
   // Tracks the href being navigated to; skeleton hides once pathname catches up
   const [loadingHref, setLoadingHref] = useState<string | null>(null);
   const [loggedIn,   setLoggedIn]   = useState(false);
@@ -124,6 +126,16 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [pathname]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setNavHidden(y > lastY.current && y > 80);
+      lastY.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     fetch('/api/stay/brand')
@@ -338,7 +350,7 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
       )}
 
       {/* ── Mobile sticky bottom nav ── */}
-      {showBottomNav && <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-[#ded5c3] bg-[#fffdf8]" style={{ height: 'calc(3.5rem + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {showBottomNav && <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t border-[#ded5c3] bg-[#fffdf8]" style={{ height: 'calc(3.5rem + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)', transform: navHidden ? 'translateY(100%)' : 'translateY(0)', transition: 'transform 0.3s ease' }}>
         {NAV_LINKS.filter(l => {
           if (l.label === 'Rooms') return false;
           if (l.label === 'Trips' && !loggedIn) return false;

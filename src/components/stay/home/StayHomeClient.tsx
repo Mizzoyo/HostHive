@@ -199,8 +199,8 @@ export default function StayHomeClient() {
           <div className="room-filters" role="group" aria-label="Filter room listings">
             <button type="button" className={`filter-button ${filter === 'all' ? 'active' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')} data-testid="button-filter-all">All</button>
             <button type="button" className={`filter-button ${filter === 'under3k' ? 'active' : ''}`} aria-pressed={filter === 'under3k'} onClick={() => setFilter('under3k')} data-testid="button-filter-under3k">Under 3k</button>
-            <button type="button" className={`filter-button ${filter === 'cottage' ? 'active' : ''}`} aria-pressed={filter === 'cottage'} onClick={() => setFilter('cottage')} data-testid="button-filter-cottage">Extra privacy</button>
-            <button type="button" className={`filter-button ${filter === 'poolside' ? 'active' : ''}`} aria-pressed={filter === 'poolside'} onClick={() => setFilter('poolside')} data-testid="button-filter-poolside">Poolside · 9</button>
+            <button type="button" className={`filter-button ${filter === 'cottage' ? 'active' : ''}`} aria-pressed={filter === 'cottage'} onClick={() => setFilter('cottage')} data-testid="button-filter-cottage">Privacy</button>
+            <button type="button" className={`filter-button ${filter === 'poolside' ? 'active' : ''}`} aria-pressed={filter === 'poolside'} onClick={() => setFilter('poolside')} data-testid="button-filter-poolside">Poolside</button>
           </div>
         </div>
         <div className="rooms-carousel-wrap">

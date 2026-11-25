@@ -10,7 +10,7 @@ html {
     sans-serif;
   --app-font-serif: var(--font-playfair), 'Playfair Display', Georgia, serif;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow: clip;
   background: hsl(42 43% 96%);
   color: hsl(220 28% 17%);
   font-family: var(--app-font-sans);
@@ -43,6 +43,9 @@ html {
 }
 
 .stay-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   height: 78px;
   max-width: 1240px;
   margin: auto;
@@ -50,6 +53,9 @@ html {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: hsl(42 43% 96% / 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .stay-brand {
@@ -120,6 +126,13 @@ html {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Keep anchored sections clear of the sticky topbar */
+.booking-band,
+.rooms-section,
+.amenities-section {
+  scroll-margin-top: 90px;
 }
 
 .stay-hero {

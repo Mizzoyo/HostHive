@@ -57,6 +57,11 @@ function CheckoutContent() {
   const guests      = Number(params.get('guests') ?? 1);
   const rooms       = Number(params.get('rooms')  ?? 1);
   const sellAsParam = params.get('sellAs');
+  // Optional guest prefill carried over from the room booking flow
+  const paramName  = params.get('guestName')  ?? '';
+  const paramPhone = params.get('guestPhone') ?? '';
+  const paramEmail = params.get('guestEmail') ?? '';
+  const paramNote  = params.get('guestNote')  ?? '';
 
   const nights = checkIn && checkOut && checkOut > checkIn
     ? Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000) : 0;
@@ -67,10 +72,10 @@ function CheckoutContent() {
   // Nothing to fetch when there's no propertyId — start settled in that case
   const [propLoading,setPropLoading]= useState(() => Boolean(propertyId));
 
-  const [name,       setName]       = useState('');
-  const [phone,      setPhone]      = useState('');
-  const [email,      setEmail]      = useState('');
-  const [requests,   setRequests]   = useState('');
+  const [name,       setName]       = useState(paramName);
+  const [phone,      setPhone]      = useState(paramPhone);
+  const [email,      setEmail]      = useState(paramEmail);
+  const [requests,   setRequests]   = useState(paramNote);
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState('');
   const [success,    setSuccess]    = useState(false);
@@ -93,26 +98,27 @@ function CheckoutContent() {
           phone: data.user.phone ?? meta.phone ?? '',
         };
         setAuthUser(u);
-        // Prefill name/phone/email from metadata; fall back to most recent booking
-        if (u.name) setName(u.name);
-        if (u.phone) setPhone(u.phone);
-        if (u.email) setEmail(u.email);
-        if (!u.name || !u.phone || !u.email) {
+        // Prefill name/phone/email from metadata; fall back to most recent booking.
+        // Explicit guest params from the room booking flow take priority over both.
+        if (u.name && !paramName) setName(u.name);
+        if (u.phone && !paramPhone) setPhone(u.phone);
+        if (u.email && !paramEmail) setEmail(u.email);
+        if ((!u.name && !paramName) || (!u.phone && !paramPhone) || (!u.email && !paramEmail)) {
           try {
             const res = await fetch(`/api/stay/my-bookings?userId=${u.id}`);
             const d = await res.json();
             const prev = d.bookings?.[0];
             if (prev) {
-              if (!u.name && prev.guest_name)   setName(prev.guest_name);
-              if (!u.phone && prev.guest_phone) setPhone(prev.guest_phone);
-              if (!u.email && prev.guest_email) setEmail(prev.guest_email);
+              if (!u.name && !paramName && prev.guest_name)   setName(prev.guest_name);
+              if (!u.phone && !paramPhone && prev.guest_phone) setPhone(prev.guest_phone);
+              if (!u.email && !paramEmail && prev.guest_email) setEmail(prev.guest_email);
             }
           } catch { /* ignore */ }
         }
       }
       setAuthLoading(false);
     });
-  }, []);
+  }, [paramName, paramPhone, paramEmail]);
 
   useEffect(() => {
     if (!propertyId) return;

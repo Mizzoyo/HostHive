@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Home as HomeIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CardImageCarouselProps {
@@ -11,57 +11,12 @@ interface CardImageCarouselProps {
 
 export default function CardImageCarousel({ photos, alt = 'Room', height = 'h-48' }: CardImageCarouselProps) {
   const [current, setCurrent] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef<number>(0);
-  const touchStartY = useRef<number>(0);
-  const swiping = useRef(false);
-  const isHorizontal = useRef(false);
 
   const goTo = (idx: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setCurrent(Math.max(0, Math.min(photos.length - 1, idx)));
   };
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-    swiping.current = false;
-    isHorizontal.current = false;
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
-    const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
-    if (dx > 5 || dy > 5) {
-      isHorizontal.current = dx > dy;
-      if (isHorizontal.current) swiping.current = true;
-    }
-  };
-
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (!swiping.current) return;
-    const dx = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(dx) > 40) {
-      setCurrent(prev =>
-        dx > 0
-          ? Math.min(photos.length - 1, prev + 1)
-          : Math.max(0, prev - 1)
-      );
-    }
-    swiping.current = false;
-    isHorizontal.current = false;
-  };
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const handleTouchMove = (e: TouchEvent) => {
-      if (isHorizontal.current) e.preventDefault();
-    };
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    return () => el.removeEventListener('touchmove', handleTouchMove);
-  }, []);
 
   if (!photos?.length) {
     return (
@@ -77,11 +32,7 @@ export default function CardImageCarousel({ photos, alt = 'Room', height = 'h-48
 
   return (
     <div
-      ref={containerRef}
       className={`group/carousel relative ${height} bg-gray-100 overflow-hidden touch-pan-y`}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
     >
       {photos.map((src, i) => (
         <div

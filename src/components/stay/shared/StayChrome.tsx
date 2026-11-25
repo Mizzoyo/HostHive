@@ -88,7 +88,6 @@ export function StayGallery({
   photos, alt, eager, tag, testId, children,
 }: { photos: string[]; alt: string; eager?: boolean; tag?: string; testId?: string | number; children?: ReactNode }) {
   const [index, setIndex] = useState(0);
-  const [touch, setTouch] = useState<number | null>(null);
   const count = photos.length;
   const shift = (step: number) => setIndex((current) => (current + step + count) % count);
   const stop = (event: React.MouseEvent) => { event.preventDefault(); event.stopPropagation(); };
@@ -96,13 +95,6 @@ export function StayGallery({
   return (
     <div
       className="room-gallery"
-      onTouchStart={(event) => setTouch(event.touches[0].clientX)}
-      onTouchEnd={(event) => {
-        if (touch === null) return;
-        const dx = event.changedTouches[0].clientX - touch;
-        if (count > 1 && Math.abs(dx) > 42) shift(dx < 0 ? 1 : -1);
-        setTouch(null);
-      }}
       onKeyDown={(event) => {
         if (count < 2) return;
         if (event.key === 'ArrowLeft') { event.preventDefault(); shift(-1); }

@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function isoDate(d: Date) { return d.toISOString().split('T')[0]; }
-function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function fmt(d: string) {
   if (!d) return '';
   const dt = new Date(d + 'T00:00:00');
@@ -22,7 +21,6 @@ function fmtDesktop(d: string) {
 const MONTHS_AHEAD = 12;
 const DAY_NAMES   = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function buildMonths(count: number) {
   const result = [];
@@ -45,22 +43,12 @@ interface DatePickerModalProps {
 }
 
 export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DatePickerModalProps) {
-  const [tab, setTab]               = useState<'calendar' | 'flexible'>('calendar');
   const [start, setStart]           = useState(checkIn);
   const [end, setEnd]               = useState(checkOut);
   const [selecting, setSelecting]   = useState<'in' | 'out'>(checkIn ? 'out' : 'in');
-  const [flexDuration, setFlexDuration] = useState('');
-  const [flexMonths, setFlexMonths] = useState<string[]>([]);
 
   const [today] = useState(() => isoDate(new Date()));
   const [months] = useState(() => buildMonths(MONTHS_AHEAD));
-  const [monthCards] = useState(() => {
-    const now = new Date();
-    return Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      return { key: `${d.getFullYear()}-${d.getMonth()}`, label: SHORT_MONTHS[d.getMonth()], year: d.getFullYear() };
-    });
-  });
 
   function handleDayClick(dateStr: string) {
     if (dateStr < today) return;
@@ -77,19 +65,10 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
   }
 
   const n = (start && end) ? Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) : 0;
-  const canDone = tab === 'calendar' ? !!(start && end) : !!(flexDuration && flexMonths.length > 0);
+  const canDone = !!(start && end);
 
   function handleDone() {
-    if (tab === 'calendar') {
-      if (start && end) onConfirm(start, end);
-    } else {
-      if (flexDuration && flexMonths.length > 0) {
-        const [yr, mo] = flexMonths[0].split('-').map(Number);
-        const s = new Date(yr, mo, 15);
-        const daysMap: Record<string, number> = { weekend: 2, week: 7, month: 30, other: 14 };
-        onConfirm(isoDate(s), isoDate(addDays(s, daysMap[flexDuration] ?? 7)));
-      }
-    }
+    if (start && end) onConfirm(start, end);
   }
 
   return (
@@ -97,12 +76,7 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
         <div className="flex gap-6">
-          {(['calendar', 'flexible'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`text-sm font-semibold pb-1 border-b-2 transition-colors capitalize ${t === tab ? 'border-[#205a3d] text-[#205a3d]' : 'border-transparent text-gray-500'}`}>
-              {t === 'flexible' ? "I'm flexible" : 'Calendar'}
-            </button>
-          ))}
+          <span className="text-sm font-semibold pb-1 border-b-2 border-[#205a3d] text-[#205a3d]">Calendar</span>
         </div>
         <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-900">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -113,8 +87,7 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
-        {tab === 'calendar' ? (
-          <div className="px-4 py-4">
+        <div className="px-4 py-4">
             {months.map(({ year, month }) => {
               const firstDay = firstDayOfMonth(year, month);
               const days     = daysInMonth(year, month);
@@ -149,60 +122,14 @@ export function DatePickerModal({ checkIn, checkOut, onConfirm, onClose }: DateP
                 </div>
               );
             })}
-          </div>
-        ) : (
-          <div className="px-5 py-6">
-            <p className="font-bold text-gray-900 text-base mb-4">How long do you want to stay?</p>
-            {[
-              { key: 'weekend', label: 'A weekend' },
-              { key: 'week',    label: 'A week'    },
-              { key: 'month',   label: 'A month'   },
-              { key: 'other',   label: 'Other'     },
-            ].map(opt => (
-              <label key={opt.key} className="flex items-center gap-3 py-3 cursor-pointer select-none" onClick={() => setFlexDuration(opt.key)}>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${flexDuration === opt.key ? 'border-[#205a3d]' : 'border-gray-400'}`}>
-                  {flexDuration === opt.key && <div className="w-2.5 h-2.5 rounded-full bg-[#205a3d]"/>}
-                </div>
-                <span className="text-gray-900 text-base">{opt.label}</span>
-              </label>
-            ))}
-
-            <p className="font-bold text-gray-900 text-base mt-6 mb-1">When do you want to go?</p>
-            <p className="text-gray-400 text-sm mb-4">Select up to 3 months</p>
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              {monthCards.map(mc => {
-                const sel = flexMonths.includes(mc.key);
-                return (
-                  <button key={mc.key}
-                    onClick={() => setFlexMonths(prev =>
-                      sel ? prev.filter(m => m !== mc.key) : prev.length < 3 ? [...prev, mc.key] : prev
-                    )}
-                    className={`flex-shrink-0 w-24 rounded-xl border-2 p-3 text-center transition-colors ${sel ? 'border-[#205a3d] text-[#205a3d]' : 'border-gray-200 text-gray-700'}`}>
-                    <svg className="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    <p className="font-bold text-sm">{mc.label}</p>
-                    <p className="text-xs">{mc.year}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-gray-200 bg-white" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
-        {tab === 'calendar' && (
-          <p className="text-sm text-gray-500 text-center mb-3">
-            {start && end ? `${fmt(start)} – ${fmt(end)} (${n} night${n !== 1 ? 's' : ''})` : 'Select check-in and check-out dates'}
-          </p>
-        )}
-        {tab === 'flexible' && flexDuration && flexMonths.length > 0 && (
-          <p className="text-sm text-gray-500 text-center mb-3">
-            {({ weekend: 'A weekend', week: 'A week', month: 'A month', other: 'Other' } as Record<string, string>)[flexDuration]} in {monthCards.find(m => m.key === flexMonths[0])?.label}
-          </p>
-        )}
+        <p className="text-sm text-gray-500 text-center mb-3">
+          {start && end ? `${fmt(start)} – ${fmt(end)} (${n} night${n !== 1 ? 's' : ''})` : 'Select check-in and check-out dates'}
+        </p>
         <button onClick={handleDone} disabled={!canDone}
           className={`w-full py-4 rounded-xl text-base font-bold text-white transition-colors ${canDone ? 'bg-[#205a3d] hover:bg-[#18482f]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
           Done
@@ -386,7 +313,7 @@ export function SearchModal({ checkIn, checkOut, adults: ia, childCount: ic, roo
           </div>
         ) : (
           <div className="px-5 py-2">
-            <p className="font-bold text-gray-900 text-base py-4">Who's coming</p>
+            <p className="font-bold text-gray-900 text-base py-4">Who&apos;s coming</p>
           {([
             { label: 'Adults',   val: adults,   set: setAdults,   min: 1 },
             { label: 'Children', val: children, set: setChildren, min: 0 },
@@ -438,14 +365,10 @@ export function SearchModal({ checkIn, checkOut, adults: ia, childCount: ic, roo
 
 // ── DesktopDateDropdown ───────────────────────────────────────────────────────
 function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePickerModalProps) {
-  const [tab, setTab]           = useState<'calendar' | 'flexible'>('calendar');
   const [start, setStart]       = useState(checkIn);
   const [end, setEnd]           = useState(checkOut);
   const [selecting, setSelecting] = useState<'in' | 'out'>(checkIn ? 'out' : 'in');
   const [offset, setOffset]     = useState(0);
-  const [flexibility, setFlexibility] = useState('exact');
-  const [flexDuration, setFlexDuration] = useState('');
-  const [flexMonths, setFlexMonths]   = useState<string[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const [today] = useState(() => isoDate(new Date()));
   const [now]   = useState(() => new Date());
@@ -464,14 +387,6 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
   const rightD = new Date(now.getFullYear(), now.getMonth() + offset + 1, 1);
   const leftM  = { year: leftD.getFullYear(),  month: leftD.getMonth()  };
   const rightM = { year: rightD.getFullYear(), month: rightD.getMonth() };
-
-  const [monthCards] = useState(() => {
-    const base = new Date();
-    return Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
-      return { key: `${d.getFullYear()}-${d.getMonth()}`, label: SHORT_MONTHS[d.getMonth()], year: d.getFullYear() };
-    });
-  });
 
   function handleDayClick(dateStr: string) {
     if (dateStr < today) return;
@@ -524,17 +439,10 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
   return (
     <div ref={ref} className="absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[200] p-6" style={{ width: '680px', maxWidth: '96vw' }}>
       <div className="flex gap-6 border-b border-gray-200 mb-5">
-        {(['calendar', 'flexible'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors ${t === tab ? 'border-[#205a3d] text-[#205a3d]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
-            {t === 'flexible' ? "I'm flexible" : 'Calendar'}
-          </button>
-        ))}
+        <span className="pb-2.5 text-sm font-semibold border-b-2 border-[#205a3d] text-[#205a3d]">Calendar</span>
       </div>
 
-      {tab === 'calendar' ? (
-        <>
-          <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2">
             <button onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
               className="mt-1 p-1.5 rounded-full hover:bg-gray-100 disabled:opacity-30 flex-shrink-0">
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
@@ -548,52 +456,10 @@ function DesktopDateDropdown({ checkIn, checkOut, onConfirm, onClose }: DatePick
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
             </button>
           </div>
-          {start && (
-            <p className="text-sm text-gray-500 text-center mt-4 mb-3">
-              {end ? `${fmtDesktop(start)} — ${fmtDesktop(end)} · ${n} night${n !== 1 ? 's' : ''}` : `Check-in: ${fmtDesktop(start)} · Select check-out`}
-            </p>
-          )}
-          <div className="flex gap-2 flex-wrap">
-            {[{ key:'exact', label:'Exact dates' },{ key:'1', label:'± 1 day' },{ key:'2', label:'± 2 days' },{ key:'3', label:'± 3 days' },{ key:'7', label:'± 7 days' }].map(opt => (
-              <button key={opt.key} onClick={() => setFlexibility(opt.key)}
-                className={`px-4 py-1.5 rounded-full border text-sm font-semibold transition-colors ${flexibility === opt.key ? 'border-gray-900 bg-gray-50 text-gray-900' : 'border-gray-300 text-gray-500 hover:border-gray-500'}`}>
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div>
-          <p className="font-semibold text-gray-900 text-sm mb-3">How long do you want to stay?</p>
-          {[{ key:'weekend', label:'A weekend' },{ key:'week', label:'A week' },{ key:'month', label:'A month' },{ key:'other', label:'Other' }].map(opt => (
-            <label key={opt.key} className="flex items-center gap-3 py-2.5 cursor-pointer" onClick={() => setFlexDuration(opt.key)}>
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${flexDuration === opt.key ? 'border-[#205a3d]' : 'border-gray-400'}`}>
-                {flexDuration === opt.key && <div className="w-2.5 h-2.5 rounded-full bg-[#205a3d]"/>}
-              </div>
-              <span className="text-gray-900 text-sm">{opt.label}</span>
-            </label>
-          ))}
-          <p className="font-semibold text-gray-900 text-sm mt-4 mb-3">When do you want to go?</p>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {monthCards.map(mc => {
-              const sel = flexMonths.includes(mc.key);
-              return (
-                <button key={mc.key} onClick={() => setFlexMonths(prev => sel ? prev.filter(m => m !== mc.key) : prev.length < 3 ? [...prev, mc.key] : prev)}
-                  className={`flex-shrink-0 w-20 rounded-xl border-2 p-2 text-center text-xs transition-colors ${sel ? 'border-[#205a3d] text-[#205a3d]' : 'border-gray-200 text-gray-600'}`}>
-                  <p className="font-bold">{mc.label}</p><p className="text-gray-400">{mc.year}</p>
-                </button>
-              );
-            })}
-          </div>
-          {flexDuration && flexMonths.length > 0 && (
-            <button onClick={() => {
-              const [yr, mo] = flexMonths[0].split('-').map(Number);
-              const s = new Date(yr, mo, 15);
-              const daysMap: Record<string,number> = { weekend:2, week:7, month:30, other:14 };
-              onConfirm(isoDate(s), isoDate(addDays(s, daysMap[flexDuration] ?? 7)));
-            }} className="w-full mt-4 py-3 rounded-xl bg-[#205a3d] text-white font-bold text-sm">Done</button>
-          )}
-        </div>
+      {start && (
+        <p className="text-sm text-gray-500 text-center mt-4 mb-3">
+          {end ? `${fmtDesktop(start)} — ${fmtDesktop(end)} · ${n} night${n !== 1 ? 's' : ''}` : `Check-in: ${fmtDesktop(start)} · Select check-out`}
+        </p>
       )}
     </div>
   );

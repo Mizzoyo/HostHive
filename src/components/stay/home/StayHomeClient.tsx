@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowDown, ArrowRight, ArrowUpRight, CalendarDays,
@@ -75,6 +76,7 @@ export default function StayHomeClient() {
 
   const selection = { checkIn, checkOut, adults, children, rooms: roomCount };
   const roomsPath = buildRoomsPath(selection);
+  const groupPath = `/stay/book/group?checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${adults + children}`;
 
   useEffect(() => {
     router.prefetch(roomsPath);
@@ -170,6 +172,17 @@ export default function StayHomeClient() {
         </div>
         <div className="hero-links" style={{ justifyContent: 'center', marginTop: 30 }}>
           <button type="button" className="button-primary" onClick={goToRooms}>Browse rooms <ArrowRight size={16} /></button>
+        </div>
+      </section>
+
+      <section className="group-cta" aria-label="Group stays">
+        <div className="group-cta-banner">
+          <div className="group-cta-copy">
+            <span className="eyebrow">Travelling together?</span>
+            <h3>Need space for a group?</h3>
+            <p>Combine several rooms in one booking, or ask us about our larger homes.</p>
+          </div>
+          <Link className="button-primary" href={groupPath}>Ask about group stays <ArrowUpRight size={15} /></Link>
         </div>
       </section>
 

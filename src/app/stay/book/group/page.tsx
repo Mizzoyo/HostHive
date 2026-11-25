@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 import { StayFooter, StayTopbar } from '@/components/stay/shared/StayChrome';
+import SearchWidget from '@/components/stay/SearchWidget';
 import { roomTypeLabel } from '@/lib/stay/roomType';
 import { createClient } from '@/lib/supabase/client';
 import '../../stay.css';
@@ -99,7 +100,6 @@ function GroupBookingContent() {
 
   const [checkIn, setCheckIn] = useState(paramCheckIn);
   const [checkOut, setCheckOut] = useState(params.get('checkOut') ?? '');
-  const [today, setToday] = useState('');
   const [adults, setAdults] = useState(
     Math.min(MAX_ADULTS, Math.max(1, Number(params.get('guests')) || 2)),
   );
@@ -128,7 +128,6 @@ function GroupBookingContent() {
   useEffect(() => {
     Promise.resolve().then(() => {
       const t = defaultDate(0);
-      setToday(t);
       setCheckIn(prev => prev || t);
       setCheckOut(prev => {
         if (prev) return prev;
@@ -221,20 +220,7 @@ function GroupBookingContent() {
   );
   const capacityImpossible = capacityShortfall > 0 && partySize > maxSelectableCapacity;
 
-  const lastDate = checkIn ? new Date(`${checkIn}T12:00:00`) : null;
-  lastDate?.setDate(lastDate.getDate() + 1);
-  const minCheckout = lastDate ? isoDate(lastDate) : undefined;
-
   /* ── Helpers ── */
-  function setCount(kind: 'adults' | 'children', change: number) {
-    setError('');
-    if (kind === 'adults') {
-      setAdults(v => Math.min(MAX_ADULTS, Math.max(1, v + change)));
-    } else {
-      setChildren(v => Math.min(MAX_CHILDREN, Math.max(0, v + change)));
-    }
-  }
-
   function setRoomQuantity(roomId: string, change: number) {
     setQuantities(current => ({
       ...current,
@@ -251,14 +237,6 @@ function GroupBookingContent() {
 
   function advance() {
     setError('');
-    if (step === 1) {
-      if (!checkIn || !checkOut || checkOut <= checkIn) {
-        setError('Please choose a check-out date after your check-in date.');
-        return;
-      }
-      setStep(2);
-      return;
-    }
     if (step === 2) {
       if (!totalRooms) {
         setError('Add at least one room to continue.');
@@ -498,91 +476,23 @@ function GroupBookingContent() {
                 <p className="gb-section-lead">
                   Choose your dates and tell us a little about your group.
                 </p>
+                <div className="gb-widget-wrap">
+                  <SearchWidget
+                    initialCheckIn={checkIn}
+                    initialCheckOut={checkOut}
+                    initialAdults={adults}
+                    initialChildren={children}
+                    onSearch={sel => {
+                      setCheckIn(sel.checkIn);
+                      setCheckOut(sel.checkOut);
+                      setAdults(Math.min(MAX_ADULTS, sel.adults));
+                      setChildren(Math.min(MAX_CHILDREN, sel.children));
+                      setError('');
+                      setStep(2);
+                    }}
+                  />
+                </div>
                 <div className="gb-form-grid">
-                  <div className="field-group">
-                    <label htmlFor="gb-check-in">Check-in</label>
-                    <input
-                      id="gb-check-in"
-                      data-testid="input-check-in"
-                      className="field-control"
-                      type="date"
-                      min={today || undefined}
-                      value={checkIn}
-                      onChange={event => {
-                        const next = event.target.value;
-                        setCheckIn(next);
-                        if (next && next >= checkOut) {
-                          const bumped = new Date(`${next}T12:00:00`);
-                          bumped.setDate(bumped.getDate() + 1);
-                          setCheckOut(isoDate(bumped));
-                        }
-                        setError('');
-                      }}
-                    />
-                  </div>
-                  <div className="field-group">
-                    <label htmlFor="gb-check-out">Check-out</label>
-                    <input
-                      id="gb-check-out"
-                      data-testid="input-check-out"
-                      className="field-control"
-                      type="date"
-                      min={minCheckout}
-                      value={checkOut}
-                      onChange={event => { setCheckOut(event.target.value); setError(''); }}
-                    />
-                  </div>
-                  <div className="field-group gb-full">
-                    <span className="field-label">Guests</span>
-                    <div className="gb-counts">
-                      <div className="gb-count-row">
-                        <div className="gb-count-info">
-                          <strong>Adults</strong>
-                          <span>Ages 13 and above</span>
-                        </div>
-                        <div className="gb-counter">
-                          <button
-                            type="button"
-                            aria-label="Remove an adult"
-                            data-testid="button-adult-minus"
-                            disabled={adults <= 1}
-                            onClick={() => setCount('adults', -1)}
-                          ><Minus size={13} /></button>
-                          <b data-testid="text-adult-count">{adults}</b>
-                          <button
-                            type="button"
-                            aria-label="Add an adult"
-                            data-testid="button-adult-plus"
-                            disabled={adults >= MAX_ADULTS}
-                            onClick={() => setCount('adults', 1)}
-                          ><Plus size={13} /></button>
-                        </div>
-                      </div>
-                      <div className="gb-count-row">
-                        <div className="gb-count-info">
-                          <strong>Children</strong>
-                          <span>Ages 0–12</span>
-                        </div>
-                        <div className="gb-counter">
-                          <button
-                            type="button"
-                            aria-label="Remove a child"
-                            data-testid="button-child-minus"
-                            disabled={children <= 0}
-                            onClick={() => setCount('children', -1)}
-                          ><Minus size={13} /></button>
-                          <b data-testid="text-child-count">{children}</b>
-                          <button
-                            type="button"
-                            aria-label="Add a child"
-                            data-testid="button-child-plus"
-                            disabled={children >= MAX_CHILDREN}
-                            onClick={() => setCount('children', 1)}
-                          ><Plus size={13} /></button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                   <div className="field-group gb-full">
                     <label htmlFor="gb-group-name">
                       Group name <span className="gb-optional">· optional</span>
@@ -597,17 +507,7 @@ function GroupBookingContent() {
                     />
                   </div>
                 </div>
-                <div className="gb-actions">
-                  <span className="gb-helper">A minimum stay of one night.</span>
-                  <button
-                    className="gb-button gb-primary"
-                    data-testid="button-continue-dates"
-                    type="button"
-                    onClick={advance}
-                  >
-                    Choose rooms <ArrowRight size={15} />
-                  </button>
-                </div>
+                <p className="booking-note">A minimum stay of one night · press Search to pick your rooms.</p>
               </>
             )}
 

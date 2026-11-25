@@ -1475,6 +1475,68 @@ html {
   background: #fff8eb;
 }
 
+/* Group stays CTA — stay home page */
+.group-cta {
+  max-width: 1172px;
+  margin: auto;
+  padding: 10px 34px 90px;
+}
+
+.group-cta-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 44px 42px;
+  color: #f5eddd;
+  background: #203d2d url('/images/group-travellers.jpg') center / cover no-repeat;
+}
+
+.group-cta-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(17, 34, 23, 0.93) 0%, rgba(17, 34, 23, 0.78) 48%, rgba(17, 34, 23, 0.45) 100%);
+}
+
+.group-cta-banner > * {
+  position: relative;
+  z-index: 1;
+}
+
+.group-cta-banner .eyebrow {
+  color: #e7a286;
+}
+
+.group-cta-banner .eyebrow::before {
+  background: #e7a286;
+}
+
+.group-cta-banner h3 {
+  font: 500 30px / 1.15 var(--app-font-serif);
+  margin: 10px 0 6px;
+}
+
+.group-cta-banner p {
+  margin: 0;
+  color: #c2c6b8;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.group-cta-banner .button-primary {
+  background: #f5eddd;
+  color: #203d2d;
+}
+
+.group-cta-banner .button-primary:hover {
+  background: #fff8eb;
+}
+
 .cart-fab {
   position: fixed;
   right: 18px;
@@ -2027,6 +2089,22 @@ html {
     width: 100%;
   }
 
+  .group-cta {
+    padding: 6px 18px 64px;
+  }
+
+  .group-cta-banner {
+    padding: 30px 22px;
+  }
+
+  .group-cta-banner h3 {
+    font-size: 26px;
+  }
+
+  .group-cta-banner .button-primary {
+    width: 100%;
+  }
+
   .cart-bar {
     display: none;
   }
@@ -2075,6 +2153,10 @@ html {
   display: grid;
   place-items: center;
   min-height: 55vh;
+}
+
+.gb-widget-wrap {
+  margin-bottom: 18px;
 }
 
 .gb-intro {

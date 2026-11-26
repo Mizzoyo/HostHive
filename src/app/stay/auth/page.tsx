@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, ArrowRight, KeyRound, Phone, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
+import '../rooms/[id]/room-detail.css';
 
-const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
 
 function formatPhone(raw: string): string {
@@ -17,47 +19,23 @@ function formatPhone(raw: string): string {
   return raw.trim();
 }
 
-function PageFooter() {
-  return (
-    <>
-      <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-        <p className="text-xs text-gray-400 leading-relaxed">
-          By continuing, you agree with our{' '}
-          <button className="underline" style={{ color: '#16a34a' }}>Terms &amp; conditions</button>
-          {' '}and{' '}
-          <button className="underline" style={{ color: '#16a34a' }}>Privacy statement</button>
-        </p>
-      </div>
-    </>
-  );
-}
-
 function StayAuthContent() {
-  const router   = useRouter();
-  const params   = useSearchParams();
-  const redirect = params.get('redirect') ?? '/stay';
+  const router = useRouter();
+  const params = useSearchParams();
+  const requestedRedirect = params.get('redirect');
+  const returnPath =
+    requestedRedirect?.startsWith('/stay/') && !requestedRedirect.startsWith('//')
+      ? requestedRedirect
+      : '/stay';
 
-  const [step, setStep]               = useState<'phone' | 'otp'>('phone');
-  const [phone, setPhone]             = useState('');
+  const [screen, setScreen]       = useState<'phone' | 'code'>('phone');
+  const [phone, setPhone]         = useState('');
   const [formattedPhone, setFmtPhone] = useState('');
-  const [otp, setOtp]                 = useState<string[]>(Array(OTP_LENGTH).fill(''));
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState('');
-  const [countdown, setCountdown]     = useState(0);
-
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const supabase = createClient();
-
-  // Lock page scroll while auth overlay is visible
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-      document.documentElement.style.overflow = '';
-    };
-  }, []);
+  const [code, setCode]           = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+  const [notice, setNotice]       = useState('');
+  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -65,224 +43,235 @@ function StayAuthContent() {
     return () => clearTimeout(t);
   }, [countdown]);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function requestCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError('');
+    setNotice('');
     const fp = formatPhone(phone);
     if (fp.replace(/\D/g, '').length < 10) {
-      setError('Please enter a valid phone number (e.g. 0712 345 678).');
+      setError('Enter a valid phone number, including your country code.');
       return;
     }
     setLoading(true);
-    const { error: err } = await supabase.auth.signInWithOtp({ phone: fp });
+    const { error: err } = await createClient().auth.signInWithOtp({ phone: fp });
     setLoading(false);
     if (err) { setError(err.message); return; }
     setFmtPhone(fp);
-    setStep('otp');
+    setCode('');
+    setScreen('code');
     setCountdown(RESEND_SECONDS);
-    setOtp(Array(OTP_LENGTH).fill(''));
-    setTimeout(() => otpRefs.current[0]?.focus(), 100);
-  };
+    setNotice(`We sent a 6-digit code to ${fp}.`);
+  }
 
-  const handleVerifyOtp = async (token: string) => {
+  async function verifyCode(token: string) {
     setError('');
+    setNotice('');
     setLoading(true);
-    const { error: err } = await supabase.auth.verifyOtp({ phone: formattedPhone, token, type: 'sms' });
+    const { error: err } = await createClient().auth.verifyOtp({ phone: formattedPhone, token, type: 'sms' });
     setLoading(false);
-    if (err) {
-      setError(err.message);
-      setOtp(Array(OTP_LENGTH).fill(''));
-      setTimeout(() => otpRefs.current[0]?.focus(), 50);
+    if (err) { setError(err.message); setCode(''); return; }
+    router.replace(returnPath);
+  }
+
+  function checkCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(code)) {
+      setError('Enter the six-digit code to continue.');
       return;
     }
-    router.replace(redirect);
-  };
+    verifyCode(code);
+  }
 
-  const handleOtpInput = (index: number, value: string) => {
-    if (value.length > 1) {
-      const digits = value.replace(/\D/g, '').slice(0, OTP_LENGTH);
-      const next = [...Array(OTP_LENGTH).fill('')];
-      digits.split('').forEach((d, i) => { next[i] = d; });
-      setOtp(next);
-      const focusIdx = Math.min(digits.length, OTP_LENGTH - 1);
-      otpRefs.current[focusIdx]?.focus();
-      if (digits.length === OTP_LENGTH) handleVerifyOtp(digits);
-      return;
-    }
-    const digit = value.replace(/\D/g, '');
-    const next = [...otp];
-    next[index] = digit;
-    setOtp(next);
-    if (digit && index < OTP_LENGTH - 1) otpRefs.current[index + 1]?.focus();
-    if (digit && index === OTP_LENGTH - 1 && next.every(d => d !== '')) handleVerifyOtp(next.join(''));
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace') {
-      if (otp[index]) {
-        const next = [...otp]; next[index] = ''; setOtp(next);
-      } else if (index > 0) {
-        otpRefs.current[index - 1]?.focus();
-      }
-    }
-  };
-
-  const handleResend = async () => {
+  async function resendCode() {
     if (countdown > 0 || loading) return;
     setError('');
+    setNotice('');
     setLoading(true);
-    const { error: err } = await supabase.auth.signInWithOtp({ phone: formattedPhone });
+    const { error: err } = await createClient().auth.signInWithOtp({ phone: formattedPhone });
     setLoading(false);
     if (err) { setError(err.message); return; }
     setCountdown(RESEND_SECONDS);
-    setOtp(Array(OTP_LENGTH).fill(''));
-    setTimeout(() => otpRefs.current[0]?.focus(), 50);
-  };
+    setCode('');
+    setNotice(`A new code was sent to ${formattedPhone}.`);
+  }
 
-  const phoneFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.boxShadow = '0 0 0 2px #22c55e';
-    e.target.style.borderColor = '#22c55e';
-  };
-  const phoneBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.boxShadow = '';
-    e.target.style.borderColor = '#d1d5db';
-  };
+  function changeNumber() {
+    setScreen('phone');
+    setCode('');
+    setError('');
+    setNotice('');
+  }
 
   return (
-    <div className="bg-white flex flex-col" style={{ height: 'calc(100dvh - 3.5rem)' }}>
-      <main className="flex-1 flex flex-col items-center justify-center px-5 py-6">
-        <div className="w-full max-w-md">
-
-        {step === 'phone' ? (
-          <>
-            <h1 className="text-xl font-bold text-gray-900 mb-1">Sign in or create an account</h1>
-            <p className="text-sm text-gray-500 mb-4">
-              Enter your phone number to continue. We&apos;ll send you a one-time verification code.
-            </p>
-
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-4 py-3">{error}</div>
+    <div className="room-shell auth-shell">
+      <header className="site-header">
+        <Link className="brand" href="/stay" aria-label="Kogelo Suites home">
+          <span className="brand-mark">K</span>
+          <span className="brand-copy">
+            <strong>Kogelo Suites</strong>
+            <small>Stay a little longer</small>
+          </span>
+        </Link>
+        <nav className="site-nav" aria-label="Main navigation">
+          <Link href="/stay#rooms">Stay</Link>
+          <Link href="/stay#amenities">Our place</Link>
+          <Link href="/stay#location">The details</Link>
+          <Link
+            className="nav-plan auth-return-link"
+            href={returnPath}
+            aria-label="Back to your stay"
+          >
+            <span>Back to your stay</span>
+            <ArrowRight size={14} />
+          </Link>
+        </nav>
+      </header>
+      <main className="auth-main">
+        <section className="auth-card" aria-labelledby="auth-title">
+          <div className="auth-emblem" aria-hidden="true">
+            {screen === 'phone' ? (
+              <Phone size={19} strokeWidth={1.6} />
+            ) : (
+              <KeyRound size={19} strokeWidth={1.6} />
             )}
-
-            <form onSubmit={handleSendOtp} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1">Phone number</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder="+254 700 000 000"
-                  autoComplete="tel"
-                  required
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none transition-all text-sm"
-                  onFocus={phoneFocus}
-                  onBlur={phoneBlur}
-                />
-                <p className="mt-1.5 text-xs text-gray-400">e.g. 0712 345 678 or +254 712 345 678</p>
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full text-white font-semibold py-3 px-4 rounded-md transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: '#16a34a' }}
-                onMouseEnter={e => { if (!loading) e.currentTarget.style.backgroundColor = '#15803d'; }}
-                onMouseLeave={e => { if (!loading) e.currentTarget.style.backgroundColor = '#16a34a'; }}
-              >
-                {loading ? 'Sending code…' : 'Send verification code'}
+          </div>
+          <p className="eyebrow auth-eyebrow">A private compound in Kisumu</p>
+          <h1 id="auth-title">
+            {screen === 'phone'
+              ? 'Your stay starts here.'
+              : 'A quick check, then you’re in.'}
+          </h1>
+          <p className="auth-intro">
+            {screen === 'phone' ? (
+              'Sign in or create an account with your phone number. We’ll use it to keep your stay details together.'
+            ) : (
+              <>
+                Enter the six-digit code for <strong>{formattedPhone}</strong>.
+              </>
+            )}
+          </p>
+          {screen === 'phone' ? (
+            <form className="auth-form" onSubmit={requestCode} noValidate>
+              <label className="field auth-field" htmlFor="auth-phone">
+                <span>Phone number</span>
+                <span className="auth-input-wrap">
+                  <Phone size={16} aria-hidden="true" />
+                  <input
+                    id="auth-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={phone}
+                    onChange={(event) => {
+                      setPhone(event.target.value);
+                      setError('');
+                      setNotice('');
+                    }}
+                    placeholder="+254 700 000 000"
+                    aria-describedby="auth-phone-help"
+                    required
+                  />
+                </span>
+              </label>
+              <small className="auth-help" id="auth-phone-help">
+                For example, 0712 345 678 or +254 712 345 678
+              </small>
+              {error && (
+                <div className="validation" role="alert">
+                  {error}
+                </div>
+              )}
+              <button className="button primary auth-submit" type="submit" disabled={loading}>
+                {loading ? 'Sending code…' : 'Continue with phone'} <ArrowRight size={15} />
               </button>
             </form>
-
-            <PageFooter />
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl font-bold text-gray-900 mb-2">Verify your phone number</h1>
-            <p className="text-sm text-gray-500 mb-4">
-              We&apos;ve sent a verification code to{' '}
-              <span className="font-semibold text-gray-800">{formattedPhone}</span>.
-              {' '}Please enter this code to continue.
-            </p>
-
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-4 py-3">{error}</div>
-            )}
-
-            {/* 6-digit OTP boxes */}
-            <div className="flex gap-2 mb-5">
-              {otp.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={el => { otpRefs.current[i] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={OTP_LENGTH}
-                  value={digit}
-                  onChange={e => handleOtpInput(i, e.target.value)}
-                  onKeyDown={e => handleOtpKeyDown(i, e)}
-                  onFocus={e => {
-                    e.target.select();
-                    e.target.style.boxShadow = '0 0 0 2px #22c55e';
-                    e.target.style.borderColor = '#22c55e';
-                  }}
-                  onBlur={e => {
-                    e.target.style.boxShadow = '';
-                    e.target.style.borderColor = digit ? '#16a34a' : '#d1d5db';
-                  }}
-                  className="flex-1 aspect-square min-w-0 text-center text-xl font-bold text-gray-900 bg-white border-2 border-gray-300 rounded-xl focus:outline-none transition-all"
-                />
-              ))}
-            </div>
-
-            {/* Verify button */}
-            <button
-              type="button"
-              disabled={loading || otp.some(d => !d)}
-              onClick={() => handleVerifyOtp(otp.join(''))}
-              className="w-full text-white font-semibold py-3 px-4 rounded-md transition-all duration-200 text-sm disabled:opacity-40 disabled:cursor-not-allowed mb-5"
-              style={{ backgroundColor: '#16a34a' }}
-              onMouseEnter={e => { if (!loading) e.currentTarget.style.backgroundColor = '#15803d'; }}
-              onMouseLeave={e => { if (!loading) e.currentTarget.style.backgroundColor = '#16a34a'; }}
-            >
-              {loading ? 'Verifying…' : 'Verify phone number'}
-            </button>
-
-            {/* Resend */}
-            <p className="text-sm text-center text-gray-500 mb-4">
-              {countdown > 0 ? (
-                <>Didn&apos;t receive a code? Request another in <strong>{countdown}s</strong></>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  className="font-medium underline transition-colors"
-                  style={{ color: '#16a34a' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#15803d')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#16a34a')}
-                >
-                  Resend verification code
-                </button>
+          ) : (
+            <form className="auth-form" onSubmit={checkCode} noValidate>
+              <label className="field auth-field" htmlFor="auth-code">
+                <span>Verification code</span>
+                <span className="auth-input-wrap auth-code-wrap">
+                  <KeyRound size={16} aria-hidden="true" />
+                  <input
+                    id="auth-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={code}
+                    onChange={(event) => {
+                      const next = event.target.value.replace(/\D/g, '').slice(0, 6);
+                      setCode(next);
+                      setError('');
+                      setNotice('');
+                      if (next.length === 6) verifyCode(next);
+                    }}
+                    placeholder="Enter 6 digits"
+                    aria-describedby="auth-code-help"
+                    required
+                  />
+                </span>
+              </label>
+              <small className="auth-help" id="auth-code-help">
+                {countdown > 0
+                  ? <>Didn&apos;t get it? Request a new code in <strong>{countdown}s</strong></>
+                  : 'Enter the six-digit code we sent by SMS.'}
+              </small>
+              {error && (
+                <div className="validation" role="alert">
+                  {error}
+                </div>
               )}
-            </p>
-
-            {/* Back */}
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => { setStep('phone'); setError(''); setOtp(Array(OTP_LENGTH).fill('')); }}
-                className="text-sm font-medium transition-colors"
-                style={{ color: '#16a34a' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#15803d')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#16a34a')}
-              >
-                Back to phone number
+              <button className="button primary auth-submit" type="submit" disabled={loading || code.length !== 6}>
+                {loading ? 'Verifying…' : 'Continue'} <ArrowRight size={15} />
               </button>
+              <button
+                className="auth-text-button"
+                type="button"
+                disabled={countdown > 0 || loading}
+                onClick={resendCode}
+              >
+                Resend code
+              </button>
+              <button
+                className="auth-text-button"
+                type="button"
+                onClick={changeNumber}
+              >
+                Use a different phone number
+              </button>
+            </form>
+          )}
+          {notice && (
+            <div className="auth-notice" role="status">
+              <ShieldCheck size={16} />
+              {notice}
             </div>
-
-            <PageFooter />
-          </>
-        )}
-        </div>
+          )}
+          <div className="auth-legal">
+            <span>
+              By continuing, you agree to the terms and privacy practices for
+              your stay.
+            </span>
+          </div>
+          <Link className="auth-back-link" href={returnPath}>
+            <ArrowLeft size={14} />
+            Return to your room
+          </Link>
+        </section>
       </main>
+      <footer className="site-footer auth-footer">
+        <Link className="brand footer-brand" href="/stay">
+          <span className="brand-mark">K</span>
+          <span className="brand-copy">
+            <strong>Kogelo Suites</strong>
+            <small>Stay a little longer</small>
+          </span>
+        </Link>
+        <span>Milimani, Kisumu · Kenya</span>
+        <span className="footer-private">
+          <ShieldCheck size={13} /> Secure sign-in via Kogelo Suites
+        </span>
+      </footer>
     </div>
   );
 }

@@ -1222,3 +1222,106 @@
     min-height: 68px;
   }
 }
+
+/* ═══ Profile page (/stay/profile) ═══ */
+.profile-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: 0;
+}
+.room-shell .profile-main {
+  width: 100%;
+  min-height: calc(100vh - 152px);
+  display: grid;
+  place-items: center;
+  flex: 1;
+  padding: 48px 28px 56px;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(232, 224, 204, .34), transparent 48%),
+    var(--paper);
+}
+.room-shell .profile-card {
+  width: min(100%, 590px);
+  padding: clamp(32px, 5vw, 48px);
+  border: 1px solid #e4dfd3;
+  border-radius: 11px;
+  background: rgba(255, 253, 248, .94);
+  box-shadow: 0 16px 42px rgba(42, 55, 43, .08);
+  text-align: center;
+}
+.room-shell .profile-emblem {
+  width: 51px;
+  height: 51px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+  border: 1px solid #d9e3d6;
+  border-radius: 16px;
+  background: #edf2e8;
+  color: var(--green);
+}
+.room-shell .profile-eyebrow {
+  margin-bottom: 9px;
+}
+.room-shell .profile-card h1 {
+  margin: 0;
+  color: var(--ink);
+  font: 500 clamp(32px, 4vw, 40px)/1.13 var(--app-font-serif);
+  letter-spacing: -.04em;
+}
+.room-shell .profile-intro {
+  margin: 12px 0 22px;
+  color: #747b70;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.room-shell .profile-action {
+  min-width: 190px;
+  min-height: 45px;
+  border-radius: 25px;
+  text-decoration: none;
+}
+.room-shell .profile-note {
+  margin: 17px 0 0;
+  color: #929387;
+  font-size: 9px;
+  line-height: 1.6;
+}
+.room-shell .site-nav > a.profile-plan-link {
+  color: #fffaf1;
+  text-decoration: none;
+}
+.room-shell .profile-logged-in {
+  flex: 1;
+}
+.room-shell .profile-footer {
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .profile-shell {
+    padding-bottom: 0;
+  }
+  .room-shell .site-nav > a.profile-plan-link {
+    display: inline-flex;
+    min-height: 38px;
+    padding: 0 13px;
+    font-size: 9px;
+  }
+  .room-shell .site-nav > a.profile-plan-link span {
+    display: inline;
+  }
+  .room-shell .profile-main {
+    min-height: 0;
+    padding: 30px 18px 36px;
+  }
+  .room-shell .profile-card {
+    padding: 31px 22px;
+  }
+  .room-shell .profile-card h1 {
+    font-size: 33px;
+  }
+  .room-shell .profile-footer {
+    min-height: 68px;
+  }
+}

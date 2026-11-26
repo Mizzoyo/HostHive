@@ -85,8 +85,10 @@ export default function StayLayout({ children }: { children: React.ReactNode }) 
   const isCheckoutPage = pathname.startsWith('/stay/checkout');
   const isBookFlowPage = pathname.startsWith('/stay/book');
   const isAuthPage     = pathname.startsWith('/stay/auth');
-  const hasOwnChrome   = isStayHome || isRoomsPage || isBookFlowPage || isAuthPage;
-  const showBottomNav  = !isCheckoutPage && !isBookFlowPage && !isRoomsPage && !isPropertyPage && !isAuthPage;
+  const isProfilePage  = pathname.startsWith('/stay/profile');
+  const isWishlistPage = pathname.startsWith('/stay/wishlist');
+  const hasOwnChrome   = isStayHome || isRoomsPage || isBookFlowPage || isAuthPage || isProfilePage || isWishlistPage;
+  const showBottomNav  = !isCheckoutPage && !isBookFlowPage && !isRoomsPage && !isPropertyPage && !isAuthPage && !isProfilePage && !isWishlistPage;
   const router    = useRouter();
   const [menuOpen,   setMenuOpen]   = useState(false);
   const [navHidden,  setNavHidden]  = useState(false);

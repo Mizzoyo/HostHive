@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Mail, Phone, CalendarDays, LogIn, ShieldCheck, LogOut, Pencil, Check, X } from 'lucide-react';
+import { ArrowRight, User, Mail, Phone, CalendarDays, LogIn, ShieldCheck, LogOut, Pencil, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
+import '../rooms/[id]/room-detail.css';
 
 export default function GuestProfilePage() {
   const router = useRouter();
@@ -22,6 +23,8 @@ export default function GuestProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [saveMsgType, setSaveMsgType] = useState<'ok' | 'err'>('ok');
+
+  const signInHref = '/stay/auth?redirect=%2Fstay%2Fprofile';
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -97,152 +100,191 @@ export default function GuestProfilePage() {
 
   if (loading) return <StayPageSkeleton />;
 
-  if (!loggedIn) {
-    return (
-      <div className="min-h-screen bg-[#f8fafc] pt-5 sm:pt-24 px-4 sm:px-6">
-        <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 shadow-sm p-8 text-center">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: '#f0fdf4' }}>
-            <LogIn className="w-8 h-8" style={{ color: '#16a34a' }} />
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 mb-2">Sign in to view your profile</h1>
-          <p className="text-slate-500 text-sm mb-6">Manage your guest details and access your trips faster.</p>
-          <Link href="/stay/auth" className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-bold text-white" style={{ background: '#16a34a' }}>
-            Sign in or Register
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#f8fafc] pt-5 sm:pt-24 px-4 sm:px-6 pb-16">
-      <div className="max-w-4xl mx-auto">
-        <div className="rounded-3xl p-8 sm:p-10 text-white mb-8" style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
-          <div className="flex items-center gap-5">
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#16a34a' }}>
-              <User className="w-10 h-10 text-white" />
-            </div>
-            <div>
-              <p className="text-white/60 text-sm font-semibold mb-1">Guest Profile</p>
-              <h1 className="text-3xl font-black">{name}</h1>
-              <p className="text-white/70 text-sm mt-1">Kogelo Suites guest account</p>
-            </div>
-          </div>
-        </div>
+    <div className="room-shell profile-shell">
+      <header className="site-header">
+        <Link className="brand" href="/stay" aria-label="Kogelo Suites home">
+          <span className="brand-mark">K</span>
+          <span className="brand-copy">
+            <strong>Kogelo Suites</strong>
+            <small>Stay a little longer</small>
+          </span>
+        </Link>
+        <nav className="site-nav" aria-label="Main navigation">
+          <Link href="/stay#rooms">Stay</Link>
+          <Link href="/stay#amenities">Our place</Link>
+          <Link href="/stay#location">The details</Link>
+          <Link className="nav-plan profile-plan-link" href="/stay">
+            <span>Plan your stay</span>
+            <ArrowRight size={14} />
+          </Link>
+        </nav>
+      </header>
 
-        {saveMsg && !editing && (
-          <div className={`mb-4 px-4 py-3 rounded-2xl text-sm font-semibold ${saveMsgType === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-            {saveMsg}
-          </div>
-        )}
-
-        <div className="grid md:grid-cols-3 gap-5">
-          <div className="md:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-black text-slate-900">Personal Details</h2>
-              {!editing && (
-                <button onClick={startEditing} className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors">
-                  <Pencil className="w-3.5 h-3.5" /> Edit
-                </button>
-              )}
-            </div>
-
-            {editing ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">Full Name</label>
-                  <input
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    placeholder="Your full name"
-                    className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-green-600 transition-colors"
-                  />
+      {loggedIn ? (
+        <main className="profile-logged-in px-4 sm:px-6 py-10">
+          <div className="max-w-4xl mx-auto">
+            <div className="rounded-3xl p-8 sm:p-10 text-white mb-8" style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)' }}>
+              <div className="flex items-center gap-5">
+                <div className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#16a34a' }}>
+                  <User className="w-10 h-10 text-white" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">
-                    Email <span className="font-normal text-slate-400 normal-case">(optional — for booking confirmations)</span>
-                  </label>
-                  <input
-                    value={editEmail}
-                    onChange={e => setEditEmail(e.target.value)}
-                    type="email"
-                    placeholder="you@example.com"
-                    className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-green-600 transition-colors"
-                  />
-                </div>
-                {saveMsg && (
-                  <p className={`text-sm font-semibold ${saveMsgType === 'err' ? 'text-red-600' : 'text-green-600'}`}>{saveMsg}</p>
-                )}
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={saveProfile}
-                    disabled={saving}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all"
-                    style={{ background: '#16a34a' }}>
-                    <Check className="w-4 h-4" />{saving ? 'Saving…' : 'Save'}
-                  </button>
-                  <button
-                    onClick={cancelEdit}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
-                    <X className="w-4 h-4" />Cancel
-                  </button>
+                  <p className="text-white/60 text-sm font-semibold mb-1">Guest Profile</p>
+                  <h1 className="text-3xl font-black">{name}</h1>
+                  <p className="text-white/70 text-sm mt-1">Kogelo Suites guest account</p>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
-                  <User className="w-5 h-5 text-slate-400" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Full Name</p>
-                    <p className="text-sm font-semibold text-slate-900">{name === 'Guest' ? <span className="text-slate-400 italic">Not set — tap Edit to add</span> : name}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
-                  <Mail className="w-5 h-5 text-slate-400" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Email</p>
-                    <p className="text-sm font-semibold text-slate-900">{email || <span className="text-slate-400 italic">Not added yet — tap Edit to add</span>}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
-                  <Phone className="w-5 h-5 text-slate-400" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Phone</p>
-                    <p className="text-sm font-semibold text-slate-900">{phone || 'Not added yet'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
-                  <ShieldCheck className="w-5 h-5" style={{ color: '#16a34a' }} />
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Account Status</p>
-                    <p className="text-sm font-semibold text-slate-900">Active guest account</p>
-                  </div>
-                </div>
+            </div>
+
+            {saveMsg && !editing && (
+              <div className={`mb-4 px-4 py-3 rounded-2xl text-sm font-semibold ${saveMsgType === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                {saveMsg}
               </div>
             )}
-          </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-            <h2 className="text-lg font-black text-slate-900 mb-5">Quick Actions</h2>
-            <div className="space-y-3">
-              <Link href="/stay/my-bookings" className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors">
-                <CalendarDays className="w-5 h-5" style={{ color: '#16a34a' }} />
-                <span className="text-sm font-bold text-slate-900">View Trips</span>
-              </Link>
-              <Link href="/stay/rooms" className="block text-center px-5 py-3 rounded-xl text-sm font-bold text-white" style={{ background: '#16a34a' }}>
-                Book a Stay
-              </Link>
-              <button
-                onClick={handleSignOut}
-                disabled={signingOut}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50">
-                <LogOut className="w-5 h-5 text-red-500" />
-                <span className="text-sm font-bold text-red-600">{signingOut ? 'Signing out…' : 'Sign Out'}</span>
-              </button>
+            <div className="grid md:grid-cols-3 gap-5">
+              <div className="md:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-lg font-black text-slate-900">Personal Details</h2>
+                  {!editing && (
+                    <button onClick={startEditing} className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors">
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </button>
+                  )}
+                </div>
+
+                {editing ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">Full Name</label>
+                      <input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        placeholder="Your full name"
+                        className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-green-600 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">
+                        Email <span className="font-normal text-slate-400 normal-case">(optional — for booking confirmations)</span>
+                      </label>
+                      <input
+                        value={editEmail}
+                        onChange={e => setEditEmail(e.target.value)}
+                        type="email"
+                        placeholder="you@example.com"
+                        className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-green-600 transition-colors"
+                      />
+                    </div>
+                    {saveMsg && (
+                      <p className={`text-sm font-semibold ${saveMsgType === 'err' ? 'text-red-600' : 'text-green-600'}`}>{saveMsg}</p>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={saveProfile}
+                        disabled={saving}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all"
+                        style={{ background: '#16a34a' }}>
+                        <Check className="w-4 h-4" />{saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        <X className="w-4 h-4" />Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
+                      <User className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Full Name</p>
+                        <p className="text-sm font-semibold text-slate-900">{name === 'Guest' ? <span className="text-slate-400 italic">Not set — tap Edit to add</span> : name}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
+                      <Mail className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Email</p>
+                        <p className="text-sm font-semibold text-slate-900">{email || <span className="text-slate-400 italic">Not added yet — tap Edit to add</span>}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
+                      <Phone className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Phone</p>
+                        <p className="text-sm font-semibold text-slate-900">{phone || 'Not added yet'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50">
+                      <ShieldCheck className="w-5 h-5" style={{ color: '#16a34a' }} />
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Account Status</p>
+                        <p className="text-sm font-semibold text-slate-900">Active guest account</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+                <h2 className="text-lg font-black text-slate-900 mb-5">Quick Actions</h2>
+                <div className="space-y-3">
+                  <Link href="/stay/my-bookings" className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors">
+                    <CalendarDays className="w-5 h-5" style={{ color: '#16a34a' }} />
+                    <span className="text-sm font-bold text-slate-900">View Trips</span>
+                  </Link>
+                  <Link href="/stay/rooms" className="block text-center px-5 py-3 rounded-xl text-sm font-bold text-white" style={{ background: '#16a34a' }}>
+                    Book a Stay
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    disabled={signingOut}
+                    className="w-full flex items-center gap-3 p-4 rounded-2xl bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50">
+                    <LogOut className="w-5 h-5 text-red-500" />
+                    <span className="text-sm font-bold text-red-600">{signingOut ? 'Signing out…' : 'Sign Out'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </main>
+      ) : (
+        <main className="profile-main">
+          <section className="profile-card" aria-labelledby="profile-title">
+            <div className="profile-emblem" aria-hidden="true">
+              <LogIn size={21} strokeWidth={1.7} />
+            </div>
+            <p className="eyebrow profile-eyebrow">Your Kogelo account</p>
+            <h1 id="profile-title">Sign in to view your profile.</h1>
+            <p className="profile-intro">
+              Manage your guest details and access your trips faster.
+            </p>
+            <Link className="button primary profile-action" href={signInHref}>
+              Sign in or register <ArrowRight size={15} />
+            </Link>
+            <p className="profile-note">
+              Your stay details will be easy to find, all in one place.
+            </p>
+          </section>
+        </main>
+      )}
+
+      <footer className="site-footer profile-footer">
+        <Link className="brand footer-brand" href="/stay">
+          <span className="brand-mark">K</span>
+          <span className="brand-copy">
+            <strong>Kogelo Suites</strong>
+            <small>Stay a little longer</small>
+          </span>
+        </Link>
+        <span>Milimani, Kisumu · Kenya</span>
+        <span className="footer-private">
+          <ShieldCheck size={13} /> Secure sign-in via Kogelo Suites
+        </span>
+      </footer>
     </div>
   );
 }

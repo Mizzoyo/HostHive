@@ -87,7 +87,10 @@ const toNum = (v: string | number | null | undefined): number => Number(v) || 0;
 
 function dbRowToProperty(row: DbPropertyRow): Property {
   const beds = row.bedrooms ?? 1;
-  const bedsLabel = beds === 0 ? 'Studio' : `${beds}BR`;
+  // Layout types (Studio, Bedsitter, Budget room) shouldn't claim a bedroom
+  // count — bedrooms in the DB is unreliable for them.
+  const typeLabel = roomTypeLabel(row);
+  const bedsLabel = beds === 0 || !/bedroom/i.test(typeLabel) ? typeLabel : `${beds}BR`;
   const rawType = (row.type || '').toLowerCase();
   const safeCategory = VALID_PROPERTY_TYPES.includes(rawType)
     ? rawType.charAt(0).toUpperCase() + rawType.slice(1)
@@ -97,7 +100,7 @@ function dbRowToProperty(row: DbPropertyRow): Property {
     unit_number: row.unit_number ?? null,
     created_at: row.created_at ?? null,
     name: row.name || row.title || 'Untitled',
-    type: roomTypeLabel(row),
+    type: typeLabel,
     category: safeCategory,
     bedrooms: bedsLabel,
     bathrooms: row.bathrooms ?? 1,
@@ -757,7 +760,7 @@ export default function PropertiesPage() {
                   <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-3 ml-4">
                     <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 010 4H2"/><path d="M2 16h14a2 2 0 010 4H2"/></svg>
                     <span className="font-medium text-gray-700">{p.bedrooms}</span>
-                    {p.category !== 'Apartment' && <span>{p.category}</span>}
+                    {p.category !== 'Apartment' && p.category.toLowerCase() !== p.bedrooms.toLowerCase() && <span>{p.category}</span>}
                     <span className="truncate max-w-[120px]">{p.location}</span>
                   </div>
 
@@ -826,9 +829,13 @@ export default function PropertiesPage() {
 
                     {/* Meta row */}
                     <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1 ml-4">
-                      <span className="font-medium text-gray-700">{p.bedrooms} bd</span>
-                      <span>·</span>
-                      <span>{p.category}</span>
+                      <span className="font-medium text-gray-700">{p.bedrooms.toLowerCase() === p.category.toLowerCase() ? p.bedrooms : `${p.bedrooms} bd`}</span>
+                      {p.bedrooms.toLowerCase() !== p.category.toLowerCase() && (
+                        <>
+                          <span>·</span>
+                          <span>{p.category}</span>
+                        </>
+                      )}
                     </div>
                     {p.location && (
                       <p className="text-xs text-gray-400 ml-4 mb-2 truncate">{p.location}</p>
@@ -897,7 +904,7 @@ export default function PropertiesPage() {
                             <span className="font-semibold text-gray-900">{p.name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{p.bedrooms} · {p.category}</td>
+                        <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{p.bedrooms.toLowerCase() === p.category.toLowerCase() ? p.bedrooms : `${p.bedrooms} · ${p.category}`}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell truncate max-w-[180px]">{p.location}</td>
                         <td className="px-4 py-3">
                           {p.status === 'draft' ? (

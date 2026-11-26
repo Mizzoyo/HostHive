@@ -57,7 +57,16 @@ export async function PATCH(
       .eq('id', id)
       .eq('user_id', userId)
       .single();
-    if (fetchErr || !existing) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    // PGRST116 = row not found; anything else (e.g. missing column) is a real
+    // error worth surfacing instead of a misleading 404.
+    if (fetchErr) {
+      const missing = fetchErr.code === 'PGRST116';
+      return NextResponse.json(
+        { error: missing ? 'Booking not found' : `Could not load booking: ${fetchErr.message}` },
+        { status: missing ? 404 : 500 },
+      );
+    }
+    if (!existing) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
 
     const totalAffectingProvided = [check_in, check_out, nightly_rate, cleaning_fee, extra_fees, discount, discount_amount]
       .some(v => v !== undefined);

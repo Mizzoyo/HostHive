@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -31,6 +31,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import RoomDetailReviews from './RoomDetailReviews';
+import { createClient } from '@/lib/supabase/client';
 
 type Guest = {
   firstName: string;
@@ -136,6 +137,11 @@ function money(value: number) {
   return new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 }).format(value);
 }
 
+/* Same short-ref formula the booking API uses for confirmation emails */
+function shortRef(id: string) {
+  return `KGS-${Math.floor(1000000 + (parseInt(id.replace(/-/g, '').slice(0, 9), 16) % 9000000))}`;
+}
+
 export default function RoomPreview({
   property,
   photos,
@@ -161,24 +167,78 @@ export default function RoomPreview({
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [shareMessage, setShareMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [bookingRef, setBookingRef] = useState('');
 
   const nights = useMemo(() => countNights(checkIn, checkOut), [checkIn, checkOut]);
   const total = nights * rate;
   const earliestCheckOut = shiftDate(checkIn, 1);
-  const roomTag = property.name.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const bookingReference = `KGS-${roomTag}-${checkIn.replaceAll('-', '').slice(2)}-${String(guestCount).padStart(2, '0')}`;
-  const bookingSteps = ['Guest details', 'Review', 'Complete'];
+  const bookingSteps = ['Guest details', 'Review', 'Request sent'];
   const displayPhotos = photos.length > 0 ? photos : [];
+
+  /* Prefill guest details for signed-in guests, and resume a booking that was
+     stashed before the auth redirect. */
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      const user = data.user;
+      if (user) {
+        const meta = user.user_metadata ?? {};
+        const fullName = String(meta.full_name ?? meta.name ?? '').trim();
+        const [firstName, ...rest] = fullName.split(/\s+/).filter(Boolean);
+        const email = String(meta.profile_email || user.email || '').trim();
+        const phone = String(user.phone ?? meta.phone ?? '').trim();
+        setGuest(current => ({
+          ...current,
+          firstName: current.firstName || firstName || '',
+          lastName:  current.lastName  || rest.join(' ') || '',
+          email:     current.email     || email,
+          phone:     current.phone     || phone,
+        }));
+      }
+      try {
+        const pending = sessionStorage.getItem('pendingRoomBooking');
+        sessionStorage.removeItem('pendingRoomBooking');
+        if (!pending) return;
+        const saved = JSON.parse(pending) as { propertyId?: string; checkIn?: string; checkOut?: string; guestCount?: number };
+        if (saved.propertyId !== property.id) return;
+        if (validIsoDate(saved.checkIn ?? '')) setCheckIn(saved.checkIn!);
+        if (validIsoDate(saved.checkOut ?? '') && (saved.checkOut ?? '') > (saved.checkIn ?? '')) setCheckOut(saved.checkOut!);
+        if (saved.guestCount) setGuestCount(Math.min(maxGuests, Math.max(1, saved.guestCount)));
+        if (user) setStep(1);
+      } catch { /* ignore */ }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function beginBooking() {
+  async function beginBooking() {
     setError('');
     if (!checkIn || !checkOut || checkOut <= checkIn) {
       setError('Choose a check-out date after your check-in date.');
       document.getElementById('booking-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    // Booking requires a signed-in guest — stash the selection and resume after auth.
+    let hasSession = false;
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getSession();
+      hasSession = Boolean(data.session?.user);
+    } catch { /* treat as signed out */ }
+    if (!hasSession) {
+      try {
+        sessionStorage.setItem('pendingRoomBooking', JSON.stringify({
+          propertyId: property.id,
+          checkIn,
+          checkOut,
+          guestCount,
+        }));
+      } catch { /* ignore */ }
+      router.push(`/stay/auth?redirect=${encodeURIComponent(window.location.pathname)}`);
       return;
     }
     setStep(1);
@@ -207,27 +267,65 @@ export default function RoomPreview({
       return;
     }
     if (step === 2) {
-      setStep(3);
-      scrollToTop();
+      submitBooking();
       return;
     }
-    goToCheckout();
+    closeConfirmation();
   }
 
-  function goToCheckout() {
-    const qs = new URLSearchParams({
-      propertyId: property.slug || property.id,
-      checkIn,
-      checkOut,
-      guests: String(guestCount),
-      rooms: '1',
-    });
-    const fullName = `${guest.firstName} ${guest.lastName}`.trim();
-    if (fullName) qs.set('guestName', fullName);
-    if (guest.phone.trim()) qs.set('guestPhone', guest.phone.trim());
-    if (guest.email.trim()) qs.set('guestEmail', guest.email.trim());
-    if (guest.note.trim()) qs.set('guestNote', guest.note.trim());
-    router.push(`/stay/checkout?${qs.toString()}`);
+  async function submitBooking() {
+    setSubmitting(true);
+    setError('');
+    try {
+      let userId: string | null = null;
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.auth.getSession();
+        userId = data.session?.user?.id ?? null;
+      } catch { /* non-critical */ }
+
+      const res = await fetch('/api/stay/booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guest_name: `${guest.firstName.trim()} ${guest.lastName.trim()}`.trim(),
+          guest_phone: guest.phone.trim(),
+          guest_email: guest.email.trim(),
+          check_in: checkIn,
+          check_out: checkOut,
+          nights,
+          num_adults: guestCount,
+          num_children: 0,
+          room_details: [{
+            property_id: property.id,
+            property_name: property.name,
+            nightly_rate: rate,
+            sold_as_bedrooms: null,
+            sold_as_label: null,
+            qty: 1,
+            nights,
+            subtotal: total,
+          }],
+          total_amount: total,
+          special_requests: guest.note.trim(),
+          ...(userId ? { user_id: userId } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 409 || data.conflict) {
+        setError(data.error || 'This room was just booked for those dates — please choose different dates.');
+        backToRoom();
+        return;
+      }
+      if (data.error) { setError(data.error); return; }
+      setBookingRef(data.id ? shortRef(String(data.id)) : '');
+      setStep(3);
+      scrollToTop();
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function backToRoom() {
@@ -511,7 +609,7 @@ export default function RoomPreview({
               <div className="flow-heading">
                 <p className="eyebrow">Your stay at Kogelo Suites</p>
                 <h1>{step === 1 ? 'Who will we welcome?' : 'Take a moment to review.'}</h1>
-                <p>{step === 1 ? 'Add the lead guest’s details. We’ll carry them through to checkout.' : 'Check the details below before you continue to secure checkout.'}</p>
+                <p>{step === 1 ? 'Add the lead guest’s details — we’ll use them to confirm your request.' : 'Check the details below before you send your booking request.'}</p>
               </div>
               <nav className="stepper" aria-label="Booking progress">
                 {bookingSteps.map((label, index) => {
@@ -555,7 +653,7 @@ export default function RoomPreview({
                         <label className="field"><span>Phone number</span><input data-testid="input-phone" type="tel" autoComplete="tel" value={guest.phone} placeholder="+254 700 000 000" onChange={(event) => updateGuest('phone', event.target.value)} /></label>
                         <label className="field field-full"><span>A note for your host <small>Optional</small></span><textarea data-testid="input-note" value={guest.note} placeholder="Anything that would make your stay easier?" onChange={(event) => updateGuest('note', event.target.value)} /></label>
                       </div>
-                      <div className="privacy-note"><ShieldCheck size={16} /><span>Your details go to checkout only — nothing is sent before then.</span></div>
+                      <div className="privacy-note"><ShieldCheck size={16} /><span>Your details go to our team only — nothing is sent before you confirm.</span></div>
                     </>
                   ) : (
                     <>
@@ -573,7 +671,7 @@ export default function RoomPreview({
                         {guest.note.trim() && <div className="review-note"><span>Note for your host</span><strong>{guest.note}</strong></div>}
                       </div>
                       <div className="cancellation-note review-cancel"><CheckCircle2 size={18} /><div><strong>{cancellation.title}</strong><p>{cancellation.body}</p></div></div>
-                      <div className="privacy-note"><ShieldCheck size={16} /><span>No payment is collected on this page — you’ll confirm on secure checkout.</span></div>
+                      <div className="privacy-note"><ShieldCheck size={16} /><span>No payment is collected on this page — our team confirms your stay by phone or email.</span></div>
                     </>
                   )}
                   {error && <div className="validation" role="alert">{error}</div>}
@@ -594,10 +692,10 @@ export default function RoomPreview({
           {step === 3 && (
             <section className="confirmation-card">
               <div className="confirmation-icon"><CheckCircle2 size={29} /></div>
-              <p className="eyebrow">Ready when you are</p>
-              <h1>Everything is ready.</h1>
-              <p className="confirmation-copy">Your {property.name} stay is set for secure checkout — no reservation has been created yet, and no payment is taken on this page.</p>
-              <div className="confirmation-reference">{bookingReference}</div>
+              <p className="eyebrow">Request sent</p>
+              <h1>Everything looks lovely.</h1>
+              <p className="confirmation-copy">We&apos;ve received your {property.name} request — our team will call <strong>{guest.phone}</strong> shortly to confirm availability and payment.</p>
+              {bookingRef && <div className="confirmation-reference">{bookingRef}</div>}
               <div className="confirmation-details">
                 <div><span>Lead guest</span><strong>{guest.firstName} {guest.lastName}</strong></div>
                 <div><span>Room</span><strong>{property.name} {property.typeLabel} · {property.areaLabel}</strong></div>
@@ -606,7 +704,7 @@ export default function RoomPreview({
                 <div><span>Contact</span><strong>{guest.email}<br />{guest.phone}</strong></div>
                 <div><span>Estimated total</span><strong>KSh {money(total)} · {nights} {nights === 1 ? 'night' : 'nights'}</strong></div>
               </div>
-              <div className="preview-warning"><ShieldCheck size={16} /><span>Continue to secure checkout to confirm this stay — that’s where your booking is created and our team confirms within 2 hours.</span></div>
+              <div className="preview-warning"><ShieldCheck size={16} /><span>This is a booking request, not a confirmed reservation — no payment was taken. Our team confirms your stay by phone or email.</span></div>
               <button className="button secondary-button" type="button" onClick={closeConfirmation}>Back to {property.name} <ArrowRight size={14} /></button>
             </section>
           )}
@@ -616,20 +714,20 @@ export default function RoomPreview({
       <footer className="site-footer">
         <a className="brand footer-brand" href="#top"><span className="brand-mark">K</span><span className="brand-copy"><strong>Kogelo Suites</strong><small>Stay a little longer</small></span></a>
         <span>{property.areaLabel} · Kenya</span>
-        <span className="footer-private"><ShieldCheck size={13} /> Secure checkout via Kogelo Suites</span>
+        <span className="footer-private"><ShieldCheck size={13} /> Secure booking via Kogelo Suites</span>
       </footer>
 
       <div className="booking-dock" role="region" aria-label="Booking actions">
         {step === 3 ? (
           <>
-            <div className="dock-price"><strong>{property.name} {property.typeLabel}</strong><span>Ready for checkout · KSh {money(total)}</span></div>
-            <button className="button primary dock-button" type="button" onClick={goToCheckout}>Continue to checkout <ArrowRight size={15} /></button>
+            <div className="dock-price"><strong>{property.name} {property.typeLabel}</strong><span>Request sent · KSh {money(total)}</span></div>
+            <button className="button primary dock-button" type="button" onClick={closeConfirmation}>Done <Check size={15} /></button>
           </>
         ) : (
           <>
             <div className="dock-price"><strong>KSh {money(step === 0 ? rate : total)} <small>{step === 0 ? '/ night' : `· ${nights} ${nights === 1 ? 'night' : 'nights'}`}</small></strong><span>{formatDate(checkIn, { day: 'numeric', month: 'short' })} – {formatDate(checkOut, { day: 'numeric', month: 'short' })} · {guestCount} {guestCount === 1 ? 'guest' : 'guests'}</span></div>
-            <button className="button primary dock-button" type="button" onClick={continueFlow}>
-              {step === 0 ? `Reserve ${property.name}` : step === 1 ? 'Review your stay' : 'Finish review'} <ArrowRight size={15} />
+            <button className="button primary dock-button" type="button" disabled={submitting} onClick={continueFlow}>
+              {step === 0 ? `Reserve ${property.name}` : step === 1 ? 'Review your stay' : submitting ? 'Sending…' : 'Confirm booking'} <ArrowRight size={15} />
             </button>
           </>
         )}

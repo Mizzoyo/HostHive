@@ -13,8 +13,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const updatePayload: Record<string, unknown> = {};
     const allowed = ['name','description','discount_type','value_type','value','early_booking_days','valid_from','valid_until','is_active'];
+    const nullable = new Set(['early_booking_days','valid_from','valid_until']);
     for (const key of allowed) {
-      if (key in fields) updatePayload[key] = fields[key] === '' ? null : fields[key];
+      if (key in fields) updatePayload[key] = fields[key] === '' && nullable.has(key) ? null : fields[key];
     }
     if ('value' in updatePayload) updatePayload['value'] = Number(updatePayload['value']);
 

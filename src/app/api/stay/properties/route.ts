@@ -4,6 +4,16 @@ import { fetchUniversalStaySettings } from '@/lib/stay/fetchProperties';
 import { mergeAmenityLabels } from '@/lib/amenities';
 import { sortProperties } from '@/lib/propertySort';
 
+// Row shape differs depending on whether sell_options (migration 36) exists —
+// cast after the fallback so the union doesn't leak into downstream uses.
+type PropertyRow = {
+  id: string;
+  name?: string | null;
+  cover_photo?: string | null;
+  sell_options?: unknown;
+  [key: string]: unknown;
+};
+
 export async function GET(req: Request) {
   try {
     const hostId = process.env.STAY_HOST_USER_ID;
@@ -12,15 +22,20 @@ export async function GET(req: Request) {
     const checkIn  = searchParams.get('checkIn');
     const checkOut = searchParams.get('checkOut');
 
-    let query = publicSupabase
-      .from('properties')
-      .select('id, name, type, description, location, address, city, county, bedrooms, bathrooms, max_guests, nightly_rate, weekend_rate, cover_photo, status, latitude, longitude, check_in_time, check_out_time')
-      .eq('status', 'active')
-      .order('name');
+    const baseCols = 'id, name, type, description, location, address, city, county, bedrooms, bathrooms, max_guests, nightly_rate, weekend_rate, cover_photo, status, latitude, longitude, check_in_time, check_out_time';
+    const runQuery = (cols: string) => {
+      let q = publicSupabase
+        .from('properties')
+        .select(cols)
+        .eq('status', 'active')
+        .order('name');
+      if (hostId) q = q.eq('user_id', hostId);
+      return q;
+    };
 
-    if (hostId) query = query.eq('user_id', hostId);
-
-    const { data: properties, error } = await query;
+    // Retry without sell_options if migration 36 hasn't been run yet
+    let { data: properties, error } = await runQuery(`${baseCols}, sell_options`);
+    if (error) ({ data: properties, error } = await runQuery(baseCols));
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     // Exclude properties with overlapping active bookings for the requested dates.
@@ -69,7 +84,7 @@ export async function GET(req: Request) {
     } catch { /* ignore */ }
 
     const withPhotos = await Promise.all(
-      sortProperties((properties ?? []).filter((p) => !blockedIds.has(p.id))).map(async (p) => {
+      sortProperties(((properties ?? []) as unknown as PropertyRow[]).filter((p) => !blockedIds.has(p.id))).map(async (p) => {
         const { data: photos } = await publicSupabase
           .from('property_photos')
           .select('url, sort_order')

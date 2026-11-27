@@ -23,6 +23,9 @@ import { StayFooter, StayTopbar } from '@/components/stay/shared/StayChrome';
 import SearchWidget from '@/components/stay/SearchWidget';
 import { roomTypeLabel } from '@/lib/stay/roomType';
 import { createClient } from '@/lib/supabase/client';
+import { useApplicableDiscounts } from '@/lib/stay/useApplicableDiscounts';
+import type { AppliedDiscount } from '@/lib/stay/discounts';
+import { getSellOptions, type ResolvedSellOption } from '@/lib/sellOptions';
 import '../../stay.css';
 
 type Property = {
@@ -35,6 +38,7 @@ type Property = {
   max_guests?: number;
   description?: string;
   photos?: string[];
+  sell_options?: unknown;
 };
 
 type Guest = {
@@ -45,7 +49,7 @@ type Guest = {
   note: string;
 };
 
-type CartItem = { property: { id: string; name: string }; qty: number };
+type CartItem = { property: { id: string; name: string }; qty: number; soldAsBedrooms?: number | null };
 
 const MAX_ADULTS = 30;
 const MAX_CHILDREN = 20;
@@ -109,6 +113,7 @@ function GroupBookingContent() {
   const [roomsError, setRoomsError] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [soldAsMap, setSoldAsMap] = useState<Record<string, number | null>>({});
   const knownNames = useRef<Record<string, string>>({});
   const panelRef = useRef<HTMLElement | null>(null);
   const prevStep = useRef(step);
@@ -123,6 +128,9 @@ function GroupBookingContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [confirmedDiscounts, setConfirmedDiscounts] = useState<AppliedDiscount[]>([]);
+  const [confirmedDiscountTotal, setConfirmedDiscountTotal] = useState(0);
 
   /* ── Defaults + cart restore (deferred — clock/sessionStorage are client-only) ── */
   useEffect(() => {
@@ -140,17 +148,24 @@ function GroupBookingContent() {
           if (cart) {
             const items = JSON.parse(cart) as CartItem[];
             const seeded: Record<string, number> = {};
+            const seededOptions: Record<string, number | null> = {};
             items.forEach(item => {
               if (item.property?.id && item.qty > 0) {
                 seeded[item.property.id] = 1;
+                seededOptions[item.property.id] = item.soldAsBedrooms ?? null;
                 knownNames.current[item.property.id] = item.property.name;
               }
             });
             setQuantities(seeded);
+            setSoldAsMap(seededOptions);
           }
         } catch { /* ignore */ }
       }
     });
+    try {
+      const supabase = createClient();
+      supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
+    } catch { /* non-critical */ }
   }, [fromCart, paramCheckIn]);
 
   /* ── Load rooms for the chosen dates (abort-guarded against stale responses) ── */
@@ -211,19 +226,46 @@ function GroupBookingContent() {
   /* ── Derived values ── */
   const nights = nightsBetween(checkIn, checkOut);
   const partySize = adults + children;
+  const optionOf = (p: Property): ResolvedSellOption => {
+    const opts = getSellOptions(p);
+    return opts.find(o => o.bedrooms === soldAsMap[p.id]) ?? opts[0];
+  };
+
   const selectedRooms = properties
-    .map(p => ({ ...p, quantity: quantities[p.id] || 0 }))
+    .map(p => {
+      const option = optionOf(p);
+      return {
+        ...p,
+        quantity: quantities[p.id] || 0,
+        option,
+        effectiveRate: option.nightly_rate,
+        effectiveGuests: option.max_guests,
+      };
+    })
     .filter(p => p.quantity > 0);
   const totalRooms = selectedRooms.reduce((s, r) => s + r.quantity, 0);
-  const totalCapacity = selectedRooms.reduce((s, r) => s + (r.max_guests ?? 2) * r.quantity, 0);
+  const totalCapacity = selectedRooms.reduce((s, r) => s + r.effectiveGuests * r.quantity, 0);
   const total = selectedRooms.reduce(
-    (s, r) => s + Number(r.nightly_rate ?? 0) * r.quantity * (nights || 1),
+    (s, r) => s + r.effectiveRate * r.quantity * (nights || 1),
     0,
   );
   const capacityShortfall = Math.max(0, partySize - totalCapacity);
   // One of each physical room can be selected — capacity caps at one unit per room
   const maxSelectableCapacity = properties.reduce((s, p) => s + (p.max_guests ?? 2), 0);
   const capacityImpossible = capacityShortfall > 0 && partySize > maxSelectableCapacity;
+
+  const deal = useApplicableDiscounts({
+    rooms: selectedRooms.map(r => ({
+      propertyId: r.id,
+      subtotal: r.effectiveRate * r.quantity * (nights || 1),
+    })),
+    checkIn,
+    userId,
+    phone: guest.phone,
+    email: guest.email,
+    enabled: selectedRooms.length > 0 && nights > 0,
+  });
+  const netTotal = Math.max(0, total - deal.discountTotal);
 
   /* ── Helpers ── */
   function toggleRoom(roomId: string) {
@@ -306,10 +348,12 @@ function GroupBookingContent() {
           room_details: selectedRooms.map(r => ({
             property_id: r.id,
             property_name: r.name,
-            nightly_rate: r.nightly_rate,
+            nightly_rate: r.effectiveRate,
+            sold_as_bedrooms: r.option && !r.option.isFull ? r.option.bedrooms : null,
+            sold_as_label: r.option && !r.option.isFull ? r.option.label : null,
             qty: r.quantity,
             nights,
-            subtotal: Number(r.nightly_rate) * r.quantity * nights,
+            subtotal: r.effectiveRate * r.quantity * nights,
           })),
           total_amount: total,
           special_requests: [groupName.trim() && `Group: ${groupName.trim()}`, guest.note.trim()]
@@ -326,6 +370,8 @@ function GroupBookingContent() {
       }
       if (data.error) { setError(data.error); return; }
       setBookingRef(data.id ? shortRef(String(data.id)) : '');
+      setConfirmedDiscounts(Array.isArray(data.applied_discounts) ? data.applied_discounts : []);
+      setConfirmedDiscountTotal(Number(data.discount_total) || 0);
       try {
         sessionStorage.removeItem('roomCart');
         sessionStorage.removeItem('roomCartMeta');
@@ -387,10 +433,10 @@ function GroupBookingContent() {
                 <ul>
                   {selectedRooms.map(room => (
                     <li key={room.id}>
-                      <b>{room.name} × {room.quantity}</b>
+                      <b>{room.name}{room.option && !room.option.isFull ? ` · ${room.option.label}` : ''} × {room.quantity}</b>
                       <small>
-                        KSh {money(Number(room.nightly_rate))} / room / night · sleeps{' '}
-                        {room.max_guests ?? 2} each
+                        KSh {money(room.effectiveRate)} / room / night · sleeps{' '}
+                        {room.effectiveGuests} each
                       </small>
                     </li>
                   ))}
@@ -400,6 +446,18 @@ function GroupBookingContent() {
                 <span>Estimated total</span>
                 <b>KSh {money(total)} · {nights} {nights === 1 ? 'night' : 'nights'}</b>
               </div>
+              {confirmedDiscountTotal > 0 && (
+                <div className="gb-confirm-cell">
+                  <span>Discounts applied</span>
+                  <b>{confirmedDiscounts.map(d => d.name).join(' · ')} −KSh {money(confirmedDiscountTotal)}</b>
+                </div>
+              )}
+              {confirmedDiscountTotal > 0 && (
+                <div className="gb-confirm-cell">
+                  <span>Estimated payable</span>
+                  <b>KSh {money(Math.max(0, total - confirmedDiscountTotal))}</b>
+                </div>
+              )}
               <div className="gb-confirm-cell">
                 <span>Contact</span>
                 <b>{guest.email}</b>
@@ -551,6 +609,8 @@ function GroupBookingContent() {
                     {properties.map(room => {
                       const quantity = quantities[room.id] || 0;
                       const isSelected = quantity > 0;
+                      const opts = getSellOptions(room);
+                      const option = opts.find(o => o.bedrooms === soldAsMap[room.id]) ?? opts[0];
                       return (
                         <article
                           className={`gb-room ${isSelected ? 'gb-selected' : ''}`}
@@ -569,13 +629,31 @@ function GroupBookingContent() {
                             <p className="room-type">{roomTypeLabel(room)}</p>
                             <h3>{room.name}</h3>
                             <div className="gb-room-facts">
-                              <span><BedDouble size={13} /> {room.bedrooms ?? 1}</span>
+                              <span><BedDouble size={13} /> {option.bedrooms}</span>
                               <span><Droplets size={13} /> {room.bathrooms ?? 1}</span>
-                              <span><Users size={13} /> Sleeps {room.max_guests ?? 2}</span>
+                              <span><Users size={13} /> Sleeps {option.max_guests}</span>
                             </div>
+                            {opts.length > 1 && (
+                              <select
+                                className="gb-book-as"
+                                aria-label={`Book ${room.name} as`}
+                                data-testid={`select-bookas-${room.id}`}
+                                value={option.isFull ? '' : String(option.bedrooms)}
+                                onChange={e => setSoldAsMap(m => ({
+                                  ...m,
+                                  [room.id]: e.target.value === '' ? null : Number(e.target.value),
+                                }))}
+                              >
+                                {opts.map(o => (
+                                  <option key={o.bedrooms} value={o.isFull ? '' : String(o.bedrooms)}>
+                                    {o.label} — KSh {money(o.nightly_rate)} / night
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </div>
                           <div className="gb-room-select">
-                            <strong>KSh {money(Number(room.nightly_rate ?? 0))}</strong>
+                            <strong>KSh {money(option.nightly_rate)}</strong>
                             <small>/ room / night</small>
                             <button
                               type="button"
@@ -678,15 +756,33 @@ function GroupBookingContent() {
                       {selectedRooms.map(room => (
                         <div className="gb-review-row" key={room.id} data-testid={`review-room-${room.id}`}>
                           <span>
-                            <b>{room.name}</b>
+                            <b>{room.name}{room.option && !room.option.isFull ? ` · ${room.option.label}` : ''}</b>
                             <small>
-                              {room.quantity} × KSh {money(Number(room.nightly_rate))} / room / night
+                              {room.quantity} × KSh {money(room.effectiveRate)} / room / night
                             </small>
                           </span>
-                          <strong>KSh {money(Number(room.nightly_rate) * room.quantity * nights)}</strong>
+                          <strong>KSh {money(room.effectiveRate * room.quantity * nights)}</strong>
+                        </div>
+                      ))}
+                      {deal.appliedDiscounts.map(d => (
+                        <div className="gb-review-row gb-discount-row" key={d.id} data-testid={`discount-${d.id}`}>
+                          <span>
+                            <b>{d.name}</b>
+                            <small>{d.value_type === 'percentage' ? `${d.value}% off` : 'Discount applied'}</small>
+                          </span>
+                          <strong>−KSh {money(d.amount)}</strong>
                         </div>
                       ))}
                     </div>
+                    {!userId && deal.gated.length > 0 && (
+                      <Link
+                        href={`/stay/auth?redirect=${encodeURIComponent('/stay/book/group' + (params.toString() ? `?${params.toString()}` : ''))}`}
+                        className="gb-discount-hint"
+                        data-testid="link-signin-discounts"
+                      >
+                        Sign in to unlock {deal.gated.map(d => `“${d.name}”`).join(', ')}
+                      </Link>
+                    )}
                     <div className="gb-review-info">
                       <div>
                         <span>Group / capacity</span>
@@ -696,6 +792,12 @@ function GroupBookingContent() {
                         <span>Estimated total</span>
                         <b>KSh {money(total)}</b>
                       </div>
+                      {deal.discountTotal > 0 && (
+                        <div>
+                          <span>After discounts</span>
+                          <b>KSh {money(netTotal)}</b>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -834,11 +936,11 @@ function GroupBookingContent() {
                 <div className="gb-summary-rooms">
                   {selectedRooms.map(room => (
                     <div className="gb-summary-room" key={room.id} data-testid={`summary-room-${room.id}`}>
-                      <span>{room.name} <small>× {room.quantity}</small></span>
-                      <b>KSh {money(Number(room.nightly_rate) * room.quantity * (nights || 1))}</b>
+                      <span>{room.name}{room.option && !room.option.isFull ? ` · ${room.option.label}` : ''} <small>× {room.quantity}</small></span>
+                      <b>KSh {money(room.effectiveRate * room.quantity * (nights || 1))}</b>
                       <small>
-                        KSh {money(Number(room.nightly_rate))} / room / night · sleeps{' '}
-                        {room.max_guests ?? 2} each
+                        KSh {money(room.effectiveRate)} / room / night · sleeps{' '}
+                        {room.effectiveGuests} each
                       </small>
                     </div>
                   ))}
@@ -847,14 +949,20 @@ function GroupBookingContent() {
                   <span>Capacity</span>
                   <b>{totalCapacity} places for {partySize} guests</b>
                 </div>
+                {deal.appliedDiscounts.map(d => (
+                  <div className="gb-summary-line gb-discount-line" key={d.id}>
+                    <span>{d.name}{d.value_type === 'percentage' ? ` (${d.value}%)` : ''}</span>
+                    <b>−KSh {money(d.amount)}</b>
+                  </div>
+                ))}
                 <div className="gb-summary-rule" />
                 <div className="gb-summary-price">
                   <span>Estimated total</span>
-                  <b>KSh {money(total)}</b>
+                  <b>KSh {money(netTotal)}</b>
                 </div>
                 <div className="gb-summary-line">
                   <span>{nights || 1} {(nights || 1) === 1 ? 'night' : 'nights'} · all selected rooms</span>
-                  <b>KSh {money(total)}</b>
+                  <b>KSh {money(netTotal)}</b>
                 </div>
               </>
             ) : (

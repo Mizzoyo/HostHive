@@ -50,11 +50,35 @@ async function registerIpn(token: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { booking_request_id, amount, guest_name, guest_email, guest_phone } = await req.json();
+    const { booking_request_id } = await req.json();
 
-    if (!booking_request_id || !amount) {
-      return NextResponse.json({ error: 'booking_request_id and amount are required' }, { status: 400 });
+    if (!booking_request_id) {
+      return NextResponse.json({ error: 'booking_request_id is required' }, { status: 400 });
     }
+
+    // Derive the payable amount and guest details from the stored request —
+    // a client-sent amount could be forged.
+    const { data: bookingReq, error: lookupErr } = await publicSupabase
+      .from('booking_requests')
+      .select('guest_name, guest_email, guest_phone, total_amount, discount_total')
+      .eq('id', booking_request_id)
+      .single();
+
+    if (lookupErr || !bookingReq) {
+      return NextResponse.json({ error: 'Booking request not found' }, { status: 404 });
+    }
+
+    const amount = Math.max(
+      0,
+      (Number(bookingReq.total_amount) || 0) - (Number(bookingReq.discount_total) || 0),
+    );
+    if (amount <= 0) {
+      return NextResponse.json({ error: 'Nothing to charge for this request' }, { status: 400 });
+    }
+
+    const guest_name  = bookingReq.guest_name ?? '';
+    const guest_email = bookingReq.guest_email ?? '';
+    const guest_phone = bookingReq.guest_phone ?? '';
 
     if (!process.env.PESAPAL_CONSUMER_KEY?.trim() || !process.env.PESAPAL_CONSUMER_SECRET?.trim()) {
       return NextResponse.json({ error: 'Pesapal not configured — add PESAPAL_CONSUMER_KEY and PESAPAL_CONSUMER_SECRET to .env.local' }, { status: 503 });

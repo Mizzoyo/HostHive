@@ -32,6 +32,9 @@ import {
 } from 'lucide-react';
 import RoomDetailReviews from './RoomDetailReviews';
 import { createClient } from '@/lib/supabase/client';
+import { useApplicableDiscounts } from '@/lib/stay/useApplicableDiscounts';
+import type { AppliedDiscount } from '@/lib/stay/discounts';
+import type { ResolvedSellOption } from '@/lib/sellOptions';
 
 type Guest = {
   firstName: string;
@@ -67,6 +70,8 @@ export type PreviewProperty = {
     noParties?: boolean;
     quietHours?: boolean;
   };
+  /** Sell-as configurations (full house first, then smaller options) */
+  options?: ResolvedSellOption[];
 };
 
 type Props = {
@@ -152,8 +157,12 @@ export default function RoomPreview({
   initialGuests,
 }: Props) {
   const router = useRouter();
-  const maxGuests = Math.max(1, property.maxGuests || 2);
-  const rate = Math.max(0, property.nightlyRate || 0);
+  const options = property.options ?? [];
+  const [soldAs, setSoldAs] = useState<number | null>(null);
+  const selectedOption = options.find(o => o.bedrooms === soldAs) ?? options[0] ?? null;
+  const isSoldAs = Boolean(selectedOption && !selectedOption.isFull);
+  const maxGuests = Math.max(1, Number(selectedOption?.max_guests ?? property.maxGuests) || 2);
+  const rate = Math.max(0, Number(selectedOption?.nightly_rate ?? property.nightlyRate) || 0);
   const cancellation = CANCELLATION_COPY[property.cancellationPolicy] ?? CANCELLATION_COPY.flexible;
 
   const [checkIn, setCheckIn] = useState(validIsoDate(initialCheckIn) ? initialCheckIn : toIsoDate(new Date()));
@@ -169,12 +178,30 @@ export default function RoomPreview({
   const [shareMessage, setShareMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [bookingRef, setBookingRef] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [confirmedDiscounts, setConfirmedDiscounts] = useState<AppliedDiscount[]>([]);
+  const [confirmedDiscountTotal, setConfirmedDiscountTotal] = useState(0);
 
   const nights = useMemo(() => countNights(checkIn, checkOut), [checkIn, checkOut]);
   const total = nights * rate;
+
+  const deal = useApplicableDiscounts({
+    rooms: [{ propertyId: property.id, subtotal: total }],
+    checkIn,
+    userId,
+    phone: guest.phone,
+    email: guest.email,
+  });
+  const netTotal = Math.max(0, total - deal.discountTotal);
   const earliestCheckOut = shiftDate(checkIn, 1);
   const bookingSteps = ['Guest details', 'Review', 'Request sent'];
   const displayPhotos = photos.length > 0 ? photos : [];
+
+  /* Pick a sell-as configuration, clamping the guest count to its capacity */
+  const pickOption = (o: ResolvedSellOption) => {
+    setSoldAs(o.isFull ? null : o.bedrooms);
+    setGuestCount(c => Math.min(o.max_guests, Math.max(1, c)));
+  };
 
   /* Prefill guest details for signed-in guests, and resume a booking that was
      stashed before the auth redirect. */
@@ -182,6 +209,7 @@ export default function RoomPreview({
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       const user = data.user;
+      setUserId(user?.id ?? null);
       if (user) {
         const meta = user.user_metadata ?? {};
         const fullName = String(meta.full_name ?? meta.name ?? '').trim();
@@ -200,11 +228,12 @@ export default function RoomPreview({
         const pending = sessionStorage.getItem('pendingRoomBooking');
         sessionStorage.removeItem('pendingRoomBooking');
         if (!pending) return;
-        const saved = JSON.parse(pending) as { propertyId?: string; checkIn?: string; checkOut?: string; guestCount?: number };
+        const saved = JSON.parse(pending) as { propertyId?: string; checkIn?: string; checkOut?: string; guestCount?: number; soldAs?: number | null };
         if (saved.propertyId !== property.id) return;
         if (validIsoDate(saved.checkIn ?? '')) setCheckIn(saved.checkIn!);
         if (validIsoDate(saved.checkOut ?? '') && (saved.checkOut ?? '') > (saved.checkIn ?? '')) setCheckOut(saved.checkOut!);
         if (saved.guestCount) setGuestCount(Math.min(maxGuests, Math.max(1, saved.guestCount)));
+        if (saved.soldAs !== undefined) setSoldAs(saved.soldAs);
         if (user) setStep(1);
       } catch { /* ignore */ }
     });
@@ -236,6 +265,7 @@ export default function RoomPreview({
           checkIn,
           checkOut,
           guestCount,
+          soldAs,
         }));
       } catch { /* ignore */ }
       router.push(`/stay/auth?redirect=${encodeURIComponent(window.location.pathname)}`);
@@ -300,8 +330,8 @@ export default function RoomPreview({
             property_id: property.id,
             property_name: property.name,
             nightly_rate: rate,
-            sold_as_bedrooms: null,
-            sold_as_label: null,
+            sold_as_bedrooms: isSoldAs ? selectedOption!.bedrooms : null,
+            sold_as_label: isSoldAs ? selectedOption!.label : null,
             qty: 1,
             nights,
             subtotal: total,
@@ -319,6 +349,8 @@ export default function RoomPreview({
       }
       if (data.error) { setError(data.error); return; }
       setBookingRef(data.id ? shortRef(String(data.id)) : '');
+      setConfirmedDiscounts(Array.isArray(data.applied_discounts) ? data.applied_discounts : []);
+      setConfirmedDiscountTotal(Number(data.discount_total) || 0);
       setStep(3);
       scrollToTop();
     } catch {
@@ -376,10 +408,14 @@ export default function RoomPreview({
   // Types that describe a layout rather than a bedroom count (Studio, Executive
   // Studio, Bedsitter, Budget room, Cottage) shouldn't claim "1 bedroom".
   const isStudioType = !/bedroom/i.test(property.typeLabel) || property.bedrooms === 0;
-  const bedroomLabel = isStudioType
-    ? property.typeLabel
-    : `${property.bedrooms} bedroom${property.bedrooms === 1 ? '' : 's'}`;
-  const bedroomSub = isStudioType ? 'Open-plan layout' : property.typeLabel;
+  const bedroomLabel = isSoldAs
+    ? selectedOption!.label
+    : isStudioType
+      ? property.typeLabel
+      : `${property.bedrooms} bedroom${property.bedrooms === 1 ? '' : 's'}`;
+  const bedroomSub = isSoldAs
+    ? `of ${property.typeLabel}`
+    : isStudioType ? 'Open-plan layout' : property.typeLabel;
   const bathroomLabel = `${property.bathrooms} bathroom${property.bathrooms === 1 ? '' : 's'}`;
   const rulesLine = [
     property.houseRules.noSmoking && 'no smoking',
@@ -567,6 +603,25 @@ export default function RoomPreview({
                 <span className="fee-pill"><Check size={12} /> All fees included</span>
               </div>
               <div className="booking-fields">
+                {options.length > 1 && (
+                  <div className="book-as" role="group" aria-label="Choose how to book this space">
+                    <span className="book-as-label">Book as</span>
+                    <div className="book-as-options">
+                      {options.map(o => (
+                        <button
+                          type="button"
+                          key={o.bedrooms}
+                          className={`book-as-option ${selectedOption?.bedrooms === o.bedrooms ? 'active' : ''}`}
+                          aria-pressed={selectedOption?.bedrooms === o.bedrooms}
+                          onClick={() => pickOption(o)}
+                        >
+                          <strong>{o.label}</strong>
+                          <small>KSh {money(o.nightly_rate)} / night</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="date-pair">
                   <label>
                     <span>Check-in</span>
@@ -590,7 +645,18 @@ export default function RoomPreview({
                 <span>KSh {money(rate)} × {nights} {nights === 1 ? 'night' : 'nights'}</span>
                 <b>KSh {money(total)}</b>
               </div>
-              <div className="total-line"><strong>Total</strong><strong>KSh {money(total)}</strong></div>
+              {deal.appliedDiscounts.map(d => (
+                <div className="price-breakdown discount-line" key={d.id}>
+                  <span>{d.name}{d.value_type === 'percentage' ? ` (${d.value}%)` : ''}</span>
+                  <b>−KSh {money(d.amount)}</b>
+                </div>
+              ))}
+              {deal.gated.map(d => (
+                <div className="price-breakdown discount-gated" key={d.id}>
+                  <span>Sign in to unlock “{d.name}”{d.value_type === 'percentage' ? ` (${d.value}% off)` : ''}</span>
+                </div>
+              ))}
+              <div className="total-line"><strong>Total</strong><strong>KSh {money(netTotal)}</strong></div>
               {error && <div className="validation" role="alert">{error}</div>}
               <button className="button primary card-reserve" type="button" onClick={beginBooking}>Reserve {property.name} <ArrowRight size={15} /></button>
               <p className="booking-assurance">No payment now — we’ll confirm within 2 hours.</p>
@@ -640,7 +706,7 @@ export default function RoomPreview({
                         )}
                         <div className="selected-stay-copy">
                           <span className="room-type">Kogelo Suites · {property.areaLabel}</span>
-                          <strong>{property.name} {property.typeLabel}</strong>
+                          <strong>{property.name} {property.typeLabel}{isSoldAs ? ` · as ${selectedOption!.label}` : ''}</strong>
                           <small>{formatDate(checkIn, { day: 'numeric', month: 'short' })} – {formatDate(checkOut, { day: 'numeric', month: 'short' })} · {nights} {nights === 1 ? 'night' : 'nights'} · {guestCount} {guestCount === 1 ? 'guest' : 'guests'}</small>
                         </div>
                         <button className="edit-link" type="button" onClick={backToRoom}>Edit stay</button>
@@ -662,7 +728,7 @@ export default function RoomPreview({
                         <div><h2>Your stay details</h2><p>Everything in one place before you finish.</p></div>
                       </div>
                       <div className="review-summary">
-                        <div><span>Room</span><strong>{property.name} {property.typeLabel} · {property.areaLabel}</strong></div>
+                        <div><span>Room</span><strong>{property.name} {property.typeLabel}{isSoldAs ? ` · as ${selectedOption!.label}` : ''} · {property.areaLabel}</strong></div>
                         <div><span>Check-in</span><strong>{formatDate(checkIn)} · from {property.checkInTime}</strong></div>
                         <div><span>Check-out</span><strong>{formatDate(checkOut)} · by {property.checkOutTime}</strong></div>
                         <div><span>Guests</span><strong>{guestCount} {guestCount === 1 ? 'guest' : 'guests'}</strong></div>
@@ -678,11 +744,22 @@ export default function RoomPreview({
                 </section>
                 <aside className="flow-summary">
                   <p className="summary-kicker">A little getaway</p>
-                  <h2>{property.name} {property.typeLabel}</h2>
+                  <h2>{property.name} {property.typeLabel}{isSoldAs ? ` · as ${selectedOption!.label}` : ''}</h2>
                   <p className="summary-location"><MapPin size={13} /> {property.areaLabel}</p>
                   <div className="summary-dates"><span>{formatDate(checkIn, { day: 'numeric', month: 'short' })} — {formatDate(checkOut, { day: 'numeric', month: 'short' })}</span><small>{nights} {nights === 1 ? 'night' : 'nights'} · {guestCount} {guestCount === 1 ? 'guest' : 'guests'}</small></div>
                   <div className="price-breakdown"><span>KSh {money(rate)} × {nights} {nights === 1 ? 'night' : 'nights'}</span><b>KSh {money(total)}</b></div>
-                  <div className="total-line"><strong>Total</strong><strong>KSh {money(total)}</strong></div>
+                  {deal.appliedDiscounts.map(d => (
+                    <div className="price-breakdown discount-line" key={d.id}>
+                      <span>{d.name}{d.value_type === 'percentage' ? ` (${d.value}%)` : ''}</span>
+                      <b>−KSh {money(d.amount)}</b>
+                    </div>
+                  ))}
+                  {deal.gated.map(d => (
+                    <div className="price-breakdown discount-gated" key={d.id}>
+                      <span>Sign in to unlock “{d.name}”{d.value_type === 'percentage' ? ` (${d.value}% off)` : ''}</span>
+                    </div>
+                  ))}
+                  <div className="total-line"><strong>Total</strong><strong>KSh {money(netTotal)}</strong></div>
                   <p className="booking-assurance">All fees included · no payment now</p>
                 </aside>
               </div>
@@ -698,11 +775,17 @@ export default function RoomPreview({
               {bookingRef && <div className="confirmation-reference">{bookingRef}</div>}
               <div className="confirmation-details">
                 <div><span>Lead guest</span><strong>{guest.firstName} {guest.lastName}</strong></div>
-                <div><span>Room</span><strong>{property.name} {property.typeLabel} · {property.areaLabel}</strong></div>
+                <div><span>Room</span><strong>{property.name} {property.typeLabel}{isSoldAs ? ` · as ${selectedOption!.label}` : ''} · {property.areaLabel}</strong></div>
                 <div><span>Dates</span><strong>{formatDate(checkIn)} – {formatDate(checkOut)}</strong></div>
                 <div><span>Guests</span><strong>{guestCount} {guestCount === 1 ? 'guest' : 'guests'}</strong></div>
                 <div><span>Contact</span><strong>{guest.email}<br />{guest.phone}</strong></div>
                 <div><span>Estimated total</span><strong>KSh {money(total)} · {nights} {nights === 1 ? 'night' : 'nights'}</strong></div>
+                {confirmedDiscountTotal > 0 && (
+                  <div><span>Discounts applied</span><strong>{confirmedDiscounts.map(d => d.name).join(' · ')} −KSh {money(confirmedDiscountTotal)}</strong></div>
+                )}
+                {confirmedDiscountTotal > 0 && (
+                  <div><span>Estimated payable</span><strong>KSh {money(Math.max(0, total - confirmedDiscountTotal))}</strong></div>
+                )}
               </div>
               <div className="preview-warning"><ShieldCheck size={16} /><span>This is a booking request, not a confirmed reservation — no payment was taken. Our team confirms your stay by phone or email.</span></div>
               <button className="button secondary-button" type="button" onClick={closeConfirmation}>Back to {property.name} <ArrowRight size={14} /></button>
@@ -720,12 +803,12 @@ export default function RoomPreview({
       <div className="booking-dock" role="region" aria-label="Booking actions">
         {step === 3 ? (
           <>
-            <div className="dock-price"><strong>{property.name} {property.typeLabel}</strong><span>Request sent · KSh {money(total)}</span></div>
+            <div className="dock-price"><strong>{property.name} {property.typeLabel}{isSoldAs ? ` · as ${selectedOption!.label}` : ''}</strong><span>Request sent · KSh {money(Math.max(0, total - confirmedDiscountTotal))}</span></div>
             <button className="button primary dock-button" type="button" onClick={closeConfirmation}>Done <Check size={15} /></button>
           </>
         ) : (
           <>
-            <div className="dock-price"><strong>KSh {money(step === 0 ? rate : total)} <small>{step === 0 ? '/ night' : `· ${nights} ${nights === 1 ? 'night' : 'nights'}`}</small></strong><span>{formatDate(checkIn, { day: 'numeric', month: 'short' })} – {formatDate(checkOut, { day: 'numeric', month: 'short' })} · {guestCount} {guestCount === 1 ? 'guest' : 'guests'}</span></div>
+            <div className="dock-price"><strong>KSh {money(step === 0 ? rate : netTotal)} <small>{step === 0 ? '/ night' : `· ${nights} ${nights === 1 ? 'night' : 'nights'}`}</small></strong><span>{formatDate(checkIn, { day: 'numeric', month: 'short' })} – {formatDate(checkOut, { day: 'numeric', month: 'short' })}{deal.discountTotal > 0 && step > 0 ? ` · saves KSh ${money(deal.discountTotal)}` : ''}</span></div>
             <button className="button primary dock-button" type="button" disabled={submitting} onClick={continueFlow}>
               {step === 0 ? `Reserve ${property.name}` : step === 1 ? 'Review your stay' : submitting ? 'Sending…' : 'Confirm booking'} <ArrowRight size={15} />
             </button>

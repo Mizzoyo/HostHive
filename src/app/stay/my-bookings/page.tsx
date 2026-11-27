@@ -9,7 +9,7 @@ import { StayPageSkeleton } from '@/components/stay/shared/StaySkeleton';
 type BookingRequest = {
   id: string; created_at: string; guest_name: string; guest_phone: string;
   check_in: string; check_out: string; nights: number; num_adults: number;
-  room_details: { property_name: string; qty: number; nightly_rate: number; subtotal: number }[];
+  room_details: { property_name: string; qty: number; nightly_rate: number; subtotal: number; sold_as_label?: string | null }[];
   total_amount: number; special_requests: string; status: string; updated_at: string | null;
 };
 
@@ -147,7 +147,7 @@ function MyBookingsContent() {
                       {rooms.length > 0 ? rooms.map((r, i) => (
                         <div key={i} className="flex items-center gap-2 text-sm font-semibold text-gray-800">
                           <BedDouble className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          {r.qty > 1 ? `${r.qty}× ` : ''}{r.property_name}
+                          {r.qty > 1 ? `${r.qty}× ` : ''}{r.property_name}{r.sold_as_label ? ` · ${r.sold_as_label}` : ''}
                         </div>
                       )) : (
                         <p className="text-sm text-gray-500">Room details unavailable</p>

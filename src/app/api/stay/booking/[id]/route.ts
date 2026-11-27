@@ -86,13 +86,31 @@ export async function PATCH(
           if (ng) { guestId = ng.id; guestCreated = true; }
         }
 
-        // Create one booking per room line
-        for (const room of bRooms) {
+        // Create one booking per room line.
+        // discount_total on the request is distributed across rooms in
+        // proportion to each line's subtotal so bookings reflect net amounts.
+        const reqDiscount = Math.min(
+          Math.max(0, Number(bReq.discount_total) || 0),
+          bRooms.reduce((s: number, r: { subtotal?: number }) => s + (Number(r.subtotal) || 0), 0),
+        );
+        const subtotalSum = bRooms.reduce((s: number, r: { subtotal?: number }) => s + (Number(r.subtotal) || 0), 0);
+        let discountAllocated = 0;
+        const netAmounts = bRooms.map((room: { subtotal?: number }, i: number) => {
+          const sub = Number(room.subtotal) || 0;
+          if (i === bRooms.length - 1) {
+            return Math.max(0, sub - (reqDiscount - discountAllocated));
+          }
+          const share = subtotalSum > 0 ? Math.floor((sub / subtotalSum) * reqDiscount) : 0;
+          discountAllocated += share;
+          return Math.max(0, sub - share);
+        });
+
+        for (const [i, room] of bRooms.entries()) {
           if (!room.property_id) { console.error('[auto-booking] room missing property_id'); continue; }
           if (!guestId) { console.error('[auto-booking] no guestId — cannot create booking'); continue; }
 
           const bNights = bReq.nights || Math.round((new Date(bReq.check_out).getTime() - new Date(bReq.check_in).getTime()) / 86400000);
-          const totalAmt = Number(room.subtotal) || 0;
+          const totalAmt = netAmounts[i] ?? (Number(room.subtotal) || 0);
           const bookingRow: Record<string, unknown> = {
             user_id: hostId, property_id: room.property_id, guest_id: guestId,
             check_in: bReq.check_in, check_out: bReq.check_out, nights: bNights,
@@ -185,6 +203,8 @@ export async function PATCH(
         room_details:     rooms,
         cover_photo_url:  coverPhotoUrl,
         total_amount:     Number(req2.total_amount),
+        discount_total:   Number(req2.discount_total) || 0,
+        net_amount:       Math.max(0, Number(req2.total_amount) - (Number(req2.discount_total) || 0)),
         special_requests: req2.special_requests ?? '',
         admin_email:      process.env.ADMIN_EMAIL ?? '',
       });
@@ -200,7 +220,7 @@ export async function PATCH(
             propertyName: propName,
             checkIn:      req2.check_in,
             checkOut:     req2.check_out,
-            total:        Number(req2.total_amount),
+            total:        Math.max(0, Number(req2.total_amount) - (Number(req2.discount_total) || 0)),
             paymentLink:  payment_link,
           }),
         },

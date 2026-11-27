@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Clock, CheckCircle2, XCircle, BedDouble, Calendar, Phone, User, MessageCircle, RefreshCw, CreditCard, AlertCircle, Menu, MessageSquare, Receipt, Mail } from 'lucide-react';
 
+type AppliedDiscount = { name: string; amount: number; discount_type?: string; value_type?: string; value?: number };
+
 type BookingRequest = {
   id: string; created_at: string; guest_name: string; guest_phone: string; guest_email: string;
   check_in: string; check_out: string; nights: number; num_adults: number; num_children: number;
-  room_details: { property_id?: string; property_name: string; qty: number; nightly_rate: number; subtotal: number }[];
+  room_details: { property_id?: string; property_name: string; qty: number; nightly_rate: number; subtotal: number; sold_as_label?: string | null }[];
   total_amount: number; special_requests: string; status: string; decline_reason?: string;
-  payment_status?: string;
+  payment_status?: string; discount_total?: number; applied_discounts?: AppliedDiscount[];
 };
 
 type TaxLine = { label: string; rate: string };
@@ -188,10 +190,6 @@ export default function RequestsPage() {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           booking_request_id: req.id,
-          amount:       req.total_amount,
-          guest_name:   req.guest_name,
-          guest_email:  req.guest_email,
-          guest_phone:  req.guest_phone,
         }),
       });
       const data = await res.json();
@@ -555,7 +553,7 @@ export default function RequestsPage() {
                   {rooms.map((r, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
                       <BedDouble className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                      {r.qty > 1 ? `${r.qty}× ` : ''}{r.property_name}
+                      {r.qty > 1 ? `${r.qty}× ` : ''}{r.property_name}{r.sold_as_label ? ` · ${r.sold_as_label}` : ''}
                       <span className="ml-auto font-semibold text-gray-500">KSh {Number(r.subtotal || 0).toLocaleString()}</span>
                     </div>
                   ))}
@@ -570,6 +568,18 @@ export default function RequestsPage() {
                 <div>
                   <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-1">Total</p>
                   <p className="text-2xl font-black text-gray-900">KSh {Number(req.total_amount).toLocaleString()}</p>
+                  {Number(req.discount_total) > 0 && (
+                    <div className="mt-1.5 space-y-0.5">
+                      {(Array.isArray(req.applied_discounts) ? req.applied_discounts : []).map((d, i) => (
+                        <p key={i} className="text-xs text-green-700 font-semibold">
+                          {d.name} · −KSh {Number(d.amount).toLocaleString()}
+                        </p>
+                      ))}
+                      <p className="text-xs font-black text-gray-900">
+                        Net payable · KSh {Math.max(0, Number(req.total_amount) - Number(req.discount_total)).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
                   <p className="text-xs text-gray-400 mt-0.5">{req.num_adults} adult{req.num_adults !== 1 ? 's' : ''}{req.num_children > 0 ? `, ${req.num_children} child${req.num_children !== 1 ? 'ren' : ''}` : ''}</p>
                 </div>
 

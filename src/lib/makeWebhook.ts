@@ -39,6 +39,8 @@ export interface BookingWebhookPayload {
   room_name: string;
   room_details: unknown[];
   total_amount: number;
+  discount_total?: number;
+  net_amount?: number;
   special_requests: string;
   admin_email: string;
 }
@@ -56,6 +58,8 @@ export interface ConfirmationWebhookPayload {
   room_details: unknown[];
   cover_photo_url: string;
   total_amount: number;
+  discount_total?: number;
+  net_amount?: number;
   special_requests: string;
   admin_email: string;
 }

@@ -13,13 +13,14 @@ import type { StayProperty, UniversalStaySettings } from '@/lib/stay/fetchProper
 import { toRoomSlug } from '@/lib/stay/roomSlug';
 import { compareProperties } from '@/lib/propertySort';
 import { normalizeType } from '@/lib/stay/roomType';
+import { getSellOptions, minNightlyRate } from '@/lib/sellOptions';
 import { StayFooter, StayGallery, StayTopbar, buildRoomsPath, type StaySelection } from '@/components/stay/shared/StayChrome';
 
 const ROOM_TYPES = ['All', 'Studio', 'Bedsitter', 'One Bedroom', 'Two Bedroom'];
 const SORT_OPTIONS: [SortKey, string][] = [['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['name', 'Name A–Z']];
 
 type SortKey = 'price_asc' | 'price_desc' | 'name';
-type CartItem = { property: StayProperty; qty: number };
+type CartItem = { property: StayProperty; qty: number; soldAsBedrooms?: number | null };
 
 interface Props {
   initialProperties: StayProperty[];
@@ -142,11 +143,11 @@ export default function RoomsListClient({
   const filtered = properties
     .filter(p => typeFilter === 'All' || normalizeType(p.type || '') === typeFilter)
     .filter(p => (p.max_guests ?? 2) >= applied.guests)
-    .filter(p => priceMin === '' || Number(p.nightly_rate || 0) >= priceMin)
-    .filter(p => priceMax === '' || Number(p.nightly_rate || 0) <= priceMax)
+    .filter(p => priceMin === '' || minNightlyRate(p) >= priceMin)
+    .filter(p => priceMax === '' || minNightlyRate(p) <= priceMax)
     .sort((a, b) => {
-      if (sortBy === 'price_asc') return (a.nightly_rate || 0) - (b.nightly_rate || 0);
-      if (sortBy === 'price_desc') return (b.nightly_rate || 0) - (a.nightly_rate || 0);
+      if (sortBy === 'price_asc') return minNightlyRate(a) - minNightlyRate(b);
+      if (sortBy === 'price_desc') return minNightlyRate(b) - minNightlyRate(a);
       return compareProperties(a, b);
     });
 
@@ -164,7 +165,11 @@ export default function RoomsListClient({
     sessionStorage.setItem('roomCart', JSON.stringify(n));
   };
   const totalRooms = cart.reduce((s, c) => s + c.qty, 0);
-  const totalPrice = cart.reduce((s, c) => s + Number(c.property.nightly_rate || 0) * (nights || 1) * c.qty, 0);
+  const totalPrice = cart.reduce((s, c) => {
+    const opts = getSellOptions(c.property);
+    const option = opts.find(o => o.bedrooms === c.soldAsBedrooms) ?? opts[0];
+    return s + option.nightly_rate * (nights || 1) * c.qty;
+  }, 0);
   const groupUrl = `/stay/book/group?checkIn=${encodeURIComponent(applied.checkIn)}&checkOut=${encodeURIComponent(applied.checkOut)}&guests=${applied.guests}`;
 
   const sortOptions = (name: string, onPick?: () => void) => SORT_OPTIONS.map(([v, l]) => (

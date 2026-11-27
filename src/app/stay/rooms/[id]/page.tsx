@@ -159,6 +159,7 @@ export default async function RoomDetailPage({
         checkOutTime: property.check_out_time ?? '11:00',
         cancellationPolicy: property.cancellation_policy ?? 'flexible',
         houseRules: property.house_rules ?? {},
+        options: sellOptions,
       }}
       photos={photos}
       amenities={amenities}

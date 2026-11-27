@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { publicSupabase } from '@/lib/supabase/public';
+import { createClient } from '@/lib/supabase/server';
 import { sendSmsBulk, buildGuestRequestSms, buildAdminRequestSms, normalizePhone } from '@/lib/sms';
 import { fireMakeBookingWebhook } from '@/lib/makeWebhook';
+import { evaluateGuestDiscounts } from '@/lib/stay/discounts';
+import { resolveRoomTotals } from '@/lib/stay/pricing';
 
 export async function POST(req: NextRequest) {
   console.log('[booking] POST received');
@@ -13,9 +16,6 @@ export async function POST(req: NextRequest) {
       check_in, check_out, nights,
       num_adults = 1, num_children = 0,
       room_details = [],
-      total_amount = 0,
-      discount_total = 0,
-      applied_discounts = [],
       special_requests = '',
       user_id = null,
     } = body;
@@ -27,6 +27,42 @@ export async function POST(req: NextRequest) {
     if (!check_in || !check_out) return NextResponse.json({ error: 'Dates are required' }, { status: 400 });
     if (!room_details?.length) return NextResponse.json({ error: 'Please select at least one room' }, { status: 400 });
 
+    // ── Verified guest identity: prefer the cookie session, then body user_id ─
+    let guestUserId: string | null = null;
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      guestUserId = user?.id ?? null;
+    } catch { /* anonymous booking */ }
+    if (!guestUserId) guestUserId = user_id ?? null;
+
+    // ── Server-authoritative pricing + discount evaluation ──────────────────
+    // Subtotals and the booking total are recomputed from DB rates (honouring
+    // sell_options) so a forged payload can't claim a lower price or inflate
+    // the discount base; client-sent amounts and discount fields are ignored.
+    const roomIds = [...new Set(
+      (room_details as { property_id?: string }[])
+        .map(r => r.property_id)
+        .filter((id): id is string => Boolean(id)),
+    )];
+    const { data: propRows } = roomIds.length
+      ? await publicSupabase.from('properties').select('id, nightly_rate, bedrooms, max_guests, sell_options').in('id', roomIds)
+      : { data: [] };
+
+    const { rooms, roomDetails, totalAmount } = resolveRoomTotals({
+      roomDetails: room_details,
+      properties: propRows ?? [],
+      nights: Number(nights) || 1,
+    });
+
+    const { discountTotal, appliedDiscounts } = await evaluateGuestDiscounts({
+      rooms,
+      checkIn:    check_in,
+      userId:     guestUserId,
+      guestPhone: guest_phone.trim(),
+      guestEmail: guest_email.trim(),
+    });
+
     const basePayload = {
       guest_name: guest_name.trim(),
       guest_phone: guest_phone.trim(),
@@ -36,11 +72,11 @@ export async function POST(req: NextRequest) {
       nights,
       num_adults,
       num_children,
-      room_details,
-      total_amount,
+      room_details: roomDetails,
+      total_amount: totalAmount,
       special_requests: special_requests.trim(),
       host_user_id: process.env.STAY_HOST_USER_ID ?? '',
-      ...(user_id ? { guest_user_id: user_id } : {}),
+      ...(guestUserId ? { guest_user_id: guestUserId } : {}),
     };
 
     // ── Atomic insert via advisory-lock RPC (migration 37) ──────────────────
@@ -57,13 +93,13 @@ export async function POST(req: NextRequest) {
       p_nights:           Number(nights) || 0,
       p_num_adults:       Number(num_adults) || 1,
       p_num_children:     Number(num_children) || 0,
-      p_room_details:     room_details,
-      p_total_amount:     Number(total_amount) || 0,
+      p_room_details:     roomDetails,
+      p_total_amount:     totalAmount,
       p_special_requests: basePayload.special_requests,
       p_host_user_id:     basePayload.host_user_id,
-      p_guest_user_id:    user_id ?? null,
-      p_discount_total:   Number(discount_total) || 0,
-      p_applied_discounts: applied_discounts,
+      p_guest_user_id:    guestUserId,
+      p_discount_total:   discountTotal,
+      p_applied_discounts: appliedDiscounts,
     });
 
     if (rpcData?.conflict) {
@@ -77,7 +113,7 @@ export async function POST(req: NextRequest) {
       if (rpcError) console.error('[booking] rpc unavailable, falling back to insert:', rpcError.message);
       let { data, error } = await publicSupabase
         .from('booking_requests')
-        .insert({ ...basePayload, discount_total: Number(discount_total) || 0, applied_discounts })
+        .insert({ ...basePayload, discount_total: discountTotal, applied_discounts: appliedDiscounts })
         .select('id')
         .single();
 
@@ -100,7 +136,7 @@ export async function POST(req: NextRequest) {
     console.log('[booking] insert OK, id:', bookingId, '— firing Make.com webhook');
 
     // ── Make.com webhook — AI-personalised emails (non-blocking) ────────────
-    const firstRoom = Array.isArray(room_details) && room_details.length > 0 ? room_details[0] : null;
+    const firstRoom = roomDetails.length > 0 ? roomDetails[0] : null;
     const propertyName = firstRoom?.property_name ?? 'Kogelo Suites';
 
     fireMakeBookingWebhook({
@@ -112,8 +148,10 @@ export async function POST(req: NextRequest) {
       check_out,
       nights:           Number(nights),
       room_name:        propertyName,
-      room_details:     Array.isArray(room_details) ? room_details : [],
-      total_amount:     Number(total_amount),
+      room_details:     roomDetails,
+      total_amount:     totalAmount,
+      discount_total:   discountTotal,
+      net_amount:       Math.max(0, totalAmount - discountTotal),
       special_requests: special_requests.trim(),
       admin_email:      process.env.ADMIN_EMAIL ?? '',
     });
@@ -144,7 +182,7 @@ export async function POST(req: NextRequest) {
           checkIn:      check_in,
           checkOut:     check_out,
           nights:       Number(nights),
-          total:        Number(total_amount),
+          total:        totalAmount,
         }),
       }] : []),
     ]).catch(err => { console.error('[SMS booking]', err); return []; });
@@ -153,7 +191,14 @@ export async function POST(req: NextRequest) {
     const smsErrors = smsResults.filter(r => !r.ok).map(r => r.error);
     if (smsErrors.length) console.error('[SMS booking errors]', smsErrors);
 
-    return NextResponse.json({ success: true, id: bookingId, sms: smsResults });
+    return NextResponse.json({
+      success: true,
+      id: bookingId,
+      sms: smsResults,
+      total_amount: totalAmount,
+      discount_total: discountTotal,
+      applied_discounts: appliedDiscounts,
+    });
   } catch (err) {
     console.error('[stay/booking]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

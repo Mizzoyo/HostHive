@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { ArrowRight, BedDouble, CalendarDays, Clock3, Droplets, House, MapPin, ShoppingCart, Trash2, Users } from 'lucide-react';
 import { StayFooter, StayTopbar } from '@/components/stay/shared/StayChrome';
 import { roomTypeLabel } from '@/lib/stay/roomType';
+import { createClient } from '@/lib/supabase/client';
+import { useApplicableDiscounts } from '@/lib/stay/useApplicableDiscounts';
+import { getSellOptions } from '@/lib/sellOptions';
 import '../../stay.css';
 
 type CartProperty = {
@@ -17,8 +20,9 @@ type CartProperty = {
   bathrooms?: number;
   max_guests?: number;
   photos?: string[];
+  sell_options?: unknown;
 };
-type CartItem = { property: CartProperty; qty: number };
+type CartItem = { property: CartProperty; qty: number; soldAsBedrooms?: number | null };
 type CartMeta = { checkIn: string; checkOut: string; guests: number };
 
 function formatDate(value: string) {
@@ -38,6 +42,7 @@ export default function CartPage() {
   const [cart, setCart]     = useState<CartItem[]>([]);
   const [meta, setMeta]     = useState<CartMeta | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     // sessionStorage is client-only; defer reads so no setState runs synchronously in the effect
@@ -50,6 +55,10 @@ export default function CartPage() {
       } catch { /* ignore */ }
       setLoaded(true);
     }, 0);
+    try {
+      const supabase = createClient();
+      supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user?.id ?? null));
+    } catch { /* non-critical */ }
     return () => clearTimeout(id);
   }, []);
 
@@ -59,13 +68,31 @@ export default function CartPage() {
   };
 
   const removeFromCart = (id: string) => save(cart.filter(c => c.property.id !== id));
+  const setItemOption = (id: string, bedrooms: number | null) =>
+    save(cart.map(c => c.property.id === id ? { ...c, soldAsBedrooms: bedrooms } : c));
+
+  const optionOf = (item: CartItem) => {
+    const opts = getSellOptions(item.property);
+    return opts.find(o => o.bedrooms === item.soldAsBedrooms) ?? opts[0];
+  };
 
   const nights = meta?.checkIn && meta?.checkOut && meta.checkOut > meta.checkIn
     ? Math.round((new Date(`${meta.checkOut}T12:00:00`).getTime() - new Date(`${meta.checkIn}T12:00:00`).getTime()) / 86400000)
     : 0;
 
   const totalRooms = cart.reduce((s, c) => s + c.qty, 0);
-  const total      = cart.reduce((s, c) => s + Number(c.property.nightly_rate || 0) * (nights || 1) * c.qty, 0);
+  const total      = cart.reduce((s, c) => s + optionOf(c).nightly_rate * (nights || 1) * c.qty, 0);
+
+  const deal = useApplicableDiscounts({
+    rooms: cart.map(c => ({
+      propertyId: c.property.id,
+      subtotal: optionOf(c).nightly_rate * (nights || 1) * c.qty,
+    })),
+    checkIn: meta?.checkIn ?? '',
+    userId,
+    enabled: cart.length > 0 && nights > 0,
+  });
+  const netTotal = Math.max(0, total - deal.discountTotal);
 
   const handleCheckout = () => {
     if (!meta) return;
@@ -145,34 +172,54 @@ export default function CartPage() {
         <div className="gb-grid">
           <section className="gb-panel">
             <div className="gb-room-list">
-              {cart.map(({ property: p, qty }) => (
-                <article className="gb-room gb-selected" key={p.id}>
-                  <div className="gb-room-thumb" aria-hidden="true">
-                    {p.photos?.[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL
-                      <img src={p.photos[0]} alt="" />
-                    ) : (
-                      <div className="gb-room-thumb-empty"><House size={26} /></div>
-                    )}
-                  </div>
-                  <div className="gb-room-copy">
-                    <p className="room-type">{roomTypeLabel(p)}</p>
-                    <h3>{p.name}</h3>
-                    <div className="gb-room-facts">
-                      <span><BedDouble size={13} /> {p.bedrooms ?? 1}</span>
-                      <span><Droplets size={13} /> {p.bathrooms ?? 1}</span>
-                      <span><Users size={13} /> Sleeps {p.max_guests ?? 2}</span>
+              {cart.map(item => {
+                const p = item.property;
+                const qty = item.qty;
+                const opts = getSellOptions(p);
+                const option = optionOf(item);
+                return (
+                  <article className="gb-room gb-selected" key={p.id}>
+                    <div className="gb-room-thumb" aria-hidden="true">
+                      {p.photos?.[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL
+                        <img src={p.photos[0]} alt="" />
+                      ) : (
+                        <div className="gb-room-thumb-empty"><House size={26} /></div>
+                      )}
                     </div>
-                    <button type="button" className="gb-remove" onClick={() => removeFromCart(p.id)}>
-                      <Trash2 size={13} /> Remove
-                    </button>
-                  </div>
-                  <div className="gb-room-select">
-                    <strong>KSh {money(Number(p.nightly_rate || 0) * (nights || 1) * qty)}</strong>
-                    <small>KSh {money(Number(p.nightly_rate || 0))} / night{nights > 1 ? ` × ${nights}` : ''}</small>
-                  </div>
-                </article>
-              ))}
+                    <div className="gb-room-copy">
+                      <p className="room-type">{roomTypeLabel(p)}</p>
+                      <h3>{p.name}</h3>
+                      <div className="gb-room-facts">
+                        <span><BedDouble size={13} /> {option.bedrooms}</span>
+                        <span><Droplets size={13} /> {p.bathrooms ?? 1}</span>
+                        <span><Users size={13} /> Sleeps {option.max_guests}</span>
+                      </div>
+                      {opts.length > 1 && (
+                        <select
+                          className="gb-book-as"
+                          aria-label={`Book ${p.name} as`}
+                          value={option.isFull ? '' : String(option.bedrooms)}
+                          onChange={e => setItemOption(p.id, e.target.value === '' ? null : Number(e.target.value))}
+                        >
+                          {opts.map(o => (
+                            <option key={o.bedrooms} value={o.isFull ? '' : String(o.bedrooms)}>
+                              {o.label} — KSh {money(o.nightly_rate)} / night
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <button type="button" className="gb-remove" onClick={() => removeFromCart(p.id)}>
+                        <Trash2 size={13} /> Remove
+                      </button>
+                    </div>
+                    <div className="gb-room-select">
+                      <strong>KSh {money(option.nightly_rate * (nights || 1) * qty)}</strong>
+                      <small>KSh {money(option.nightly_rate)} / night{nights > 1 ? ` × ${nights}` : ''}</small>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
 
@@ -193,22 +240,39 @@ export default function CartPage() {
               <b>{meta?.guests ?? '—'}</b>
             </div>
             <div className="gb-summary-rooms">
-              {cart.map(({ property: p, qty }) => (
-                <div className="gb-summary-room" key={p.id}>
-                  <span>{p.name}</span>
-                  <b>KSh {money(Number(p.nightly_rate || 0) * (nights || 1) * qty)}</b>
-                  <small>KSh {money(Number(p.nightly_rate || 0))} / room / night</small>
-                </div>
-              ))}
+              {cart.map(item => {
+                const option = optionOf(item);
+                return (
+                  <div className="gb-summary-room" key={item.property.id}>
+                    <span>{item.property.name}{!option.isFull ? ` · ${option.label}` : ''}</span>
+                    <b>KSh {money(option.nightly_rate * (nights || 1) * item.qty)}</b>
+                    <small>KSh {money(option.nightly_rate)} / room / night</small>
+                  </div>
+                );
+              })}
             </div>
             <div className="gb-summary-rule" />
+            {deal.appliedDiscounts.map(d => (
+              <div className="gb-summary-line gb-discount-line" key={d.id}>
+                <span>{d.name}{d.value_type === 'percentage' ? ` (${d.value}%)` : ''}</span>
+                <b>−KSh {money(d.amount)}</b>
+              </div>
+            ))}
+            {!userId && deal.gated.length > 0 && (
+              <Link
+                href={`/stay/auth?redirect=${encodeURIComponent('/stay/book/cart')}`}
+                className="gb-discount-hint"
+              >
+                Sign in to unlock {deal.gated.map(d => `“${d.name}”`).join(', ')}
+              </Link>
+            )}
             <div className="gb-summary-price">
               <span>Estimated total</span>
-              <b>KSh {money(total)}</b>
+              <b>KSh {money(netTotal)}</b>
             </div>
             <div className="gb-summary-line">
               <span>{totalRooms} room{totalRooms !== 1 ? 's' : ''} · {nights || 1} {(nights || 1) === 1 ? 'night' : 'nights'}</span>
-              <b>KSh {money(total)}</b>
+              <b>KSh {money(netTotal)}</b>
             </div>
             <div className="gb-summary-note">
               <Users size={14} />
@@ -223,7 +287,7 @@ export default function CartPage() {
         <div className="gb-checkout-inner">
           <div>
             <p className="gb-checkout-count">{totalRooms} room{totalRooms !== 1 ? 's' : ''}</p>
-            <p className="gb-checkout-total">KSh {money(total)}</p>
+            <p className="gb-checkout-total">KSh {money(netTotal)}</p>
           </div>
           <button type="button" className="gb-checkout-cta" onClick={handleCheckout}>
             Proceed to checkout <ArrowRight size={15} />

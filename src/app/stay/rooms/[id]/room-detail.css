@@ -459,6 +459,35 @@
 .room-shell .counter button:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
 .room-shell .counter button:disabled { opacity: .35; }
 .room-shell .counter b { min-width: 12px; text-align: center; color: var(--ink); font-size: 12px; }
+.room-shell .book-as { padding: 12px 0 4px; }
+.room-shell .book-as-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #70786e;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.room-shell .book-as-options { display: flex; gap: 6px; flex-wrap: wrap; }
+.room-shell .book-as-option {
+  flex: 1;
+  min-width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.room-shell .book-as-option strong { color: var(--ink); font-size: 11px; font-weight: 600; }
+.room-shell .book-as-option small { color: #7d8076; font-size: 10px; }
+.room-shell .book-as-option:hover { border-color: var(--green); }
+.room-shell .book-as-option.active { border-color: var(--green); background: #f0f4ec; }
 .room-shell .price-breakdown {
   display: flex;
   align-items: center;
@@ -478,6 +507,9 @@
   font-size: 12px;
 }
 .room-shell .total-line strong { font-weight: 700; }
+.room-shell .price-breakdown.discount-line { padding: 4px 0; color: #1c6b45; }
+.room-shell .price-breakdown.discount-line b { color: #1c6b45; }
+.room-shell .price-breakdown.discount-gated { padding: 4px 0; color: #9a8b5f; font-style: italic; }
 .room-shell .validation {
   margin: 0 0 12px;
   padding: 10px 12px;

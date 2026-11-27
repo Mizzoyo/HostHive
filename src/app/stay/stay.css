@@ -2900,6 +2900,52 @@ html {
   color: #283c30;
 }
 
+.gb-review-row.gb-discount-row {
+  background: #f0f7f2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 4px 0;
+  border-bottom: none;
+}
+
+.gb-review-row.gb-discount-row strong {
+  color: #1c6b45;
+}
+
+.gb-discount-hint {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a7b2d;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.gb-summary-line.gb-discount-line,
+.gb-summary-line.gb-discount-line b {
+  color: #1c6b45;
+}
+
+.gb-book-as {
+  margin-top: 8px;
+  width: 100%;
+  max-width: 280px;
+  padding: 7px 10px;
+  border: 1px solid #e9e2d2;
+  border-radius: 10px;
+  background: #fff;
+  color: #2d3d32;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gb-book-as:focus {
+  outline: 2px solid #8fb39a;
+  outline-offset: 1px;
+}
+
 /* Shield notice */
 .gb-shield {
   display: flex;
